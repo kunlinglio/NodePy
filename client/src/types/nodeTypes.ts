@@ -554,7 +554,12 @@ export interface SentimentAnalysisNode extends BaseNode {
 /*********************  TableProcess Nodes  **************************/
 export interface InsertConstColNodeParam {
     col_name: string,
-    col_type: 'int'|'float'|'bool'|'str'|'Datetime'
+    col_type: 'int'|'float'|'bool'|'str'|'Datetime',
+    const_value: number|string|boolean|null,
+    const_value_number: number|null,
+    const_value_str: string,
+    const_value_bool: boolean,
+    const_value_datetime: string
 }
 export type InsertConstColNodeData = BaseData & {
     param: InsertConstColNodeParam

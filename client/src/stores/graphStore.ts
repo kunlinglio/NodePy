@@ -699,7 +699,12 @@ export const useGraphStore = defineStore('graph', () => {
           data: {
             param: {
               col_name: '',
-              col_type: 'int'
+              col_type: 'int',
+              const_value: 0,
+              const_value_number: 0,
+              const_value_str: '',
+              const_value_bool: false,
+              const_value_datetime: ''
             }
           }
         }

@@ -1,7 +1,7 @@
 <template>
     <span
         class="NodePyBoolValueLayout param-description"
-        :class="{'has-label': $slots.default }"
+        :class="{'has-label': $slots.default, 'disabled': disabled }"
         role="checkbox"
         :aria-checked="model"
         tabindex="0"
@@ -41,6 +41,10 @@
 <script lang="ts" setup>
     const model = defineModel<boolean>()
     const props = defineProps({
+        disabled: {
+            type: Boolean,
+            default: false
+        },
         width: {
             type: String,
             default: '100%'
@@ -58,6 +62,9 @@
 
 
     const toggle = () => {
+        if (props.disabled) {
+            return
+        }
         model.value = !model.value
         emit('updateValue')
     }
@@ -87,6 +94,11 @@
         }
         &.has-label {
             gap: 6px;
+        }
+    }
+    .disabled {
+        .box {
+            cursor: not-allowed;
         }
     }
 </style>

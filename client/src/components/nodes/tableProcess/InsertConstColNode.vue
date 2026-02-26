@@ -10,16 +10,76 @@
                 <Handle id="table" type="target" :position="Position.Left" :class="[`${table_type}-handle-color`, {'node-errhandle': inputTableHasErr.value}]"/>
             </div>
             <div class="input-const_value port">
-                <div class="input-port-description">
+                <div class="input-port-description" :class="{'node-has-paramerr': const_valueHasErr.value}">
                     常量
                 </div>
-                <Handle id="const_value" type="target" :position="Position.Left" :class="[`${const_value_type}-handle-color`, {'node-errhandle': const_valueHasErr.value}]"/>
+                <Handle id="const_value" type="target" :position="Position.Left" :class="[`${const_value_type}-handle-color`, {'node-errhandle': inputConst_valueHasErr.value}]"/>
+            </div>
+            <div class="const_value">
+                <NodepyNumberInput
+                    v-if="data.param.col_type === 'int'"
+                    v-model="const_value_number"
+                    class="nodrag"
+                    @update-value="() => {
+                        updateSimpleStringNumberBoolValue(data.param, 'const_value', const_value_number)
+                        updateSimpleStringNumberBoolValue(data.param, 'const_value_number', const_value_number)
+                    }"
+                    :disabled="const_valueDisabled"
+                    :allow-empty="true"
+                />
+                <NodepyNumberInput
+                    v-else-if="data.param.col_type === 'float'"
+                    v-model="const_value_number"
+                    class="nodrag"
+                    @update-value="() => {
+                        updateSimpleStringNumberBoolValue(data.param, 'const_value', const_value_number)
+                        updateSimpleStringNumberBoolValue(data.param, 'const_value_number', const_value_number)
+                    }"
+                    :denominator="1000"
+                    :disabled="const_valueDisabled"
+                    :allow-empty="true"
+                 />
+                <NodepyStringInput 
+                    v-else-if="data.param.col_type === 'str'"
+                    v-model="const_value_str" 
+                    @update-value="() => {
+                        updateSimpleStringNumberBoolValue(data.param, 'const_value', const_value_str)
+                        updateSimpleStringNumberBoolValue(data.param, 'const_value_str', const_value_str)
+                    }" 
+                    class="nodrag" 
+                    placeholder="常量字符串"
+                    :disabled="const_valueDisabled"
+                />
+                <NodepyBoolValue
+                    v-else-if="data.param.col_type === 'bool'"
+                    v-model="const_value_bool"
+                    @update-value="() => {
+                        updateSimpleStringNumberBoolValue(data.param, 'const_value', const_value_bool)
+                        updateSimpleStringNumberBoolValue(data.param, 'const_value_bool', const_value_bool)
+                    }"
+                    width="20px"
+                    height="20px"
+                    :disabled="const_valueDisabled"
+                >
+                    布尔值
+                </NodepyBoolValue>
+                <NodepyStringInput
+                    v-else-if="data.param.col_type === 'Datetime'"
+                    v-model="const_value_datetime"
+                    @update-value="() => {
+                        updateSimpleStringNumberBoolValue(data.param, 'const_value', const_value_datetime)
+                        updateSimpleStringNumberBoolValue(data.param, 'const_value_datetime', const_value_datetime)
+                    }"
+                    class="nodrag"
+                    placeholder="日期时间"
+                    :disabled="const_valueDisabled"
+                />
             </div>
             <div class="col_name">
                 <div class="param-description" :class="{'node-has-paramerr': col_nameHasErr.value}">
                     新增列
                 </div>
-                <NodepyStringInput v-model="col_name" @update-value="onUpdateCol_name" class="nodrag" placeholder="新增的列名"/>
+                <NodepyStringInput v-model="col_name" @update-value="() => updateSimpleStringNumberBoolValue(data.param, 'col_name', col_name)" class="nodrag" placeholder="新增的列名"/>
             </div>
             <div class="col_type">
                 <div class="param-description" :class="{'node-has-paramerr': col_typeHasErr.value}">
@@ -55,11 +115,20 @@
     import Timer from '../tools/Timer.vue'
     import NodepySelectMany from '../tools/Nodepy-selectMany.vue'
     import NodepyStringInput from '../tools/Nodepy-StringInput.vue'
+    import NodepyNumberInput from '../tools/Nodepy-NumberInput/Nodepy-NumberInput.vue'
+    import NodepyBoolValue from '../tools/Nodepy-boolValue.vue'
+    import { updateSimpleStringNumberBoolValue } from '../updateParam'
+    import { hasInputEdge } from '../hasEdge'
     import type { InsertConstColNodeData } from '@/types/nodeTypes'
     import { dataTypeColor } from '@/types/nodeTypes'
 
 
     const props = defineProps<NodeProps<InsertConstColNodeData>>()
+    const const_value_number = ref(props.data.param.const_value_number)
+    const const_value_str = ref(props.data.param.const_value_str)
+    const const_value_bool = ref(props.data.param.const_value_bool)
+    const const_value_datetime = ref(props.data.param.const_value_datetime)
+    const const_valueDisabled = computed(() => hasInputEdge(props.id, 'const_value'))
     const col_type = ["int", "float", "bool", "str", "Datetime"]
     const col_typeUi = ['整数', '浮点数', '布尔值', '字符串', '时间']
     const defaultSelectedCol_type = col_type.indexOf(props.data.param.col_type)
@@ -77,11 +146,15 @@
         id: 'col_type',
         value: false
     })
+    const const_valueHasErr = ref({
+        id: 'const_value',
+        value: false
+    })
     const inputTableHasErr = ref({
         handleId: 'table',
         value: false
     })
-    const const_valueHasErr = ref({
+    const inputConst_valueHasErr = ref({
         handleId: 'const_value',
         value: false
     })
@@ -101,9 +174,6 @@
     })
 
 
-    const onUpdateCol_name = () => {
-        props.data.param.col_name = col_name.value
-    }
     const onSelectChangeCol_type = (e: any) => {
         const selected_col_type = col_type[e] as 'int'|'float'|'bool'|'str'|'Datetime'
         props.data.param.col_type = selected_col_type
@@ -113,8 +183,8 @@
     watch(() => JSON.stringify(props.data.error), () => {
         errMsg.value = []
         handleExecError(props.data.error, errMsg)
-        handleParamError(props.data.error, errMsg, col_nameHasErr, col_typeHasErr)
-        handleValidationError(props.id, props.data.error, errMsg, inputTableHasErr, const_valueHasErr)
+        handleParamError(props.data.error, errMsg, col_nameHasErr, col_typeHasErr, const_valueHasErr)
+        handleValidationError(props.id, props.data.error, errMsg, inputTableHasErr, inputConst_valueHasErr)
     }, {immediate: true})
 
 </script>
@@ -127,10 +197,13 @@
         .data {
             padding-top: $node-padding-top;
             padding-bottom: $node-padding-bottom;
-            .input-table, .input-const_value {
+            .input-table {
                 margin-bottom: $node-margin;
             }
-            .col_name, .col_type {
+            .input-const_value {
+                margin-bottom: 2px;
+            }
+            .col_name, .col_type, .const_value {
                 padding: 0 $node-padding-hor;
                 margin-bottom: $node-margin;
             }
