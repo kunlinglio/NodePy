@@ -41,7 +41,14 @@
                 <NodepySelectFew
                     :options="dataTypeUi"
                     :default-selected="defaultSelectedDataType"
-                    @select-change="(e: any) => updateSimpleSelectFew(data.param, 'data_type', dataType, e)"
+                    @select-change="(e: any) => {
+                        updateSimpleSelectFew(data.param, 'data_type', dataType, e)
+                        if(data.param.data_type == 'int') {
+                            constValue = Math.floor(constValue || 0)
+                            updateSimpleStringNumberBoolValue(data.param, 'const', constValue)
+                        }
+                    }"
+                    :disabled="constDisabled"
                     class="nodrag"
                 />
             </div>

@@ -905,7 +905,9 @@ export const useGraphStore = defineStore('graph', () => {
           data: {
             param: {
               op: 'ADD',
-              unit: 'DAYS'
+              unit: 'DAYS',
+              value: 0,
+              data_type: 'int'
             }
           }
         }

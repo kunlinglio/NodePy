@@ -774,6 +774,8 @@ export interface TextFromFileNode extends BaseNode {
 export interface DatetimeComputeNodeParam {
     op: 'ADD'|'SUB'
     unit: 'DAYS'|'HOURS'|'MINUTES'|'SECONDS'
+    value: number
+    data_type: 'int' | 'float'
 }
 export type DatetimeComputeNodeData = BaseData & {
     param: DatetimeComputeNodeParam

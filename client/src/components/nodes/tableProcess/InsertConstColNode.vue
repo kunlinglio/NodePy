@@ -88,7 +88,14 @@
                 <NodepySelectMany
                     :options="col_typeUi"
                     :default-selected="defaultSelectedCol_type"
-                    @select-change="onSelectChangeCol_type"
+                    @select-change="(e) => {
+                        updateSimpleSelectMany(data.param, 'col_type', col_type, e)
+                        if(data.param.col_type === 'int') {
+                            const_value_number = Math.floor(const_value_number || 0)
+                            updateSimpleStringNumberBoolValue(data.param, 'const_value_number', const_value_number)
+                            updateSimpleStringNumberBoolValue(data.param, 'const_value', const_value_number)
+                        }
+                    }"
                     class="nodrag"
                 />
             </div>
@@ -117,7 +124,7 @@
     import NodepyStringInput from '../tools/Nodepy-StringInput.vue'
     import NodepyNumberInput from '../tools/Nodepy-NumberInput/Nodepy-NumberInput.vue'
     import NodepyBoolValue from '../tools/Nodepy-boolValue.vue'
-    import { updateSimpleStringNumberBoolValue } from '../updateParam'
+    import { updateSimpleStringNumberBoolValue, updateSimpleSelectMany } from '../updateParam'
     import { hasInputEdge } from '../hasEdge'
     import type { InsertConstColNodeData } from '@/types/nodeTypes'
     import { dataTypeColor } from '@/types/nodeTypes'
@@ -172,12 +179,6 @@
                 return dataTypeColor.Datetime
         }
     })
-
-
-    const onSelectChangeCol_type = (e: any) => {
-        const selected_col_type = col_type[e] as 'int'|'float'|'bool'|'str'|'Datetime'
-        props.data.param.col_type = selected_col_type
-    }
 
 
     watch(() => JSON.stringify(props.data.error), () => {
