@@ -251,7 +251,10 @@ export const useGraphStore = defineStore('graph', () => {
           data: {
             param: {
               op: 'ADD',
-              col: ''
+              col: '',
+              result_col: '',
+              num: 0,
+              data_type: 'int'
             }
           }
         }

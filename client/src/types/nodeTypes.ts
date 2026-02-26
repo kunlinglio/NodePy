@@ -208,7 +208,9 @@ export const ColWithNumberBinOpList = ['ADD', 'COL_SUB_NUM', 'NUM_SUB_COL', 'MUL
 export interface ColWithNumberBinOpNodeParam {
     op: typeof ColWithNumberBinOpList[number],
     col: string,
-    result_col?: string
+    result_col: string,
+    num: number | null,
+    data_type: 'int'|'float'
 }
 export type ColWithNumberBinOpNodeData = BaseData & {
     param: ColWithNumberBinOpNodeParam

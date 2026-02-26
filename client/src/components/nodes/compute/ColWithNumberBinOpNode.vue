@@ -10,10 +10,51 @@
                 <Handle id="table" type="target" :position="Position.Left" :class="[`${table_type}-handle-color`, {'node-errhandle': inputTableHasErr.value}]"/>
             </div>
             <div class="input-num port">
-                <div class="input-port-description">
+                <div class="input-port-description" :class="{'node-has-paramerr': numHasErr.value}">
                     数值n
                 </div>
-                <Handle id="num" type="target" :position="Position.Left" :class="[`${num_type}-handle-color`, {'node-errhandle': numHasErr.value}]"/>
+                <Handle id="num" type="target" :position="Position.Left" :class="[`${num_type}-handle-color`, {'node-errhandle': inputNumHasErr.value}]"/>
+            </div>
+            <div class="num">
+                <NodepyNumberInput
+                    v-if="data.param.data_type === 'int'"
+                    v-model="num"
+                    class="nodrag"
+                    @update-value="() => {
+                        updateSimpleStringNumberBoolValue(data.param, 'num', num)
+                    }"
+                    :disabled="numDisabled"
+                    :allow-empty="true"
+                />
+                <NodepyNumberInput
+                    v-else-if="data.param.data_type === 'float'"
+                    v-model="num"
+                    class="nodrag"
+                    @update-value="() => {
+                        updateSimpleStringNumberBoolValue(data.param, 'num', num)
+                    }"
+                    :denominator="1000"
+                    :disabled="numDisabled"
+                    :allow-empty="true"
+                 />
+            </div>
+            <div class="data_type">
+                <div class="param-description" :class="{'node-has-paramerr': data_typeHasErr.value}">
+                    数据类型
+                </div>
+                <NodepySelectFew
+                    :options="data_typeUi"
+                    :default-selected="defaultSelectedData_type"
+                    @select-change="(e) => {
+                        updateSimpleSelectFew(data.param, 'data_type', data_type, e)
+                        if(data.param.data_type === 'int') {
+                            num = Math.floor(num || 0)
+                            updateSimpleStringNumberBoolValue(data.param, 'num', num)
+                        }
+                    }"
+                    :disabled="numDisabled"
+                    class="nodrag"
+                />
             </div>
             <div class="op">
                 <div class="param-description" :class="{'node-has-paramerr': opHasErr.value}">
@@ -22,7 +63,7 @@
                 <NodepySelectMany
                     :options="opUi"
                     :default-selected="defaultSelectedOP"
-                    @select-change="onSelectChangeOP"
+                    @select-change="(e) => updateSimpleSelectMany(data.param, 'op', op, e)"
                     class="nodrag"
                 />
             </div>
@@ -33,7 +74,7 @@
                 <NodepySelectMany
                     :options="colHint"
                     :default-selected="defaultSelectedCol"
-                    @select-change="onSelectChangeCol"
+                    @select-change="(e) => updateSimpleSelectMany(data.param, 'col', colHint, e)"
                     @clear-select="clearSelectCol"
                     class="nodrag"
                 />
@@ -42,7 +83,12 @@
                 <div class="param-description" :class="{'node-has-paramerr': result_colHasErr.value}">
                     结果列
                 </div>
-                <NodepyStringInput v-model="result_col" @update-value="onUpdateResult_col" class="nodrag" placeholder="结果列名"/>
+                <NodepyStringInput 
+                    v-model="result_col" 
+                    @update-value="() => updateSimpleStringNumberBoolValue(data.param, 'result_col', result_col)" 
+                    class="nodrag" 
+                    placeholder="结果列名"
+                />
             </div>
             <div class="output-table port">
                 <div class="output-port-description">
@@ -67,10 +113,19 @@
     import Timer from '../tools/Timer.vue'
     import NodepySelectMany from '../tools/Nodepy-selectMany.vue'
     import NodepyStringInput from '../tools/Nodepy-StringInput.vue'
+    import NodepyNumberInput from '../tools/Nodepy-NumberInput/Nodepy-NumberInput.vue'
+    import NodepySelectFew from '../tools/Nodepy-selectFew.vue'
+    import { hasInputEdge } from '../hasEdge'
+    import { updateSimpleStringNumberBoolValue, updateSimpleSelectFew, updateSimpleSelectMany } from '../updateParam'
     import type { ColWithNumberBinOpNodeData } from '@/types/nodeTypes'
 
 
     const props = defineProps<NodeProps<ColWithNumberBinOpNodeData>>()
+    const num = ref(props.data.param.num)
+    const numDisabled = computed(() => hasInputEdge(props.id, 'num'))
+    const data_type = ['int', 'float']
+    const data_typeUi = ['整数', '浮点数']
+    const defaultSelectedData_type = [data_type.indexOf(props.data.param.data_type)]
     const op = ["ADD", "COL_SUB_NUM", "NUM_SUB_COL", "MUL", "COL_DIV_NUM", "NUM_DIV_COL", "COL_POW_NUM", "NUM_POW_COL"]
     const opUi = ["T + n", "T - n", "n - T", "T * n", "T / n", "n / T", "T ^ n", "n ^ T"]
     const defaultSelectedOP = op.indexOf(props.data.param.op)
@@ -86,6 +141,14 @@
     const schema_type = computed(():server__models__schema__Schema__Type|'default' => props.data.schema_out?.['table']?.type || 'default')
     const outputTableHasErr = computed(() => handleOutputError(props.id, 'table'))
     const errMsg = ref<string[]>([])
+    const numHasErr = ref({
+        id: 'num',
+        value: false
+    })
+    const data_typeHasErr = ref({
+        id: 'data_type',
+        value: false
+    })
     const opHasErr = ref({
         id: 'op',
         value: false
@@ -102,34 +165,24 @@
         handleId: 'table',
         value: false
     })
-    const numHasErr = ref({
+    const inputNumHasErr = ref({
         handleId: 'num',
         value: false
     })
 
 
-    const onSelectChangeOP = (e: any) => {
-        const selected_op = op[e] as 'ADD'|'COL_SUB_NUM'|'NUM_SUB_COL'|'MUL'|'COL_DIV_NUM'|'NUM_DIV_COL'|'COL_POW_NUM'|'NUM_POW_COL'
-        props.data.param.op = selected_op
-    }
-    const onSelectChangeCol = (e: any) => {
-        props.data.param.col = colHint.value[e]
-    }
     const clearSelectCol = (resolve: any) => {
         props.data.param.col = ''
         col.value = props.data.param.col
         resolve()
-    }
-    const onUpdateResult_col = () => {
-        props.data.param.result_col = result_col.value
     }
 
 
     watch(() => JSON.stringify(props.data.error), () => {
         errMsg.value = []
         handleExecError(props.data.error, errMsg)
-        handleParamError(props.data.error, errMsg, opHasErr, colHasErr, result_colHasErr)
-        handleValidationError(props.id, props.data.error, errMsg, inputTableHasErr, numHasErr)
+        handleParamError(props.data.error, errMsg, numHasErr, data_typeHasErr, opHasErr, colHasErr, result_colHasErr)
+        handleValidationError(props.id, props.data.error, errMsg, inputTableHasErr, inputNumHasErr)
     }, {immediate: true})
 
 </script>
@@ -142,10 +195,13 @@
         .data {
             padding-top: $node-padding-top;
             padding-bottom: $node-padding-bottom;
-            .input-table, .input-num {
+            .input-table {
                 margin-bottom: $node-margin;
             }
-            .op, .col, .result_col {
+            .input-num {
+                margin-bottom: 2px;
+            }
+            .num, .data_type, .op, .col, .result_col {
                 padding: 0 $node-padding-hor;
                 margin-bottom: $node-margin;
             }
