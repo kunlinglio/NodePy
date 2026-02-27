@@ -40,6 +40,7 @@ import ToStringNode from '../nodes/compute/ToStringNode.vue'
 import ToIntNode from '../nodes/compute/ToIntNode.vue'
 import ToFloatNode from '../nodes/compute/ToFloatNode.vue'
 import ToBoolNode from '../nodes/compute/ToBoolNode.vue'
+import ColToStringNode from '../nodes/compute/ColToStringNode.vue'
 import QuickPlotNode from '../nodes/visualize/QuickPlotNode.vue'
 import DualAxisPlotNode from '../nodes/visualize/DualAxisPlotNode.vue'
 import StatisticalPlotNode from '../nodes/visualize/StatisticalPlotNode.vue'
@@ -366,6 +367,7 @@ const nodeColor = (node: BaseNode) => {
     case 'ToIntNode':
     case 'ToFloatNode':
     case 'ToBoolNode':
+    case 'ColToStringNode':
       return nodeCategoryColor.compute
     case 'QuickPlotNode':
     case 'StatisticalPlotNode':
@@ -646,6 +648,10 @@ const editableStyle = computed(() => graphStore.project.editable ? 'auto' : 'non
 
         <template #node-ToBoolNode="ToBoolNodeProps">
           <ToBoolNode v-bind="ToBoolNodeProps"/>
+        </template>
+
+        <template #node-ColToStringNode="ColToStringNodeProps">
+          <ColToStringNode v-bind="ColToStringNodeProps"/>
         </template>
 
         <template #node-QuickPlotNode="QuickPlotNodeProps">

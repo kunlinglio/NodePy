@@ -115,6 +115,10 @@ export const nodeMenuItems: MenuNode[] = [
                 label: '转为布尔',
                 value: 'ToBoolNode'
             },
+            {
+                label: '列转字符串',
+                value: 'ColToStringNode'
+            },
         ]
     },
     {

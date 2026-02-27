@@ -346,6 +346,55 @@ export interface ToBoolNode extends BaseNode {
 }
 
 
+export interface ColToStringNodeParam {
+    col: string
+    result_col: string
+}
+export type ColToStringNodeData = BaseData & {
+    param: ColToStringNodeParam
+}
+export interface ColToStringNode extends BaseNode<ColToStringNodeData> {
+    type: 'ColToStringNode'
+}
+
+
+export interface ColToIntNodeParam {
+    col: string
+    result_col: string
+    method: 'FLOOR'|'CEIL'|'ROUND'
+}
+export type ColToIntNodeData = BaseData & {
+    param: ColToIntNodeParam
+}
+export interface ColToIntNode extends BaseNode<ColToIntNodeData> {
+    type: 'ColToIntNode'
+}
+
+
+export interface ColToFloatNodeParam {
+    col: string
+    result_col: string
+}
+export type ColToFloatNodeData = BaseData & {
+    param: ColToFloatNodeParam
+}
+export interface ColToFloatNode extends BaseNode<ColToFloatNodeData> {
+    type: 'ColToFloatNode'
+}
+
+
+export interface ColToBoolNodeParam {
+    col: string
+    result_col: string
+}
+export type ColToBoolNodeData = BaseData & {
+    param: ColToBoolNodeParam
+}
+export interface ColToBoolNode extends BaseNode<ColToBoolNodeData> {
+    type: 'ColToBoolNode'
+}
+
+
 /*********************  Visualize Nodes  **************************/
 export interface QuickPlotNodeParam {
     x_col: string
