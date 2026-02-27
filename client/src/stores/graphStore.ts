@@ -453,6 +453,20 @@ export const useGraphStore = defineStore('graph', () => {
         }
         addNodes(addedColToFloatNode)
         break
+      case 'ColToBoolNode':
+        const addedColToBoolNode: Nodetypes.ColToBoolNode = {
+          id,
+          position,
+          type: 'ColToBoolNode',
+          data: {
+            param: {
+              col: '',
+              result_col: ''
+            }
+          }
+        }
+        addNodes(addedColToBoolNode)
+        break
       case 'UploadNode':
         const addedUploadNode: Nodetypes.UploadNode = {
           id,

@@ -127,6 +127,10 @@ export const nodeMenuItems: MenuNode[] = [
                 label: '列转浮点数',
                 value: 'ColToFloatNode'
             },
+            {
+                label: '列转布尔值',
+                value: 'ColToBoolNode'
+            }
         ]
     },
     {
