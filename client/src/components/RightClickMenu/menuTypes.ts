@@ -119,6 +119,10 @@ export const nodeMenuItems: MenuNode[] = [
                 label: '列转字符串',
                 value: 'ColToStringNode'
             },
+            {
+                label: '列转整数',
+                value: 'ColToIntNode'
+            }
         ]
     },
     {
