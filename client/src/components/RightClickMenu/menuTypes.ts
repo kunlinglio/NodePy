@@ -122,7 +122,11 @@ export const nodeMenuItems: MenuNode[] = [
             {
                 label: '列转整数',
                 value: 'ColToIntNode'
-            }
+            },
+            {
+                label: '列转浮点数',
+                value: 'ColToFloatNode'
+            },
         ]
     },
     {
