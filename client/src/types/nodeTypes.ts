@@ -1020,6 +1020,30 @@ export interface ForRollingWindowEndNode extends BaseNode<ForRollingWindowEndNod
 }
 
 
+export interface MapColumnBeginNodeParam {
+    pair_id: number
+    col: string
+}
+export type MapColumnBeginNodeData = BaseData & {
+    param: MapColumnBeginNodeParam
+}
+export interface MapColumnBeginNode extends BaseNode<MapColumnBeginNodeData> {
+    type: 'MapColumnBeginNode'
+}
+
+
+export interface MapColumnEndNodeParam {
+    pair_id: number
+    result_col: string
+}
+export type MapColumnEndNodeData = BaseData & {
+    param: MapColumnEndNodeParam
+}
+export interface MapColumnEndNode extends BaseNode<MapColumnEndNodeData> {
+    type: 'MapColumnEndNode'
+}
+
+
 export interface UnpackNodeParam {
     cols: string[]
 }

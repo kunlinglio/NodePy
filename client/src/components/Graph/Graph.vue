@@ -107,6 +107,8 @@ import ForEachRowBeginNode from '../nodes/control/ForEachRowBeginNode.vue'
 import ForEachRowEndNode from '../nodes/control/ForEachRowEndNode.vue'
 import ForRollingWindowBeginNode from '../nodes/control/ForRollingWindowBeginNode.vue'
 import ForRollingWindowEndNode from '../nodes/control/ForRollingWindowEndNode.vue'
+import MapColumnBeginNode from '../nodes/control/MapColumnBeginNode.vue'
+import MapColumnEndNode from '../nodes/control/MapColumnEndNode.vue'
 import UnpackNode from '../nodes/control/UnpackNode.vue'
 import PackNode from '../nodes/control/PackNode.vue'
 import GetCellNode from '../nodes/control/GetCellNode.vue'
@@ -231,7 +233,9 @@ onNodesChange((changes) => {
       'ForEachRowBeginNode',
       'ForEachRowEndNode', 
       'ForRollingWindowBeginNode',
-      'ForRollingWindowEndNode'
+      'ForRollingWindowEndNode',
+      'MapColumnBeginNode',
+      'MapColumnEndNode'
     ];
     const removeChanges = changes.filter(change => change.type === 'remove')
     removeChanges.forEach(change => {
@@ -445,6 +449,8 @@ const nodeColor = (node: BaseNode) => {
     case 'ForEachRowEndNode':
     case 'ForRollingWindowBeginNode':
     case 'ForRollingWindowEndNode':
+    case 'MapColumnBeginNode':
+    case 'MapColumnEndNode':
     case 'UnpackNode':
     case 'PackNode':
     case 'GetCellNode':
@@ -922,6 +928,14 @@ const editableStyle = computed(() => graphStore.project.editable ? 'auto' : 'non
 
         <template #node-ForRollingWindowEndNode="ForRollingWindowEndNodeProps">
           <ForRollingWindowEndNode v-bind="ForRollingWindowEndNodeProps"/>
+        </template>
+
+        <template #node-MapColumnBeginNode="MapColumnBeginNodeProps">
+          <MapColumnBeginNode v-bind="MapColumnBeginNodeProps"/>
+        </template>
+
+        <template #node-MapColumnEndNode="MapColumnEndNodeProps">
+          <MapColumnEndNode v-bind="MapColumnEndNodeProps"/>
         </template>
 
         <template #node-UnpackNode="UnpackNodeProps">

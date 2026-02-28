@@ -1374,6 +1374,65 @@ export const useGraphStore = defineStore('graph', () => {
           type: 'NodePyEdge'
         })
         break
+      case 'MapColumnNode':
+        const MapColumnNodeId = nextId('NodeContainer')
+        const addedMapColumnNode: Nodetypes.BaseNode = {
+          id: MapColumnNodeId,
+          position,
+          type: 'NodeContainer',
+          data: {
+            param: {},
+            is_virtual_node: true
+          }
+        }
+        const addedMapColumnBeginNode: Nodetypes.MapColumnBeginNode = {
+          id: nextId('MapColumnBeginNode'),
+          position: {
+            x: padding + position.x,
+            y: containerHeight / 2 + position.y
+          },
+          type: 'MapColumnBeginNode',
+          data: {
+            param: {
+              pair_id,
+              col: ''
+            },
+            groupId: MapColumnNodeId
+          }
+        }
+        const addedMapColumnEndNode: Nodetypes.MapColumnEndNode = {
+          id: nextId('MapColumnEndNode'),
+          position: {
+            x: containerWidth - nodeWidth - padding + position.x,
+            y: containerHeight / 2 + position.y
+          },
+          type: 'MapColumnEndNode',
+          data: {
+            param: {
+              pair_id,
+              result_col: ''
+            },
+            groupId: MapColumnNodeId
+          }
+        }
+        addNodes([addedMapColumnNode, addedMapColumnBeginNode, addedMapColumnEndNode])
+        addEdges([
+          {
+            source: addedMapColumnBeginNode.id,
+            target: addedMapColumnEndNode.id,
+            sourceHandle: 'remains',
+            targetHandle: 'remains',
+            type: 'NodePyEdge'
+          },
+          {
+            source: addedMapColumnBeginNode.id,
+            target: addedMapColumnEndNode.id,
+            sourceHandle: 'cell',
+            targetHandle: 'cell',
+            type: 'NodePyEdge'
+          }
+        ])
+        break
       case 'UnpackNode':
         const addedUnpackNode: Nodetypes.UnpackNode ={
           id,

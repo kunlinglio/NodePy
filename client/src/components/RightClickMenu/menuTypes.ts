@@ -150,6 +150,10 @@ export const nodeMenuItems: MenuNode[] = [
                 value: 'ForRollingWindowNode'
             },
             {
+                label: '列映射',
+                value: 'MapColumnNode'
+            },
+            {
                 label: '解包',
                 value: 'UnpackNode'
             },
