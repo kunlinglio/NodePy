@@ -44,6 +44,9 @@
           <div class="username">{{ userStore.currentUserInfo?.username || '未知用户' }}</div>
           <div class="email">{{ userStore.currentUserInfo?.email || '暂无邮箱' }}</div>
         </div>
+        <div class="user-edit" @click="handleEditUser">
+          点我修改个人信息
+        </div>
       </div>
 
       <!-- 用户统计 -->
@@ -73,15 +76,12 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Avatar } from '@element-plus/icons-vue'
 import { useLoginStore } from '@/stores/loginStore'
 import { useModalStore } from '@/stores/modalStore'
 import { useUserStore } from '@/stores/userStore'
 import { useEditorStore } from '@/stores/editorStore'
-import notify from '@/components/Notification/notify'
+import EditUser from './EditUser.vue'
 import FloatingMenu from './FloatingMenu.vue'
-import EditableTableModal from '../EditableTable/EditableTableModal.vue'
-import PyEditor from '../PyEditor/PyEditor.vue'
 import Logout from '../Logout.vue'
 import { useTableStore } from '@/stores/tableStore'
 import SvgIcon from '@jamescoyle/vue-icon';
@@ -97,6 +97,8 @@ const router = useRouter()
 
 const logoutWidth = 350;
 const logoutHeight = 270;
+const EditUserWidth = 350;
+const EditUserHeight = 270;
 
 onMounted(async () => {
   if (!loginStore.isAuthenticated) return
@@ -107,6 +109,26 @@ onMounted(async () => {
 function handleLogin() {
   router.replace({
     name: 'login'
+  })
+}
+
+async function handleEditUser(){
+  modalStore.createModal({
+    component: EditUser,
+    title: '更新用户信息',
+    isActive: true,
+    isResizable: false,
+    isDraggable: true,
+    isModal: true,
+    position: {
+      x: window.innerWidth / 2 - EditUserWidth / 2,
+      y: window.innerHeight / 2 - EditUserHeight / 2
+    },
+    size: {
+      width: EditUserWidth,
+      height: EditUserHeight
+    },
+    id: 'edit-user',
   })
 }
 

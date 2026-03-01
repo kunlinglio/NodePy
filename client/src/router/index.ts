@@ -6,6 +6,7 @@ import Project from '@/views/ProjectListView/ProjectList.vue'
 import Login from '@/views/Login.vue'
 import Example from '@/views/ExampleView/Example.vue'
 import Editor from '@/views/Editor.vue'
+import Explore from '@/views/Explore.vue'
 
 // 定义路由类型
 const routes: Array<RouteRecordRaw> = [
@@ -52,6 +53,11 @@ const routes: Array<RouteRecordRaw> = [
         path: '/project/:projectId',
         name: 'editor-project',
         component: Editor
+    },
+    {
+        path: '/explore',
+        name: 'explore',
+        component: Explore
     }
 ]
 

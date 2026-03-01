@@ -5,6 +5,7 @@
     import { useProjectStore } from '@/stores/projectStore';
     import { usePageStore } from '@/stores/pageStore';
     import { useLoginStore } from '@/stores/loginStore';
+    import { type TagInstance } from '@/types/tag';
     import ProjectDemoFrame from './ProjectDemoFrame.vue';
     import CreateProject from './CreateProject.vue';
     import Mask from '../Mask.vue';
@@ -15,6 +16,41 @@
     const loginStore = useLoginStore();
     const router = useRouter();
     const route = useRoute();
+    
+    const testTags: TagInstance[] = [
+        {
+            content: 'test-tag1',
+            color: '#aaaaaa'
+        },
+        {
+            content: 'test-tag2',
+            color: '#bbbbbb'
+        },
+        {
+            content: 'test-tag3',
+            color: '#cccccc'
+        },
+        {
+            content: 'test-tag4',
+            color: '#dddddd'
+        },
+        // {
+        //     content: 'test-tag5',
+        //     color: '#eeeeee'
+        // },
+        // {
+        //     content: 'test-tag6',
+        //     color: '#ffffff'
+        // },
+        // {
+        //     content: 'test-tag7',
+        //     color: '#000000'
+        // },
+        // {
+        //     content: 'test-tag8',
+        //     color: '#999999'
+        // }
+    ]
 
     // 定时器引用
     const refreshTimer = ref<number | null>(null);
@@ -141,8 +177,9 @@
             <!-- New project card -->
                     <ProjectDemoFrame
                         :handleCreateNewProject="handleCreateNewProject"
-                        :title="'Create New'"
-                        :id="0" />
+                        :title="'创建新项目'"
+                        :id="0" 
+                        :tags="testTags"/>
         </div>
     </div>
     <Mask v-else></Mask>

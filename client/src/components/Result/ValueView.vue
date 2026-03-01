@@ -10,8 +10,6 @@
     // 添加loading和error状态
     const loading = ref(false)
     const error = ref<string>('')
-    // 添加显示完整字符串的状态
-    const showFullString = ref(false)
     
     // 虚拟滚动相关状态
     const containerRef = ref<HTMLElement | null>(null)
@@ -21,14 +19,16 @@
     const endIndex = ref(0)
     const lineHeight = ref(20) // 默认行高
     const containerHeight = ref(0)
+    const containerWidth = ref(0)
     const scrollTop = ref(0)
     const visibleCount = ref(0)
-    const bufferCount = ref(5) // 减少缓冲区行数
+    const bufferCount = ref(5) // 缓冲区行数
     const totalHeight = ref(0) // 总高度
     
-    // 防抖定时器
+    // 防抖和 ResizeObserver
     let resizeTimer: number | null = null;
     let scrollTimer: number | null = null;
+    let resizeObserver: ResizeObserver | null = null;
 
     // 格式化日期时间显示的函数 - 转化为年月日时分秒，不需要其他字符
     const formatDateTime = (dateTimeString: string): string => {
@@ -131,21 +131,14 @@
         return typeof props.value === 'boolean';
     });
     
-    // 检查是否为超长字符串
+    // 总是直接显示完整内容（无需检查长度）
     const isLongString = computed(() => {
-        if (typeof props.value === 'string') {
-            return props.value.length > 1000; // 超过1000字符认为是超长字符串
-        }
-        return false;
+        return typeof props.value === 'string';
     });
     
-    // 截断超长字符串用于显示
+    // 不再需要截断
     const truncatedDisplayValue = computed(() => {
-        const value = displayValue.value;
-        if (typeof value === 'string' && value.length > 1000) {
-            return value.substring(0, 1000) + '...'; // 截断并添加省略号
-        }
-        return value;
+        return displayValue.value;
     });
     
     // 完整字符串用于显示
@@ -153,32 +146,27 @@
         return displayValue.value;
     });
     
-    // 切换显示完整字符串
-    const toggleFullString = () => {
-        showFullString.value = !showFullString.value;
-        if (showFullString.value) {
-            nextTick(() => {
-                initVirtualScroll();
-            });
-        }
-    };
+    // 计算虚拟滚动的可见范围和偏移量
+    const topSpacerHeight = computed(() => startIndex.value * lineHeight.value)
+    const bottomSpacerHeight = computed(() => Math.max(0, (allLines.value.length - endIndex.value) * lineHeight.value))
     
     // 初始化虚拟滚动
     const initVirtualScroll = async () => {
-        if (!containerRef.value || !isLongString.value || !showFullString.value) return;
+        if (!containerRef.value || !isLongString.value) return;
         
         try {
             // 将完整字符串按行分割
             allLines.value = fullDisplayValue.value.split('\n');
             totalHeight.value = allLines.value.length * lineHeight.value;
             
-            // 等待DOM更新后再获取容器高度
+            // 等待DOM更新后再获取容器尺寸
             await nextTick();
             
             if (!containerRef.value) return;
             
             // 计算容器高度和可见行数
             containerHeight.value = containerRef.value.clientHeight;
+            containerWidth.value = containerRef.value.clientWidth;
             visibleCount.value = Math.ceil(containerHeight.value / lineHeight.value) || 1;
             
             // 设置初始可见范围
@@ -206,7 +194,7 @@
     
     // 处理滚动事件 - 使用节流优化性能
     const handleScroll = (e: Event) => {
-        if (!isLongString.value || !showFullString.value || !containerRef.value) return;
+        if (!isLongString.value || !containerRef.value) return;
         
         // 使用节流而不是防抖，确保滚动的流畅性
         if (scrollTimer) return;
@@ -237,22 +225,27 @@
         });
     };
     
-    // 处理窗口大小变化 - 使用更低频率的更新
+    // 处理窗口/容器大小变化 - 使用防抖优化性能
     const handleWindowResize = () => {
-        if (!containerRef.value || !isLongString.value || !showFullString.value) return;
+        if (!containerRef.value || !isLongString.value) return;
         
         // 清除之前的resize定时器
         if (resizeTimer) {
             clearTimeout(resizeTimer);
         }
         
-        // 使用更大的防抖延迟来减少resize事件的影响
+        // 使用防抖延迟来减少resize事件的影响
         resizeTimer = window.setTimeout(() => {
             try {
-                // 只有当容器确实发生变化时才更新
+                // 检查高度和宽度变化
                 const newContainerHeight = containerRef.value!.clientHeight;
-                if (newContainerHeight !== containerHeight.value) {
+                const newContainerWidth = containerRef.value!.clientWidth;
+                const heightChanged = Math.abs(newContainerHeight - containerHeight.value) > 5;
+                const widthChanged = Math.abs(newContainerWidth - containerWidth.value) > 10;
+                
+                if (heightChanged || widthChanged) {
                     containerHeight.value = newContainerHeight;
+                    containerWidth.value = newContainerWidth;
                     const newVisibleCount = Math.ceil(containerHeight.value / lineHeight.value) || 1;
                     
                     // 如果可见行数发生变化，更新显示
@@ -265,32 +258,35 @@
             } catch (err) {
                 console.error('处理窗口大小变化失败:', err);
             }
-        }, 0); // 增加到200ms防抖延迟
+        }, 0);
     };
-    
-    // 监听showFullString变化，确保在切换时正确初始化
-    watch(showFullString, (newVal) => {
-        if (newVal) {
-            // 使用微任务确保DOM完全渲染后再初始化
-            queueMicrotask(() => {
-                initVirtualScroll();
-            });
-        }
-    });
     
     // 监听value变化，确保在数据更新时重新初始化
     watch(() => props.value, () => {
-        if (showFullString.value) {
-            // 使用微任务确保DOM完全渲染后再初始化
-            queueMicrotask(() => {
-                initVirtualScroll();
-            });
-        }
+        // 使用微任务确保DOM完全渲染后再初始化
+        queueMicrotask(() => {
+            initVirtualScroll();
+        });
     });
     
-    // 组件挂载时添加事件监听器
+    // 组件挂载时初始化虚拟滚动和添加事件监听器
     onMounted(() => {
+        // 初始化虚拟滚动
+        initVirtualScroll();
+        
         window.addEventListener('resize', handleWindowResize, { passive: true });
+        
+        // 使用 ResizeObserver 监听容器本身的尺寸变化（更精准，特别是对于模态框拖拽改变大小）
+        try {
+            if (typeof ResizeObserver !== 'undefined' && containerRef.value) {
+                resizeObserver = new ResizeObserver(() => {
+                    handleWindowResize();
+                });
+                resizeObserver.observe(containerRef.value);
+            }
+        } catch (e) {
+            // ignore if ResizeObserver not available
+        }
     });
     
     // 组件卸载时清理
@@ -298,6 +294,15 @@
         window.removeEventListener('resize', handleWindowResize);
         if (containerRef.value) {
             containerRef.value.removeEventListener('scroll', handleScroll);
+        }
+        // 清理 ResizeObserver
+        try {
+            if (resizeObserver) {
+                resizeObserver.disconnect();
+                resizeObserver = null;
+            }
+        } catch (e) {
+            // ignore
         }
         // 清理定时器
         if (resizeTimer) {
@@ -325,36 +330,23 @@
             <!-- <div class='value-header'>
                 <span class='value-type'>{{ valueType }}</span>
             </div> -->
-            <div class='value-content-wrapper'>
-                <div class='value-content' :class="{ 'boolean-true': isBoolean && value === true, 'boolean-false': isBoolean && value === false }">
-                    <!-- 对于超长字符串，根据状态决定显示截断版本还是完整版本 -->
-                    <span v-if="isLongString && !showFullString">{{ truncatedDisplayValue }}</span>
-                    <div v-else-if="isLongString && showFullString" class="full-string-container" ref="containerRef">
-                        <!-- 虚拟滚动实现 -->
-                        <div class="virtual-scroll-padding" :style="{ height: `${startIndex * lineHeight}px` }"></div>
-                        <div class="virtual-scroll-content">
-                            <div 
-                                v-for="(line, index) in visibleLines" 
-                                :key="`${startIndex + index}`" 
-                                class="line"
-                                :style="{ height: `${lineHeight}px`, lineHeight: `${lineHeight}px` }"
-                            >
-                                {{ line }}
-                            </div>
-                        </div>
-                        <div class="virtual-scroll-padding" :style="{ height: `${Math.max(0, (allLines.length - endIndex) * lineHeight)}px` }"></div>
+            <div v-if="isLongString" class="txt-view" ref="containerRef">
+                <div class="txt-content">
+                    <!-- 顶部间隔 -->
+                    <div :style="{ height: topSpacerHeight + 'px', margin: 0, padding: 0 }"></div>
+                    <!-- 可见行 -->
+                    <div v-for="(line, index) in visibleLines" :key="startIndex + index" class="txt-line">
+                        <span v-if="line === ''">&nbsp;</span>
+                        <span v-else>{{ line }}</span>
                     </div>
-                    <span v-else>{{ displayValue }}</span>
+                    <!-- 底部间隔 -->
+                    <div :style="{ height: bottomSpacerHeight + 'px', margin: 0, padding: 0 }"></div>
                 </div>
             </div>
-            <!-- 对于超长字符串，添加提示信息和切换按钮 -->
-            <div v-if="isLongString" class="long-string-controls">
-                <div class="long-string-hint">
-                    内容长度: {{ fullDisplayValue.length }} 字符, {{ allLines.length }} 行
+            <div v-else class='value-content-wrapper'>
+                <div class='value-content' :class="{ 'boolean-true': isBoolean && value === true, 'boolean-false': isBoolean && value === false }">
+                    {{ displayValue }}
                 </div>
-                <button @click="toggleFullString" class="toggle-full-string-btn">
-                    {{ showFullString ? '收起' : '展开完整内容' }}
-                </button>
             </div>
         </div>
     </div>
@@ -437,61 +429,54 @@
     font-weight: bold;
 }
     
-.full-string-container {
-    text-align: left;
-    font-size: 14px;
-    width: 100%;
-    height: 100%;
-    overflow-y: auto;
-    position: relative;
-    background-color: $stress-background-color;
+/* 采用ShowTXT.vue的样式 */
+.txt-view {
+    flex: 1;
+    overflow: hidden; /* 改为hidden，让内部控制滚动 */
+    background: white;
     border-radius: 10px;
-    box-sizing: border-box;
-    @include controller-style;
-}
-    
-.virtual-scroll-padding {
-    width: 100%;
-}
-    
-.virtual-scroll-content {
-    width: 100%;
-}
-    
-.line {
-    padding: 2px 10px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
-}
-    
-.long-string-controls {
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    margin-top: 8px;
+    height: 100%; /* 确保占满容器高度 */
+    @include controller-style;
+    /* 优化渲染性能 */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+.txt-content {
+    flex: 1;
+    overflow: auto; /* 让内容区域控制滚动 */
+    font-family: 'Courier New', Consolas, Monaco, monospace;
+    white-space: pre-wrap; /* 允许自动换行 */
+    word-wrap: break-word; /* 允许长单词换行 */
+    line-height: 1.5;
+    /* 修复滚动条问题 */
+    scrollbar-gutter: stable; /* 保持滚动条空间一致 */
+    padding: 8px; /* 添加一些内边距 */
+    box-sizing: border-box;
+    /* 优化渲染性能 */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    /* 使用contain属性优化渲染性能 */
+    contain: layout style paint;
+}
+
+.txt-line {
+    margin: 0;
+    padding: 2px 0;
+    font-family: inherit;
+    /* 确保空行也能正确显示 */
+    min-height: 1.2em;
+    /* 不再强制每行占据整行 */
+    display: block;
+    /* 优化渲染性能 */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    /* 使用contain属性优化渲染性能 */
+    contain: layout style;
 }
     
-.long-string-hint {
-    font-size: 12px;
-    color: #909399;
-    padding: 4px;
-    background: #f5f5f5;
-    border-radius: 4px;
-}
-    
-.toggle-full-string-btn {
-    padding: 6px 12px;
-    background: $stress-color;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-        
-    &:hover {
-        background: $hover-stress-color;
-    }
-}
+
 </style>

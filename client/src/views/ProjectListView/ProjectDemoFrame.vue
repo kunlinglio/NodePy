@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import {computed} from 'vue';
+import {computed, ref, nextTick} from 'vue';
 import { Plus, Edit, Delete } from '@element-plus/icons-vue';
 import { useProjectStore } from '@/stores/projectStore';
 import { useModalStore } from '@/stores/modalStore';
@@ -7,6 +7,9 @@ import DeleteProject from './DeleteProject.vue';
 import UpdateProjectSetting from './UpdateProjectSetting.vue';
 import SvgIcon from '@jamescoyle/vue-icon';
 import { mdiPencil, mdiDelete } from '@mdi/js';
+
+import { type TagInstance } from '@/types/tag';
+import Tag from '@/components/Tag.vue';
 
 const edit_path = mdiPencil;
 const delete_path = mdiDelete;
@@ -17,6 +20,7 @@ const props = defineProps<{
     thumb?: string | null,
     created_at?: number | string | null,
     updated_at?: number | string | null,
+    tags?: TagInstance[],
     handleOpenExistingProject?: (id: number) => void,
     handleCreateNewProject?: () => void,
 }>();
@@ -36,6 +40,7 @@ const thumbSrc = computed(() => {
 
 const projectStore = useProjectStore();
 const modalStore = useModalStore();
+const cardRef = ref<HTMLDivElement | null>(null);
 
 function parseDate(v: number | string | null | undefined) {
     if (!v) return null;
@@ -56,9 +61,15 @@ function onCardClick() {
     } else if (props.handleCreateNewProject) {
         props.handleCreateNewProject();
     }
+    
+    // 移除卡片焦点，防止选中效果和键盘事件继续触发
+    nextTick(() => {
+        cardRef.value?.blur();
+    });
 }
 
 async function handleClickDelete(){
+    cardRef.value?.blur();
     projectStore.toBeDeleted.id = props.id
     const modalWidth = 350;
     const modalHeight = 270;
@@ -82,10 +93,11 @@ async function handleClickDelete(){
 }
 
 async function handleClickUpdate(){
+    cardRef.value?.blur();
     await projectStore.getProjectSettings(props.id)
     projectStore.currentProjectId = props.id
-    const modalWidth = 340;
-    const modalHeight = 320;
+    const modalWidth = 350;
+    const modalHeight = 420;
     modalStore.createModal({
         id: 'update-modal',
         title: "更新项目",
@@ -109,6 +121,7 @@ async function handleClickUpdate(){
 
 <template>
     <div
+        ref="cardRef"
         :class="['project-card', { 'new-card': props.id === 0 && props.handleCreateNewProject, 'placeholder-large': !props.thumb && !(props.id === 0 && props.handleCreateNewProject) } ]"
         role="button"
         :aria-label="props.title ?? (props.id ? `Project ${props.id}` : 'Create Project')"
@@ -142,6 +155,19 @@ async function handleClickUpdate(){
 
         <div class="project-info">
             <div class="project-title">{{ props.title ?? (props.id ? `Project ${props.id}` : 'New') }}</div>
+            <div class="project-tags">
+                <div v-if="props.tags" class="tags-container">
+                    <Tag
+                        v-for="tag in props.tags" 
+                        :key="tag.content" 
+                        :tag="tag"
+                        >
+                    </Tag>
+                </div>
+                <div v-else class="tags-container">
+                    暂无标签
+                </div>
+            </div>
             <div v-if="!(props.id === 0 && props.handleCreateNewProject)" class="project-meta">
                 <span class="meta-item">修改: {{ formatDate(props.updated_at) }}</span>
                 <span class="meta-item">创建: {{ formatDate(props.created_at) }}</span>
@@ -237,6 +263,7 @@ async function handleClickUpdate(){
     flex-direction:column;
     gap:6px;
     min-height: 75px; /* ensure new-card height matches cards with meta */
+    // height: 100px;
 }
 .project-title{
     font-weight:700;
@@ -251,6 +278,13 @@ async function handleClickUpdate(){
     gap:10px;
     font-size:12px;
     color:#6b7f8f;
+}
+.project-tags{
+    font-size:12px;
+}
+.tags-container{
+    display: flex;
+    gap: 10px;
 }
 .new-card{ border: 1px solid rgba(28,128,199,0.06); }
 .meta-item{opacity:0.95}

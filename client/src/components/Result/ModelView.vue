@@ -2,7 +2,6 @@
 import { computed } from 'vue';
 import type { ResultType } from '@/stores/resultStore';
 import type { ModelView as ModelViewType } from '@/utils/api';
-import type { server__models__schema__ModelSchema__Type } from '@/utils/api/models/server__models__schema__ModelSchema__Type';
 import type { ColType } from '@/utils/api/models/ColType';
 import { ElDivider } from 'element-plus';
 import Loading from '@/components/Loading.vue';
@@ -165,7 +164,7 @@ const getColumnTypeDescription = (colType: ColType) => {
     flex-direction: column;
     height: 100%;
     width: 100%;
-    overflow: hidden;
+    overflow: auto;
     background: $background-color;
     border-radius: 10px;
     box-sizing: border-box;
@@ -204,6 +203,7 @@ const getColumnTypeDescription = (colType: ColType) => {
     border-radius: 10px;
     padding: 16px;
     box-sizing: border-box;
+    overflow: auto !important;
     @include controller-style;
 }
 

@@ -24,6 +24,13 @@ const columnWidths = ref<number[]>([]);
 const editingCell = ref<{ row: number; col: number } | null>(null);
 const editValue = ref<string>('');
 
+// 类型选择相关
+const typeOptions = ['int', 'float', 'str', 'bool', 'Datetime'];
+const showTypeSelector = ref(false);
+const currentOperation = ref<'add' | 'modify' | null>(null);
+const pendingColumnName = ref('');
+const pendingColumnIndex = ref(-1);
+
 // 行号列宽
 const rowHeaderWidth = 80;
 // 列名行高
@@ -237,13 +244,54 @@ function selectCell(rowIndex: number, colIndex: number) {
 }
 
 /**
+ * 打开类型选择器
+ */
+function openTypeSelector(operation: 'add' | 'modify', columnName: string, columnIndex?: number) {
+    currentOperation.value = operation;
+    pendingColumnName.value = columnName;
+    pendingColumnIndex.value = columnIndex ?? -1;
+    showTypeSelector.value = true;
+}
+
+/**
+ * 选择类型并执行操作
+ */
+function selectType(type: string) {
+    showTypeSelector.value = false;
+    
+    if (currentOperation.value === 'add') {
+        tableStore.addColumn(pendingColumnName.value, type as any, -1);
+        nextTick(() => {
+            calculateColumnWidths();
+        });
+    } else if (currentOperation.value === 'modify') {
+        const colName = tableStore.currentTableData.col_names[pendingColumnIndex.value];
+        const currentType = tableStore.currentTableData.col_types[colName!] || 'str';
+        
+        // 更新列名和类型
+        if (pendingColumnName.value !== colName) {
+            tableStore.updateColumnName(colName!, pendingColumnName.value);
+        }
+        
+        if (type !== currentType) {
+            tableStore.updateColumnType(pendingColumnName.value, type as any);
+        }
+        
+        calculateColumnWidths();
+    }
+    
+    currentOperation.value = null;
+    pendingColumnName.value = '';
+    pendingColumnIndex.value = -1;
+}
+
+/**
  * 修改列（支持同时修改列名和类型）
  */
 function modifyColumn(colIndex: number) {
     const colName = tableStore.currentTableData.col_names[colIndex]!;
-    const currentType = tableStore.currentTableData.col_types[colName] || 'str';
     
-    // 创建一个对话框来同时修改列名和类型
+    // 允许用户修改列名
     const newName = prompt('输入新列名:', colName);
     if (newName === null) return; // 用户取消
     
@@ -254,65 +302,25 @@ function modifyColumn(colIndex: number) {
     
     if (newName !== colName) {
         // 检查列名是否已存在
-        if (tableStore.currentTableData.col_names.includes(newName) && newName !== colName) {
+        if (tableStore.currentTableData.col_names.includes(newName)) {
             alert(`列名 "${newName}" 已存在`);
             return;
         }
     }
     
-    const newType = prompt('选择列类型 (int, float, str, bool, Datetime):', currentType);
-    if (newType === null) return; // 用户取消
-    
-    if (!['int', 'float', 'str', 'bool', 'Datetime'].includes(newType)) {
-        alert('无效的类型，请选择: int, float, str, bool, Datetime');
-        return;
-    }
-    
-    // 更新列名和类型
-    if (newName !== colName) {
-        tableStore.updateColumnName(colName, newName);
-    }
-    
-    if (newType !== currentType) {
-        tableStore.updateColumnType(newName !== colName ? newName : colName, newType as any);
-    }
-    
-    // 重新计算列宽
-    calculateColumnWidths();
+    // 打开类型选择器
+    openTypeSelector('modify', newName, colIndex);
 }
 
 /**
  * 在指定位置添加新列
  */
 function addColumnAtPosition(position: number) {
-    const colName = prompt('请输入新列名:', `Column_${tableStore.numCols + 1}`);
-    if (!colName) return;
+    // 自动生成列名
+    const defaultName = `Column_${tableStore.numCols + 1}`;
     
-    if (colName.trim() === '') {
-        alert('列名不能为空');
-        return;
-    }
-    
-    // 检查列名是否已存在
-    if (tableStore.currentTableData.col_names.includes(colName)) {
-        alert(`列名 "${colName}" 已存在`);
-        return;
-    }
-    
-    const colType = prompt('请选择列类型 (int, float, str, bool, Datetime):', 'str');
-    if (!colType) return;
-    
-    if (!['int', 'float', 'str', 'bool', 'Datetime'].includes(colType)) {
-        alert('无效的类型，请选择: int, float, str, bool, Datetime');
-        return;
-    }
-    
-    tableStore.addColumn(colName, colType as any, position);
-    
-    // 重新计算列宽
-    nextTick(() => {
-        calculateColumnWidths();
-    });
+    // 打开类型选择器
+    openTypeSelector('add', defaultName);
 }
 
 // 初始化单元格引用数组和列宽
@@ -465,6 +473,26 @@ onMounted(() => {
                             <svg-icon :path="mdiPlus" :size="22" type="mdi"></svg-icon>
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 类型选择器对话框 -->
+        <div v-if="showTypeSelector" class="type-selector-overlay" @click="showTypeSelector = false">
+            <div class="type-selector-modal" @click.stop>
+                <div class="type-selector-header">
+                    <span>{{ currentOperation === 'add' ? '选择新列的类型' : '修改列的类型' }}</span>
+                    <button class="close-btn" @click="showTypeSelector = false">×</button>
+                </div>
+                <div class="type-selector-content">
+                    <button 
+                        v-for="type in typeOptions" 
+                        :key="type"
+                        class="type-option-btn"
+                        @click="selectType(type)"
+                    >
+                        {{ type }}
+                    </button>
                 </div>
             </div>
         </div>
@@ -796,5 +824,82 @@ onMounted(() => {
     font-size: 12px;
     color: #666;
     @include controller-style;
+}
+
+// 类型选择器样式
+.type-selector-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.type-selector-modal {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    max-width: 400px;
+    width: 90%;
+    overflow: hidden;
+}
+
+.type-selector-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #ebeef5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    color: #303133;
+    
+    .close-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #909399;
+        cursor: pointer;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        line-height: 1;
+        
+        &:hover {
+            color: #606266;
+        }
+    }
+}
+
+.type-selector-content {
+    padding: 16px 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 8px;
+}
+
+.type-option-btn {
+    padding: 10px 16px;
+    border: 1px solid #dcdfe6;
+    background: white;
+    border-radius: 4px;
+    color: #303133;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    
+    &:hover {
+        border-color: #409eff;
+        color: #409eff;
+        background: #ecf5ff;
+    }
+    
+    &:active {
+        background: #d9ecff;
+    }
 }
 </style>

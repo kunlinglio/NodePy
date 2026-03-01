@@ -1,369 +1,131 @@
 import { useGraphStore } from '@/stores/graphStore';
-import html2canvas from 'html2canvas'
 
 /**
- * 等待DOM更新完成
+ * SVG 转 PNG 的轻量级方法 - 直接导出SVG为图片，性能远优于 html2canvas
  */
-const waitForDOMUpdate = (): Promise<void> => {
-  return new Promise(resolve => {
-    // 使用requestAnimationFrame确保DOM更新完成
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        resolve();
-      });
-    });
-  });
-}
-
-/**
- * 创建纯白色背景的小地图副本用于截图，并确保节点居中显示
- */
-const createWhiteBackgroundMiniMap = (originalMiniMap: HTMLElement): HTMLElement => {
-  const hiddenContainer = document.createElement('div')
-  hiddenContainer.style.position = 'fixed'
-  hiddenContainer.style.left = '-9999px'
-  hiddenContainer.style.top = '-9999px'
-  hiddenContainer.style.zIndex = '-1000'
-  hiddenContainer.style.opacity = '0'
-  hiddenContainer.style.pointerEvents = 'none'
-
-  // 设置16:9比例
-  const width = 800
-  const height = 450
-  hiddenContainer.style.width = `${width}px`
-  hiddenContainer.style.height = `${height}px`
-  hiddenContainer.style.backgroundColor = '#f6f9fb'
-  hiddenContainer.style.overflow = 'hidden'
-  hiddenContainer.style.border = 'none'
-  hiddenContainer.style.display = 'flex'
-  hiddenContainer.style.alignItems = 'center'
-  hiddenContainer.style.justifyContent = 'center'
-
-  // 克隆小地图
-  const clone = originalMiniMap.cloneNode(true) as HTMLElement
-
-  // 移除可能影响渲染的类名
-  clone.classList.remove('controller-style', 'set_background_color')
-
-  // 设置克隆样式 - 纯白色背景，无边框
-  clone.style.position = 'relative'
-  clone.style.width = '90%' // 缩小容器以创建留白
-  clone.style.height = '90%' // 缩小容器以创建留白
-  clone.style.backgroundColor = '#f6f9fb'
-  clone.style.background = '#f6f9fb'
-  clone.style.border = 'none'
-  clone.style.borderRadius = '0'
-  clone.style.margin = '0'
-  clone.style.padding = '0'
-  clone.style.boxShadow = 'none'
-  clone.style.outline = 'none'
-  clone.style.overflow = 'visible'
-
-  // 获取SVG元素
-  const svgElement = clone.querySelector('svg') as SVGSVGElement
-  if (svgElement) {
-    // 设置SVG样式 - 确保内容居中
-    svgElement.style.backgroundColor = '#f6f9fb'
-    svgElement.style.background = '#f6f9fb'
-    svgElement.style.border = 'none'
-    svgElement.style.borderRadius = '0'
-    svgElement.style.width = '100%'
-    svgElement.style.height = '100%'
-    svgElement.style.overflow = 'visible'
-    svgElement.style.display = 'block'
-
-    // 移除所有遮罩和背景元素
-    const elementsToRemove = [
-      '.vue-flow__minimap-mask',
-      '.vue-flow__minimap-background',
-      'mask',
-      '.vue-flow__minimap-mask-rect'
-    ]
-
-    elementsToRemove.forEach(selector => {
-      const elements = svgElement.querySelectorAll(selector)
-      elements.forEach(el => el.remove())
-    })
-
-    // 设置SVG背景为白色 - 处理所有矩形元素
-    const rects = svgElement.querySelectorAll('rect')
-    rects.forEach(rect => {
-      const r = rect as SVGRectElement
-      // 找到背景矩形并设置为白色
-      if (r.getAttribute('class')?.includes('background') ||
-          !r.getAttribute('id') ||
-          r.getAttribute('fill') === 'rgba(0,0,0,0.1)' ||
-          r.getAttribute('fill') === 'rgba(240, 240, 240, 0.6)') {
-        r.setAttribute('fill', '#f6f9fb')
-        r.style.fill = '#f6f9fb'
-        r.setAttribute('stroke', 'none')
-      }
-    })
-
-    // 确保所有边可见且颜色合适
-    const paths = svgElement.querySelectorAll('path')
-    paths.forEach(path => {
-      const p = path as SVGPathElement
-      // 确保边有颜色
-      const currentStroke = p.getAttribute('stroke')
-      if (!currentStroke || currentStroke === 'none' || currentStroke === '#b1b1b7') {
-        p.setAttribute('stroke', '#333333') // 深灰色边
-      } else if (currentStroke === '#b1b1b7') {
-        p.setAttribute('stroke', '#333333') // 将浅灰色边改为深灰色
-      }
-      p.style.stroke = p.getAttribute('stroke') || '#333333'
-
-      // 确保边有一定宽度
-      if (!p.getAttribute('stroke-width') || p.getAttribute('stroke-width') === '1') {
-        p.setAttribute('stroke-width', '2')
-      }
-    })
-
-    // 处理节点矩形 - 更彻底的处理
-    const nodeRects = svgElement.querySelectorAll('rect')
-    nodeRects.forEach(rect => {
-      const r = rect as SVGRectElement
-      const rectClass = r.getAttribute('class') || ''
-
-      // 如果是节点矩形
-      if (rectClass.includes('vue-flow_minimap-node') || rectClass.includes('node')) {
-        // 设置节点颜色为深色，确保在白色背景下可见
-        const currentFill = r.getAttribute('fill')
-        if (!currentFill || currentFill === '#ccc' || currentFill === '#d1d1d1' || currentFill === 'rgba(240, 240, 240, 0.6)') {
-          r.setAttribute('fill', '#555555') // 深灰色节点
-          r.style.fill = '#555555'
-        }
-
-        // 确保节点有边框
-        if (!r.getAttribute('stroke') || r.getAttribute('stroke') === 'transparent' || r.getAttribute('stroke') === 'none') {
-          r.setAttribute('stroke', '#222222') // 深灰色边框
-        }
-        r.style.stroke = r.getAttribute('stroke') || '#222222'
-
-        // 确保边框有一定宽度
-        if (!r.getAttribute('stroke-width') || r.getAttribute('stroke-width') === '0') {
-          r.setAttribute('stroke-width', '1.5')
-        }
-      }
-    })
-
-    // 计算节点边界框并调整视图
-    setTimeout(() => {
-      try {
-        const nodes = svgElement.querySelectorAll('.vue-flow_minimap-node')
-        if (nodes.length > 0) {
-          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-
-          nodes.forEach(node => {
-            const rect = node.getBoundingClientRect()
-            minX = Math.min(minX, rect.left)
-            minY = Math.min(minY, rect.top)
-            maxX = Math.max(maxX, rect.right)
-            maxY = Math.max(maxY, rect.bottom)
-          })
-
-          // 计算内容尺寸和中心点
-          const contentWidth = maxX - minX
-          const contentHeight = maxY - minY
-          const centerX = (minX + maxX) / 2
-          const centerY = (minY + maxY) / 2
-
-          // 计算缩放比例以适应90%的容器
-          const containerWidth = clone.clientWidth
-          const containerHeight = clone.clientHeight
-          const scaleX = (containerWidth * 1.9) / contentWidth // 90%宽度用于内容
-          const scaleY = (containerHeight * 1.9) / contentHeight // 90%高度用于内容
-          const scale = Math.min(scaleX, scaleY, 1) // 取最小值，不超过1
-
-          // 应用变换使内容居中
-          const transform = `translate(${containerWidth/2 - centerX * scale}px, ${containerHeight/2 - centerY * scale}px) scale(${scale})`
-          svgElement.style.transform = transform
-          svgElement.style.transformOrigin = '0 0'
-        }
-      } catch (error) {
-
-      }
-    }, 100)
-  }
-
-  hiddenContainer.appendChild(clone)
-  return hiddenContainer
-}
-
-/**
- * 备选方案：直接截图小地图并处理样式（使用onclone不修改原始元素）
- */
-const captureMiniMapDirect = async (miniMapElement: HTMLElement): Promise<string | null> => {
+const svgToPng = async (svgElement: SVGSVGElement, width: number, height: number): Promise<string | null> => {
   try {
+    // 创建Canvas
+    const canvas = document.createElement('canvas')
+    canvas.width = width * 2 // 高分辨率
+    canvas.height = height * 2
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
 
+    // 填充白色背景
+    ctx.fillStyle = '#f6f9fb'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // 创建临时容器用于居中显示
-    const tempContainer = document.createElement('div')
-    tempContainer.style.position = 'fixed'
-    tempContainer.style.left = '-9999px'
-    tempContainer.style.top = '-9999px'
-    tempContainer.style.width = '960px'
-    tempContainer.style.height = '540px'
-    tempContainer.style.backgroundColor = '#f6f9fb'
-    tempContainer.style.display = 'flex'
-    tempContainer.style.alignItems = 'center'
-    tempContainer.style.justifyContent = 'center'
-    tempContainer.style.overflow = 'hidden'
+    // 获取SVG的XML
+    const svgString = new XMLSerializer().serializeToString(svgElement)
+    const blob = new Blob([svgString], { type: 'image/svg+xml' })
+    const url = URL.createObjectURL(blob)
 
-    const clone = miniMapElement.cloneNode(true) as HTMLElement
-    clone.style.width = '115%'
-    clone.style.height = '115%'
-    // clone.style.margin = '0'
-    clone.style.marginLeft = '-150px'
-    // clone.style.marginTop = '-125px'
-    clone.style.marginBottom = '75px'
-    clone.style.padding = '0'
-
-    tempContainer.appendChild(clone)
-    document.body.appendChild(tempContainer)
-
-    const canvas = await html2canvas(tempContainer, {
-      backgroundColor: '#f6f9fb',
-      scale: 2,
-      useCORS: true,
-      allowTaint: false,
-      logging: true,
-      width: 800,
-      height: 450,
-      onclone: (clonedDocument, element) => {
-        // 在克隆的文档中修改样式，不影响原始元素
-        const clonedMiniMap = element.querySelector('.vue-flow__minimap') as HTMLElement
-        const clonedSvg = clonedMiniMap?.querySelector('svg') as SVGSVGElement
-
-        if (clonedMiniMap) {
-          clonedMiniMap.style.background = '#f6f9fb'
-          clonedMiniMap.style.backgroundColor = '#f6f9fb'
-          clonedMiniMap.style.border = 'none'
-          clonedMiniMap.style.boxShadow = 'none'
-          clonedMiniMap.style.width = '100%'
-          clonedMiniMap.style.height = '100%'
-        }
-
-        if (clonedSvg) {
-          clonedSvg.style.background = '#f6f9fb'
-          clonedSvg.style.backgroundColor = '#f6f9fb'
-
-          // 移除遮罩元素
-          const mask = clonedSvg.querySelector('.vue-flow__minimap-mask')
-          if (mask) mask.remove()
-
-          const background = clonedSvg.querySelector('.vue-flow__minimap-background')
-          if (background) background.remove()
-
-          // 增强节点和边的可见性
-          const nodes = clonedSvg.querySelectorAll('.vue-flow_minimap-node')
-          nodes.forEach(node => {
-            const n = node as SVGRectElement
-            const currentFill = n.getAttribute('fill')
-            if (!currentFill || currentFill === '#ccc' || currentFill === '#d1d1d1') {
-              n.setAttribute('fill', '#555555')
-            }
-            if (!n.getAttribute('stroke') || n.getAttribute('stroke') === 'transparent') {
-              n.setAttribute('stroke', '#222222')
-              n.setAttribute('stroke-width', '1.5')
-            }
-          })
-
-          const paths = clonedSvg.querySelectorAll('path')
-          paths.forEach(path => {
-            const p = path as SVGPathElement
-            const currentStroke = p.getAttribute('stroke')
-            if (!currentStroke || currentStroke === '#b1b1b7') {
-              p.setAttribute('stroke', '#333333')
-            }
-            if (!p.getAttribute('stroke-width') || p.getAttribute('stroke-width') === '1') {
-              p.setAttribute('stroke-width', '2')
-            }
-          })
-        }
+    // 创建图像并绘制到Canvas
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        URL.revokeObjectURL(url)
+        resolve(canvas.toDataURL('image/png'))
       }
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        resolve(null)
+      }
+      img.src = url
     })
-
-    document.body.removeChild(tempContainer)
-
-    return canvas.toDataURL('image/png')
   } catch (error) {
-
     return null
   }
 }
 
 /**
- * 小地图截图功能 - 纯白色背景，节点居中显示
+ * 处理小地图SVG样式的虚拟处理（创建临时style元素，不修改原DOM）
+ */
+const processMinimapSvgStyle = (svgElement: SVGSVGElement, tempContainer: HTMLElement): void => {
+  // 使用 CSS 而不是逐个修改元素属性，性能更好
+  const style = document.createElement('style')
+  style.textContent = `
+    .temp-minimap .vue-flow_minimap-node { fill: #555555; stroke: #222222; stroke-width: 1.5; }
+    .temp-minimap .vue-flow_minimap-node rect { fill: #555555; stroke: #222222; stroke-width: 1.5; }
+    .temp-minimap path { stroke: #333333; stroke-width: 2; }
+    .temp-minimap svg { background: #f6f9fb; }
+    .temp-minimap .vue-flow__minimap-mask,
+    .temp-minimap .vue-flow__minimap-background { display: none; }
+  `
+  tempContainer.appendChild(style)
+  tempContainer.classList.add('temp-minimap')
+}
+
+/**
+ * 简化版截图 - 直接导出SVG为PNG，性能最优
+ */
+const captureMinimapSimple = async (miniMapElement: HTMLElement): Promise<string | null> => {
+  try {
+    const svgElement = miniMapElement.querySelector('svg') as SVGSVGElement
+    if (!svgElement) return null
+
+    // 浅度克隆SVG
+    const clonedSvg = svgElement.cloneNode(true) as SVGSVGElement
+
+    // 使用CSS样式处理，性能优于逐元素修改
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs')
+    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    style.textContent = `
+      .vue-flow_minimap-node rect { fill: #555555; stroke: #222222; stroke-width: 1.5; }
+      path { stroke: #333333; stroke-width: 2; }
+      .vue-flow__minimap-mask { display: none; }
+      .vue-flow__minimap-background { display: none; }
+    `
+    defs.appendChild(style)
+    clonedSvg.insertBefore(defs, clonedSvg.firstChild)
+
+    // 设置背景
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    bgRect.setAttribute('width', '100%')
+    bgRect.setAttribute('height', '100%')
+    bgRect.setAttribute('fill', '#f6f9fb')
+    clonedSvg.insertBefore(bgRect, clonedSvg.firstChild)
+
+    const imageData = await svgToPng(clonedSvg, 800, 450)
+    return imageData
+  } catch (error) {
+    return null
+  }
+}
+
+/**
+ * 小地图截图功能 - 优化版本，去除html2canvas，使用SVG直接转PNG
  */
 export const captureMiniMap = async (vueFlowRef: any): Promise<string | null> => {
   if (!vueFlowRef) {
-
     return null
   }
 
   try {
-    // 等待DOM更新完成，确保新增节点已经渲染
-    await waitForDOMUpdate();
-
     // 获取小地图元素
     const miniMapElement = vueFlowRef.querySelector('.vue-flow__minimap') as HTMLElement
     if (!miniMapElement) {
-
       return null
     }
 
     // 检查是否存在节点，如果没有节点则直接返回null
     const graphStore = useGraphStore()
     if (graphStore.nodes.length === 0) {
-      console.log('minimapCapture: no nodes found')
       return null
     }
 
-    let imageData: string | null = null
+    // 直接使用简化版截图（性能最优）
+    const imageData = await captureMinimapSimple(miniMapElement)
 
-    // 先尝试直接截图方法（不修改原始元素）
-    imageData = await captureMiniMapDirect(miniMapElement)
-
-    // 如果直接截图失败，尝试克隆方法
-    if (!imageData) {
-
-      const hiddenContainer = createWhiteBackgroundMiniMap(miniMapElement)
-      document.body.appendChild(hiddenContainer)
-
-      // 等待渲染和变换应用
-      await new Promise(resolve => setTimeout(resolve, 300))
-
-      try {
-        const canvas = await html2canvas(hiddenContainer, {
-          backgroundColor: '#f6f9fb',
-          scale: 2,
-          useCORS: true,
-          allowTaint: false,
-          logging: true,
-          width: 800,
-          height: 450
-        })
-
-        imageData = canvas.toDataURL('image/png')
-
-      } catch (error) {
-
-      } finally {
-        // 清理
-        if (document.body.contains(hiddenContainer)) {
-          document.body.removeChild(hiddenContainer)
-        }
-      }
-    }
     if (imageData) {
       const base64String = imageData.replace(/^data:image\/\w+;base64,/, '')
       return base64String
     }
+
     return null
-
   } catch (error) {
-
     return null
   }
 }
@@ -390,19 +152,10 @@ export const saveMinimapScreenshot = (imageData: string, projectId: string): voi
  */
 export const autoCaptureMinimap = async (vueFlowRef: any): Promise<string | null> => {
   try {
-    // 在自动截图前增加额外的等待时间，确保DOM完全更新
-    await new Promise(resolve => setTimeout(resolve, 300));
-
+    // 直接调用，无需多余等待
     const base64String = await captureMiniMap(vueFlowRef)
-    if (base64String) {
-
-      return base64String
-    } else {
-
-      return null
-    }
+    return base64String || null
   } catch (error) {
-    console.error('自动截图失败:', error)
     return null
   }
 }

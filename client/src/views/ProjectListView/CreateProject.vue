@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-    import {ref} from 'vue';
+    import {ref, onMounted} from 'vue';
     import { useProjectStore } from '@/stores/projectStore';
     import { useModalStore } from '@/stores/modalStore';
     import { useUserStore } from '@/stores/userStore';
@@ -8,6 +8,14 @@
     const projectStore = useProjectStore();
     const modalStore = useModalStore();
     const userStore = useUserStore()
+
+    const inputRef = ref<HTMLInputElement | null>(null);
+
+    onMounted(() => {
+        if (inputRef.value) {
+            inputRef.value.focus();
+        }
+    });
 
     async function onCreateProject(){
         const success = await projectStore.createProject();
@@ -34,7 +42,7 @@
      <div class="create-project-container">
         <el-form class="create-project-form" label-position="top" @submit.prevent="onCreateProject">
             <el-form-item label="项目名称">
-                <input class="name-input" placeholder="请输入项目名称" v-model="projectStore.currentProjectName" @keyup.enter="onCreateProject"></input>
+                <input ref="inputRef" class="name-input" placeholder="请输入项目名称" v-model="projectStore.currentProjectName" @keyup.enter="onCreateProject" />
             </el-form-item>
             <!-- <el-form-item label="描述">
                 <el-switch></el-switch>

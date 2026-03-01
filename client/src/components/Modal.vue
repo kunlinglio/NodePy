@@ -319,6 +319,7 @@
         // padding: 10px 15px;
         background-color: $background-color;
         z-index: 1000; /* 确保模态框在遮罩上方 */
+        user-select: none;
     }
     .modal-head{
         display: flex;

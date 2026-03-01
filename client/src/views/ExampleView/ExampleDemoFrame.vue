@@ -1,6 +1,7 @@
 <script lang="ts" setup>
     import { useUserStore } from '@/stores/userStore';
     import type { ExploreListItem } from '@/utils/api';
+    import Tag from '@/components/Tag.vue';
     import { computed } from 'vue';
     import { useRouter } from 'vue-router';
 
@@ -72,6 +73,19 @@
         <!-- 项目信息区域 -->
         <div class="project-info">
             <div class="project-title">{{ item.project_name }}</div>
+            <div class="project-tags">
+                <div v-if="!props" class="tags-container">
+                    <!-- <Tag
+                        v-for="tag in props.tags" 
+                        :key="tag.content" 
+                        :tag="tag"
+                        >
+                    </Tag> -->
+                </div>
+                <div v-else class="tags-container">
+                    暂无标签
+                </div>
+            </div>
             <div class="project-meta">
                 <div class="meta-item-row">
                     <span class="meta-item">修改: {{ formatDate(item.updated_at) }}</span>
@@ -152,6 +166,7 @@
     flex-direction:column;
     gap:6px;
     min-height: 75px; /* ensure new-card height matches cards with meta */
+    // height: 100px;
 }
 .project-title{
     font-weight:700;
@@ -167,6 +182,13 @@
     gap:5px;
     font-size:12px;
     color:#6b7f8f;
+}
+.project-tags{
+    font-size:12px;
+}
+.tags-container{
+    display: flex;
+    gap: 10px;
 }
 .meta-item{opacity:0.95}
 

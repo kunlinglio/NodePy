@@ -23,6 +23,8 @@ import {
   mdiFolder,
   mdiProjectorScreenOutline,
   mdiProjectorScreen,
+  mdiAccountGroup,
+  mdiAccountGroupOutline
 } from '@mdi/js';
 import notify from "./Notification/notify";
 
@@ -32,6 +34,8 @@ const home_path_outline = mdiHomeOutline;
 const home_path_filled = mdiHome;
 const project_path_outline = mdiProjectorScreenOutline;
 const project_path_filled = mdiProjectorScreen;
+const square_path_outline = mdiAccountGroupOutline;
+const square_path_filled = mdiAccountGroup;
 const file_path_outline = mdiFolderOutline;
 const file_path_filled = mdiFolder;
 
@@ -50,9 +54,10 @@ const showProjectName = computed(()=>{
 // 导航项
 const navItems = [
   { name: 'Home', path: '/home', label: '首页', iconOutline: home_path_outline, iconFilled: home_path_filled },
-  { name: 'Example', path: '/example', label: '探索', iconOutline: explore_path_outline, iconFilled: explore_path_filled },
+  { name: 'Example', path: '/example', label: '广场', iconOutline: square_path_outline, iconFilled: square_path_filled },
   { name: 'Project', path: '/project', label: '工作台', iconOutline: project_path_outline, iconFilled: project_path_filled },
   { name: 'File', path: '/file', label: '文件库', iconOutline: file_path_outline, iconFilled: file_path_filled },
+  { name: 'Explore', path: '/explore', label: '探索', iconOutline: explore_path_outline, iconFilled: explore_path_filled}
 ]
 
 // 判断当前页面是否激活

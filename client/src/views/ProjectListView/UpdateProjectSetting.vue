@@ -44,6 +44,11 @@
                 <input class="name-input" placeholder="请输入新的项目名称" v-model="projectStore.currentProjectName"></input>
             </el-form-item>
         </el-form>
+        <div class="tags-container">
+            <div>
+                我是标签
+            </div>
+        </div>
         <div class="checkbox-wrapper">
             <span class="checkbox-label">设为公开项目</span>
             <label class="checkbox-container">
