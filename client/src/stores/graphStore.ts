@@ -525,6 +525,7 @@ export const useGraphStore = defineStore('graph', () => {
               x_col: '',
               y_col: [''],
               plot_type: ['line'],
+              y_axis: ['left'],
               title: null
             }
           }

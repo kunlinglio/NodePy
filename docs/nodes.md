@@ -487,6 +487,7 @@ method: 转换方法，类型为str，取值为"FLOOR", "CEIL", "ROUND"。
 - x_col: x轴列名，类型为str，表格中该列的类型必须为int, float, str或datetime。
 - y_col: y轴列名，类型为list[str]，表格中该列的类型必须为int或float。
 - plot_type: 图形类型，类型为list[str], str取值为"scatter", "line", "bar", "area"。
+- y_axis: y轴位置，类型为list[str], str取值为"left", "right"。
 - title: 图形标题，类型为str，可以为空。
 
 **输入：**

@@ -400,6 +400,7 @@ export interface QuickPlotNodeParam {
     x_col: string
     y_col: string[]
     plot_type: ("scatter" | "line" | "bar" | "area")[]
+    y_axis: ("left" | "right")[]
     title: string | null
 }
 export type QuickPlotNodeData = BaseData & {
