@@ -2,7 +2,6 @@ import vue from '@vitejs/plugin-vue'
 import type { ServerResponse } from 'http'
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
-import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default ({ mode }: { mode: string }) => {
@@ -15,7 +14,6 @@ export default ({ mode }: { mode: string }) => {
     base: basePath,
     plugins: [
       vue(),
-      vueDevTools(),
     ],
     resolve: {
       alias: {
@@ -29,7 +27,7 @@ export default ({ mode }: { mode: string }) => {
           target: apiUrl,
           changeOrigin: true,
           secure: false,
-          configure: (proxy, options) => {
+          configure: (proxy) => {
             // 添加错误处理，当目标服务器不可用时返回 503
             proxy.on('error', (err, req, res) => {
               // 类型断言为 ServerResponse，避免 TypeScript 错误

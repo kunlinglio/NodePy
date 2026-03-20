@@ -1,4 +1,4 @@
-from typing import Dict, Generator, Literal, override
+from typing import Dict, Generator, override
 
 import pandas as pd
 from pydantic import PrivateAttr
@@ -12,7 +12,7 @@ from server.models.schema import (
     Schema,
 )
 
-from ..base_node import InPort, OutPort, register_node
+from ...base_node import InPort, OutPort, register_node
 from .for_base_node import ForBaseBeginNode, ForBaseEndNode
 
 """
@@ -24,11 +24,6 @@ class ForEachRowBeginNode(ForBaseBeginNode):
     """
     Marks the beginning of a row-by-row loop.
     """
-
-    @property
-    @override
-    def pair_type(self) -> Literal["BEGIN", "END"]:
-        return "BEGIN"
 
     @override
     def validate_parameters(self) -> None:
@@ -93,11 +88,6 @@ class ForEachRowEndNode(ForBaseEndNode):
     """
 
     _output_rows: list[Data] = PrivateAttr(default=[])
-
-    @property
-    @override
-    def pair_type(self) -> Literal["BEGIN", "END"]:
-        return "END"
 
     @override
     def validate_parameters(self) -> None:
@@ -169,9 +159,9 @@ class ForEachRowEndNode(ForBaseEndNode):
         combined_col_types = self._output_rows[0].payload.col_types
         return {
             "table": Data(
-                    payload=Table(
-                        df=combined_df,
-                        col_types=combined_col_types
-                    )
+                payload=Table(
+                    df=combined_df,
+                    col_types=combined_col_types
                 )
+            )
         }

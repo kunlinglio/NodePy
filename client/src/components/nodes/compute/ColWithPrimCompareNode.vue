@@ -1,58 +1,54 @@
 <template>
-    <div class="ColWithNumberBinOpNodeLayout nodes-style" :class="[{'nodes-selected': selected}, {'nodes-dbclicked': data.dbclicked}]">
-        <NodeTitle node-category="compute">列二元运算</NodeTitle>
+    <div class="ColWithPrimCompareNodeLayout nodes-style" :class="[{'nodes-selected': selected}, {'nodes-dbclicked': data.dbclicked}]">
+        <NodeTitle node-category="compute">列与常量比较</NodeTitle>
         <Timer :node-id="id" :default-time="data.runningtime"/>
         <div class="data">
             <div class="input-table port">
                 <div class="input-port-description">
-                    表格T
+                    表格
                 </div>
                 <Handle id="table" type="target" :position="Position.Left" :class="[`${table_type}-handle-color`, {'node-errhandle': inputTableHasErr.value}]"/>
             </div>
-            <div class="input-num port">
-                <div class="input-port-description" :class="{'node-has-paramerr': numHasErr.value}">
-                    数值n
+            <div class="input-const port">
+                <div class="input-port-description" :class="{'node-has-paramerr': constHasErr.value}">
+                    常量
                 </div>
-                <Handle id="num" type="target" :position="Position.Left" :class="[`${num_type}-handle-color`, {'node-errhandle': inputNumHasErr.value}]"/>
+                <Handle id="const" type="target" :position="Position.Left" :class="[`${inputConst_type}-handle-color`, {'node-errhandle': inputConstHasErr.value}]"/>
             </div>
-            <div class="num">
+            <div class="const">
                 <NodepyNumberInput
-                    v-if="data.param.data_type === 'int'"
-                    v-model="num"
+                    v-if="data.param.data_type == 'int'"
+                    v-model="constValue"
                     class="nodrag"
-                    @update-value="() => {
-                        updateSimpleStringNumberBoolValue(data.param, 'num', num)
-                    }"
-                    :disabled="numDisabled"
+                    @update-value="() => updateSimpleStringNumberBoolValue(data.param, 'const', constValue)"
+                    :disabled="constDisabled"
                     :allow-empty="true"
-                />
+                 />
                 <NodepyNumberInput
-                    v-else-if="data.param.data_type === 'float'"
-                    v-model="num"
+                    v-else-if="data.param.data_type == 'float'"
+                    v-model="constValue"
                     class="nodrag"
-                    @update-value="() => {
-                        updateSimpleStringNumberBoolValue(data.param, 'num', num)
-                    }"
+                    @update-value="() => updateSimpleStringNumberBoolValue(data.param, 'const', constValue)"
                     :denominator="1000"
-                    :disabled="numDisabled"
+                    :disabled="constDisabled"
                     :allow-empty="true"
                  />
             </div>
             <div class="data_type">
-                <div class="param-description" :class="{'node-has-paramerr': data_typeHasErr.value}">
-                    数据类型
+                <div class="param-description">
+                    类型
                 </div>
                 <NodepySelectFew
-                    :options="data_typeUi"
-                    :default-selected="defaultSelectedData_type"
-                    @select-change="(e) => {
-                        updateSimpleSelectFew(data.param, 'data_type', data_type, e)
-                        if(data.param.data_type === 'int') {
-                            num = Math.floor(num || 0)
-                            updateSimpleStringNumberBoolValue(data.param, 'num', num)
+                    :options="dataTypeUi"
+                    :default-selected="defaultSelectedDataType"
+                    @select-change="(e: any) => {
+                        updateSimpleSelectFew(data.param, 'data_type', dataType, e)
+                        if(data.param.data_type == 'int') {
+                            constValue = Math.floor(constValue || 0)
+                            updateSimpleStringNumberBoolValue(data.param, 'const', constValue)
                         }
                     }"
-                    :disabled="numDisabled"
+                    :disabled="constDisabled"
                     class="nodrag"
                 />
             </div>
@@ -63,7 +59,7 @@
                 <NodepySelectMany
                     :options="opUi"
                     :default-selected="defaultSelectedOP"
-                    @select-change="(e) => updateSimpleSelectMany(data.param, 'op', op, e)"
+                    @select-change="(e: any) => updateSimpleSelectMany(data.param, 'op', op, e)"
                     class="nodrag"
                 />
             </div>
@@ -74,7 +70,7 @@
                 <NodepySelectMany
                     :options="colHint"
                     :default-selected="defaultSelectedCol"
-                    @select-change="(e) => updateSimpleSelectMany(data.param, 'col', colHint, e)"
+                    @select-change="(e: any) => updateSimpleSelectMany(data.param, 'col', colHint, e)"
                     @clear-select="clearSelectCol"
                     class="nodrag"
                 />
@@ -83,12 +79,7 @@
                 <div class="param-description" :class="{'node-has-paramerr': result_colHasErr.value}">
                     结果列
                 </div>
-                <NodepyStringInput 
-                    v-model="result_col" 
-                    @update-value="() => updateSimpleStringNumberBoolValue(data.param, 'result_col', result_col)" 
-                    class="nodrag" 
-                    placeholder="结果列名"
-                />
+                <NodepyStringInput v-model="result_col" @update-value="() => updateSimpleStringNumberBoolValue(data.param, 'result_col', result_col)" class="nodrag" placeholder="结果列名"/>
             </div>
             <div class="output-table port">
                 <div class="output-port-description">
@@ -111,23 +102,22 @@
     import ErrorMsg from '../tools/ErrorMsg.vue'
     import NodeTitle from '../tools/NodeTitle.vue'
     import Timer from '../tools/Timer.vue'
+    import NodepySelectFew from '../tools/Nodepy-selectFew.vue'
     import NodepySelectMany from '../tools/Nodepy-selectMany.vue'
     import NodepyStringInput from '../tools/Nodepy-StringInput.vue'
     import NodepyNumberInput from '../tools/Nodepy-NumberInput/Nodepy-NumberInput.vue'
-    import NodepySelectFew from '../tools/Nodepy-selectFew.vue'
     import { hasInputEdge } from '../hasEdge'
-    import { updateSimpleStringNumberBoolValue, updateSimpleSelectFew, updateSimpleSelectMany } from '../updateParam'
-    import type { ColWithNumberBinOpNodeData } from '@/types/nodeTypes'
+    import { updateSimpleStringNumberBoolValue, updateSimpleSelectMany, updateSimpleSelectFew } from '../updateParam'
+    import { dataTypeColor } from '@/types/nodeTypes'
+    import type { ColWithPrimCompareNodeData } from '@/types/nodeTypes'
 
 
-    const props = defineProps<NodeProps<ColWithNumberBinOpNodeData>>()
-    const num = ref(props.data.param.num)
-    const numDisabled = computed(() => hasInputEdge(props.id, 'num'))
-    const data_type = ['int', 'float']
-    const data_typeUi = ['整数', '浮点数']
-    const defaultSelectedData_type = [data_type.indexOf(props.data.param.data_type)]
-    const op = ["ADD", "COL_SUB_NUM", "NUM_SUB_COL", "MUL", "COL_DIV_NUM", "NUM_DIV_COL", "COL_POW_NUM", "NUM_POW_COL"]
-    const opUi = ["T + n", "T - n", "n - T", "T * n", "T / n", "n / T", "T ^ n", "n ^ T"]
+    const props = defineProps<NodeProps<ColWithPrimCompareNodeData>>()
+    const dataType = ['int', 'float']
+    const dataTypeUi = ['整数', '浮点数']
+    const defaultSelectedDataType = [dataType.indexOf(props.data.param.data_type)]
+    const op = ["EQ", "NEQ", "LT", "LTE", "GT", "GTE"]
+    const opUi = ['等于', '不等于', '小于', '小于等于', '大于', '大于等于']
     const defaultSelectedOP = op.indexOf(props.data.param.op)
     const colHint = computed(() => {
         if(props.data.hint?.col_choices?.length === 0) return ['']
@@ -135,26 +125,24 @@
     })
     const col = ref(props.data.param.col)   //  used for defaultSelectedCol
     const defaultSelectedCol = computed(() => colHint.value.indexOf(col.value))
-    const result_col = ref(props.data.param.result_col || '')
+    const result_col = ref(props.data.param.result_col)
+    const constValue = ref(props.data.param.const)
+    const constDisabled = computed(() => hasInputEdge(props.id, 'const'))
     const table_type = computed(() => getInputType(props.id, 'table'))
-    const num_type = computed(() => getInputType(props.id, 'num'))
+    const inputConst_type = computed(() => getInputType(props.id, 'const'))
     const schema_type = computed(():server__models__schema__Schema__Type|'default' => props.data.schema_out?.['table']?.type || 'default')
     const outputTableHasErr = computed(() => handleOutputError(props.id, 'table'))
     const errMsg = ref<string[]>([])
-    const numHasErr = ref({
-        id: 'num',
-        value: false
-    })
-    const data_typeHasErr = ref({
-        id: 'data_type',
-        value: false
-    })
     const opHasErr = ref({
         id: 'op',
         value: false
     })
     const colHasErr = ref({
         id: 'col',
+        value: false
+    })
+    const constHasErr = ref({
+        id: 'const',
         value: false
     })
     const result_colHasErr = ref({
@@ -165,9 +153,17 @@
         handleId: 'table',
         value: false
     })
-    const inputNumHasErr = ref({
-        handleId: 'num',
+    const inputConstHasErr = ref({
+        handleId: 'const',
         value: false
+    })
+    const constHandleColor = computed(() => {
+        switch(props.data.param.data_type) {
+            case 'int':
+                return dataTypeColor.int
+            case 'float':
+                return dataTypeColor.float
+        }
     })
 
 
@@ -181,8 +177,8 @@
     watch(() => JSON.stringify(props.data.error), () => {
         errMsg.value = []
         handleExecError(props.data.error, errMsg)
-        handleParamError(props.data.error, errMsg, numHasErr, data_typeHasErr, opHasErr, colHasErr, result_colHasErr)
-        handleValidationError(props.id, props.data.error, errMsg, inputTableHasErr, inputNumHasErr)
+        handleParamError(props.data.error, errMsg, opHasErr, colHasErr, constHasErr, result_colHasErr)
+        handleValidationError(props.id, props.data.error, errMsg, inputTableHasErr, inputConstHasErr)
     }, {immediate: true})
 
 </script>
@@ -190,7 +186,7 @@
 <style lang="scss" scoped>
     @use '../../../common/global.scss' as *;
     @use '../../../common/node.scss' as *;
-    .ColWithNumberBinOpNodeLayout {
+    .ColWithPrimCompareNodeLayout {
         height: 100%;
         .data {
             padding-top: $node-padding-top;
@@ -198,10 +194,10 @@
             .input-table {
                 margin-bottom: $node-margin;
             }
-            .input-num {
+            .input-const {
                 margin-bottom: 2px;
             }
-            .num, .data_type, .op, .col, .result_col {
+            .data_type, .op, .col, .const, .result_col {
                 padding: 0 $node-padding-hor;
                 margin-bottom: $node-margin;
             }
@@ -210,7 +206,7 @@
     .all-handle-color[data-handleid="table"] {
         background: $table-color;
     }
-    .all-handle-color[data-handleid="num"] {
-        background: linear-gradient(to bottom, $int-color 0 50%, $float-color 50% 100%);
+    .all-handle-color[data-handleid="const"] {
+        background: v-bind(constHandleColor);
     }
 </style>

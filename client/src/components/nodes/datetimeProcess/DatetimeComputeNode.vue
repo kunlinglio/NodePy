@@ -10,10 +10,51 @@
                 <Handle id="datetime" type="target" :position="Position.Left" :class="[`${datetime_type}-handle-color`, {'node-errhandle': datetimeHasErr.value}]"/>
             </div>
             <div class="input-value port">
-                <div class="input-port-description">
+                <div class="input-port-description" :class="{'node-has-paramerr': valueHasErr.value}">
                     数值
                 </div>
-                <Handle id="value" type="target" :position="Position.Left" :class="[`${value_type}-handle-color`, {'node-errhandle': valueHasErr.value}]"/>
+                <Handle id="value" type="target" :position="Position.Left" :class="[`${value_type}-handle-color`, {'node-errhandle': inputValueHasErr.value}]"/>
+            </div>
+            <div class="value">
+                <NodepyNumberInput
+                    v-if="data.param.data_type === 'int'"
+                    v-model="value"
+                    class="nodrag"
+                    @update-value="() => {
+                        updateSimpleStringNumberBoolValue(data.param, 'value', value)
+                    }"
+                    :disabled="valueDisabled"
+                    :allow-empty="true"
+                />
+                <NodepyNumberInput
+                    v-else-if="data.param.data_type === 'float'"
+                    v-model="value"
+                    class="nodrag"
+                    @update-value="() => {
+                        updateSimpleStringNumberBoolValue(data.param, 'value', value)
+                    }"
+                    :denominator="1000"
+                    :disabled="valueDisabled"
+                    :allow-empty="true"
+                 />
+            </div>
+            <div class="data_type">
+                <div class="param-description" :class="{'node-has-paramerr': data_typeHasErr.value}">
+                    数据类型
+                </div>
+                <NodepySelectFew
+                    :options="data_typeUi"
+                    :default-selected="defaultSelectedData_type"
+                    @select-change="(e) => {
+                        updateSimpleSelectFew(data.param, 'data_type', data_type, e)
+                        if(data.param.data_type === 'int') {
+                            value = Math.floor(value || 0)
+                            updateSimpleStringNumberBoolValue(data.param, 'value', value)
+                        }
+                    }"
+                    :disabled="valueDisabled"
+                    class="nodrag"
+                />
             </div>
             <div class="op">
                 <div class="param-description" :class="{'node-has-paramerr': opHasErr.value}">
@@ -22,7 +63,7 @@
                 <NodepySelectFew
                     :options="opChinese"
                     :default-selected="defaultSelectedOp"
-                    @select-change="onSelectChangeOp"
+                    @select-change="(e) => updateSimpleSelectFew(data.param, 'op', op, e)"
                     class="nodrag"
                 />
             </div>
@@ -33,7 +74,7 @@
                 <NodepySelectMany
                     :options="unitChinese"
                     :default-selected="defaultSelectedUnit"
-                    @select-change="onSelectChangeUnit"
+                    @select-change="(e) => updateSimpleSelectMany(data.param, 'unit', unit, e)"
                     class="nodrag"
                 />
             </div>
@@ -60,10 +101,18 @@
     import Timer from '../tools/Timer.vue'
     import NodepySelectFew from '../tools/Nodepy-selectFew.vue'
     import NodepySelectMany from '../tools/Nodepy-selectMany.vue'
+    import NodepyNumberInput from '../tools/Nodepy-NumberInput/Nodepy-NumberInput.vue'
+    import { hasInputEdge } from '../hasEdge'
+    import { updateSimpleStringNumberBoolValue, updateSimpleSelectFew, updateSimpleSelectMany } from '../updateParam'
     import type { DatetimeComputeNodeData } from '@/types/nodeTypes'
 
 
     const props = defineProps<NodeProps<DatetimeComputeNodeData>>()
+    const value = ref(props.data.param.value)
+    const valueDisabled = computed(() => hasInputEdge(props.id, 'value'))
+    const data_type = ['int', 'float']
+    const data_typeUi = ['整数', '浮点数']
+    const defaultSelectedData_type = [data_type.indexOf(props.data.param.data_type)]
     const op = ["ADD", "SUB"]
     const opChinese = ['加法', '减法']
     const defaultSelectedOp = [op.indexOf(props.data.param.op)]
@@ -75,6 +124,14 @@
     const schema_type = computed(():server__models__schema__Schema__Type|'default' => props.data.schema_out?.['result']?.type || 'default')
     const resultHasErr = computed(() => handleOutputError(props.id, 'result'))
     const errMsg = ref<string[]>([])
+    const valueHasErr = ref({
+        id: 'value',
+        value: false
+    })
+    const data_typeHasErr = ref({
+        id: 'data_type',
+        value: false
+    })
     const opHasErr = ref({
         id: 'op',
         value: false
@@ -87,27 +144,17 @@
         handleId: 'datetime',
         value: false
     })
-    const valueHasErr = ref({
+    const inputValueHasErr = ref({
         handleId: 'value',
         value: false
     })
 
 
-    const onSelectChangeOp = (e: any) => {
-        const selected_op = op[e[0]] as 'ADD' | 'SUB'
-        props.data.param.op = selected_op
-    }
-    const onSelectChangeUnit = (e: any) => {
-        const selected_unit = unit[e] as 'DAYS' | 'HOURS' | 'MINUTES' | 'SECONDS'
-        props.data.param.unit = selected_unit
-    }
-
-
     watch(() => JSON.stringify(props.data.error), () => {
         errMsg.value = []
         handleExecError(props.data.error, errMsg)
-        handleParamError(props.data.error, errMsg, opHasErr, unitHasErr)
-        handleValidationError(props.id, props.data.error, errMsg, datetimeHasErr, valueHasErr)
+        handleParamError(props.data.error, errMsg, valueHasErr, data_typeHasErr, opHasErr, unitHasErr)
+        handleValidationError(props.id, props.data.error, errMsg, datetimeHasErr, inputValueHasErr)
     }, {immediate: true})
 
 </script>
@@ -120,10 +167,13 @@
         .data {
             padding-top: $node-padding-top;
             padding-bottom: $node-padding-bottom;
-            .input-datetime, .input-value {
+            .input-datetime {
                 margin-bottom: $node-margin;
             }
-            .op, .unit {
+            .input-value {
+                margin-bottom: 2px;
+            }
+            .value, .data_type, .op, .unit {
                 padding: 0 $node-padding-hor;
                 margin-bottom: $node-margin;
             }

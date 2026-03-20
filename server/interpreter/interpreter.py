@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from server import DEBUG, logger
 from server.config import TRACING_ENABLED
-from server.interpreter.nodes.control.for_base_node import (
+from server.interpreter.nodes.control.loop.for_base_node import (
     ForBaseBeginNode,
     ForBaseEndNode,
 )
@@ -28,13 +28,14 @@ class ProjectInterpreter:
     The class to interpret and execute a workflow topology.
     """
 
-    def __init__(self, 
-                 topology: WorkflowTopology, 
-                 file_manager: FileManager, 
-                 cache_manager: CacheManager,
-                 financial_data_manager: FinancialDataManager,
-                 user_id: int,
-                ) -> None:
+    def __init__(
+        self,
+        topology: WorkflowTopology,
+        file_manager: FileManager,
+        cache_manager: CacheManager,
+        financial_data_manager: FinancialDataManager,
+        user_id: int,
+    ) -> None:
         trace_begin: float | None = None
         if TRACING_ENABLED:
             trace_begin = time.perf_counter()
@@ -42,7 +43,7 @@ class ProjectInterpreter:
         self._nodes: list[TopoNode | None] = topology.nodes
         self._edges: list[TopoEdge] = topology.edges
         self._graph: nx.MultiDiGraph = nx.MultiDiGraph()
-        self._graph.add_nodes_from(node.id for node in self._nodes if node is not None) # add nodes as indices
+        self._graph.add_nodes_from(node.id for node in self._nodes if node is not None)  # add nodes as indices
         for edge in self._edges:
             self._graph.add_edge(edge.src, edge.tar, src_port=edge.src_port, tar_port=edge.tar_port)
         if not nx.is_directed_acyclic_graph(self._graph):
@@ -52,14 +53,14 @@ class ProjectInterpreter:
         self._exec_queue: list[str] = []
         self._stage: Literal["init", "constructed", "static_analyzed", "running", "finished"] = "init"
         # construct global config
-        self._cache_manager = cache_manager # used only by Interpreter itself, no need to pass to nodes
+        self._cache_manager = cache_manager  # used only by Interpreter itself, no need to pass to nodes
         self._context = NodeContext(
-            file_manager=file_manager, 
-            financial_data_manager=financial_data_manager, 
-            user_id=user_id, 
-            project_id=topology.project_id
+            file_manager=file_manager,
+            financial_data_manager=financial_data_manager,
+            user_id=user_id,
+            project_id=topology.project_id,
         )
-        # cache unreached node ids, each period will only process nodes not in this list, and may append more unreached nodes 
+        # cache unreached node ids, each period will only process nodes not in this list, and may append more unreached nodes
         self._unreached_node_ids: set[str] = set()
         self._control_structure_manager: ControlStructureManager | None = None
 
@@ -69,9 +70,9 @@ class ProjectInterpreter:
             logger.debug(f"[Tracing] Initialized ProjectInterpreter in {(end_time - trace_begin) * 1000:.2f} ms.")
 
     def construct_nodes(self, callback: Callable[[str, Literal["success", "error"], Exception | None], bool]) -> None:
-        """ 
+        """
         Construct node instances from node definitions to test if there are parameter errors .
-        
+
         The callback function will look like:
         continue_execution = callback(node_id: str, status: Literal["success", "error"], exception: Exception | None) -> bool
         If continue_execution is False, the execution will stop.
@@ -79,7 +80,7 @@ class ProjectInterpreter:
         trace_begin: float | None = None
         if TRACING_ENABLED:
             trace_begin = time.perf_counter()
-        
+
         if self._stage != "init":
             raise AssertionError(f"Graph is already in stage '{self._stage}', cannot construct nodes again.")
         self._exec_queue = list(nx.topological_sort(self._graph))
@@ -97,13 +98,11 @@ class ProjectInterpreter:
                     raise RuntimeError("Node objects initialized failed.")
                 self._node_objects[id] = node_object
             except ValidationError as e:
-                self._unreached_node_ids.update(
-                    [node_id, *nx.descendants(self._graph, node_id)]
-                )
+                self._unreached_node_ids.update([node_id, *nx.descendants(self._graph, node_id)])
                 # convert pydantic ValidationError to parameter error with more information
                 errors = e.errors()
-                err_params: list[str] = [str(error['loc'][-1]) for error in errors]
-                err_msgs: list[str] = [error['msg'] for error in errors]
+                err_params: list[str] = [str(error["loc"][-1]) for error in errors]
+                err_msgs: list[str] = [error["msg"] for error in errors]
                 param_error = NodeParameterError(
                     node_id=node_id,
                     err_param_keys=err_params,
@@ -115,9 +114,7 @@ class ProjectInterpreter:
                 else:
                     continue
             except Exception as e:
-                self._unreached_node_ids.update(
-                    [node_id, *nx.descendants(self._graph, node_id)]
-                )
+                self._unreached_node_ids.update([node_id, *nx.descendants(self._graph, node_id)])
                 continue_execution = callback(id, "error", e)
                 if not continue_execution:
                     return
@@ -131,7 +128,7 @@ class ProjectInterpreter:
                     continue
 
         self._stage = "constructed"
-        
+
         if TRACING_ENABLED:
             assert trace_begin is not None
             end_time = time.perf_counter()
@@ -139,11 +136,13 @@ class ProjectInterpreter:
 
         return
 
-    def static_analyse(self, callback: Callable[[str, Literal["success", "error"], dict[str, Any] | Exception], bool]) -> None:
-        """ 
-        Perform static analysis to infer schemas and validate the graph 
+    def static_analyse(
+        self, callback: Callable[[str, Literal["success", "error"], dict[str, Any] | Exception], bool]
+    ) -> None:
+        """
+        Perform static analysis to infer schemas and validate the graph
         The callback function will look like:
-        
+
         continue_execution = callback(node_id: str, status: Literal["success", "error"], result: dict[str, Any] | Exception) -> bool
         """
         trace_begin: float | None = None
@@ -153,21 +152,21 @@ class ProjectInterpreter:
         if self._stage != "constructed":
             raise AssertionError(f"Graph is in stage '{self._stage}', cannot perform static analysis.")
 
-        schema_cache : dict[tuple[str, str], Schema] = {} # cache for node output schema: (node_id, port) -> Schema
-        
+        schema_cache: dict[tuple[str, str], Schema] = {}  # cache for node output schema: (node_id, port) -> Schema
+
         for node_id in self._exec_queue:
             # if one node fails, all its descendants will be skipped for avoiding redundant errors
             if node_id in self._unreached_node_ids:
                 continue
             node = self._node_objects[node_id]
-            in_edges = list(self._graph.in_edges(node_id, data=True)) # type: ignore
+            in_edges = list(self._graph.in_edges(node_id, data=True))  # type: ignore
 
             # get input schema
-            input_schemas : dict[str, Schema] = {}
+            input_schemas: dict[str, Schema] = {}
             for edge in in_edges:
                 src_id, _, edge_data = edge
-                src_port = edge_data['src_port']
-                tar_port = edge_data['tar_port']
+                src_port = edge_data["src_port"]
+                tar_port = edge_data["tar_port"]
                 src_schema = schema_cache[(src_id, src_port)]
                 input_schemas[tar_port] = src_schema
 
@@ -175,20 +174,20 @@ class ProjectInterpreter:
             try:
                 input_schemas_hash: str = ""
                 if DEBUG:
-                    input_schemas_hash = safe_hash(input_schemas) # guard to avoid accidental mutation
+                    input_schemas_hash = safe_hash(input_schemas)  # guard to avoid accidental mutation
 
                 output_schemas = node.infer_schema(input_schemas)
 
                 if DEBUG:
                     if safe_hash(input_schemas) != input_schemas_hash:
-                        raise AssertionError(f"Node {node_id} in type {node.type} input schemas were modified during inference, which is not allowed.")
+                        raise AssertionError(
+                            f"Node {node_id} in type {node.type} input schemas were modified during inference, which is not allowed."
+                        )
                 # store output schema
                 for tar_port, schema in output_schemas.items():
                     schema_cache[(node_id, tar_port)] = schema
             except Exception as e:
-                self._unreached_node_ids.update(
-                    [node_id, *nx.descendants(self._graph, node_id)]
-                )
+                self._unreached_node_ids.update([node_id, *nx.descendants(self._graph, node_id)])
                 continue_execution = callback(node_id, "error", e)
                 if not continue_execution:
                     return
@@ -203,11 +202,13 @@ class ProjectInterpreter:
 
         # analyze control structures
         self._control_structure_manager = ControlStructureManager()
-        unreached = self._control_structure_manager.analyze(self._graph, self._node_objects, self._unreached_node_ids, callback)
+        unreached = self._control_structure_manager.analyze(
+            self._graph, self._node_objects, self._unreached_node_ids, callback
+        )
         self._unreached_node_ids.update(unreached)
 
         self._stage = "static_analyzed"
-        
+
         if TRACING_ENABLED:
             assert trace_begin is not None
             end_time = time.perf_counter()
@@ -215,13 +216,14 @@ class ProjectInterpreter:
 
         return
 
-    def execute(self, 
-                callbefore: Callable[[str], None], 
-                callafter: Callable[[str, Literal["success", "error"], dict[str, Any] | Exception, float | None], bool],
+    def execute(
+        self,
+        callbefore: Callable[[str], None],
+        callafter: Callable[[str, Literal["success", "error"], dict[str, Any] | Exception, float | None], bool],
     ) -> None:
-        """ 
+        """
         Execute the graph in topological order.
-        
+
         The callbefore function will look like:
         callbefore(node_id: str) -> None
         The callafter function will look like:
@@ -235,7 +237,7 @@ class ProjectInterpreter:
             raise AssertionError(f"Graph is in stage '{self._stage}', cannot run.")
         assert self._control_structure_manager is not None, "Control structure manager is not initialized."
 
-        data_cache : dict[tuple[str, str], Data] = {} # cache for node output data: (node_id, port) -> Data
+        data_cache: dict[tuple[str, str], Data] = {}  # cache for node output data: (node_id, port) -> Data
         for node_id in self._exec_queue:
             if node_id in self._unreached_node_ids:
                 continue
@@ -245,14 +247,14 @@ class ProjectInterpreter:
             if self._control_structure_manager.is_end_node(node_id):
                 # end nodes' outputs are set in control structure execution
                 continue
-            in_edges = list(self._graph.in_edges(node_id, data=True)) # type: ignore
+            in_edges = list(self._graph.in_edges(node_id, data=True))  # type: ignore
 
             # 1. get input data
-            input_data : dict[str, Data] = {}
+            input_data: dict[str, Data] = {}
             for edge in in_edges:
                 src_id, _, edge_data = edge
-                src_port = edge_data['src_port']
-                tar_port = edge_data['tar_port']
+                src_port = edge_data["src_port"]
+                tar_port = edge_data["tar_port"]
                 src_data = data_cache[(src_id, src_port)]
                 input_data[tar_port] = src_data
 
@@ -283,26 +285,23 @@ class ProjectInterpreter:
             else:
                 try:
                     output_data, running_time = self._execute_single_node(
-                        node_id, 
-                        input_data, 
-                        callbefore,
-                        use_cache=True
+                        node_id, input_data, callbefore, use_cache=True
                     )
                 # 3. call callafter
                 except Exception as e:
-                    self._unreached_node_ids.update(
-                        [node_id, *nx.descendants(self._graph, node_id)]
-                    )
+                    self._unreached_node_ids.update([node_id, *nx.descendants(self._graph, node_id)])
                     continue_execution = callafter(node_id, "error", e, None)
                     if not continue_execution:
-                        self._unreached_node_ids.update(
-                            [node_id, *nx.descendants(self._graph, node_id)]
-                        )
+                        self._unreached_node_ids.update([node_id, *nx.descendants(self._graph, node_id)])
                         return
                     else:
                         continue
                 else:
-                    callafter_node_id = node_id if not is_control_structure else self._control_structure_manager.get_end_node_id(node_id)
+                    callafter_node_id = (
+                        node_id
+                        if not is_control_structure
+                        else self._control_structure_manager.get_end_node_id(node_id)
+                    )
                     continue_execution = callafter(callafter_node_id, "success", output_data, running_time)
                     if not continue_execution:
                         return
@@ -332,7 +331,7 @@ class ProjectInterpreter:
         return
 
     def get_unreached_nodes(self) -> list[int]:
-        """ 
+        """
         Get the list of node ids that were not reached during the last static analysis or execution.
         """
         # convert node id to the index in the topology nodes list
@@ -346,7 +345,7 @@ class ProjectInterpreter:
         """
         Get UI hints from all nodes.
         For this method, there is no need to clean up unreached nodes, because it traverses all nodes anyway.
-        param: 
+        param:
         The callback function will look like:
         continue_execution = callback(node_id: str, hint: dict[str, Schema]) -> bool
         """
@@ -359,27 +358,24 @@ class ProjectInterpreter:
             topo_node = self._node_map[node_id]
             try:
                 node_object = BaseNode.create_from_type(
-                    type=topo_node.type, 
-                    context=self._context, 
-                    id=topo_node.id, 
-                    **topo_node.params
+                    type=topo_node.type, context=self._context, id=topo_node.id, **topo_node.params
                 )
                 node_objects[node_id] = node_object
             except Exception:
                 continue
 
-        schema_cache : dict[tuple[str, str], Schema] = {} # cache for node output schema: (node_id, port) -> Schema
+        schema_cache: dict[tuple[str, str], Schema] = {}  # cache for node output schema: (node_id, port) -> Schema
         for node_id in exec_queue:
             # 2. get as much as schemas as possible
             node = node_objects.get(node_id, None)
-            in_edges = list(self._graph.in_edges(node_id, data=True)) # type: ignore
+            in_edges = list(self._graph.in_edges(node_id, data=True))  # type: ignore
 
             # get input schema
-            input_schemas : dict[str, Schema] = {}
+            input_schemas: dict[str, Schema] = {}
             for edge in in_edges:
                 src_id, _, edge_data = edge
-                src_port = edge_data['src_port']
-                tar_port = edge_data['tar_port']
+                src_port = edge_data["src_port"]
+                tar_port = edge_data["tar_port"]
                 if (src_id, src_port) in schema_cache:
                     src_schema = schema_cache[(src_id, src_port)]
                     input_schemas[tar_port] = src_schema
@@ -398,14 +394,10 @@ class ProjectInterpreter:
             hint = BaseNode.get_hint(topo_node.type, input_schemas, topo_node.params)
             continue_execution = callback(node_id, hint)
             if not continue_execution:
-                break  
+                break
 
     def _execute_single_node(
-        self, 
-        node_id: str, 
-        input_data: dict[str, Data],
-        callbefore: Callable[[str], None], 
-        use_cache: bool
+        self, node_id: str, input_data: dict[str, Data], callbefore: Callable[[str], None], use_cache: bool
     ) -> tuple[dict[str, Data], float]:
         """
         Execute a single node by its id with given inputs.
@@ -423,8 +415,8 @@ class ProjectInterpreter:
                 node_type=self._node_map[node_id].type,
                 params=self._node_map[node_id].params,
                 inputs=input_data,
-            )    
-        
+            )
+
         if cache_data is None:
             # 2. execute node if cache miss
             # call callbefore, only when cache miss
@@ -441,12 +433,14 @@ class ProjectInterpreter:
 
             if DEBUG:
                 if safe_hash(input_data) != input_data_hash:
-                    raise AssertionError(f"Node {node_id} in type {node.type} input data were modified during execution, which is not allowed.")
+                    raise AssertionError(
+                        f"Node {node_id} in type {node.type} input data were modified during execution, which is not allowed."
+                    )
 
             running_time = (time.perf_counter() - start_time) * 1000  # in ms
         else:
             assert isinstance(cache_data[1], float), "Cached running time should be a float for single nodes."
-            output_data, running_time, _ = cache_data # type: ignore
+            output_data, running_time, _ = cache_data  # type: ignore
         # 3. store to CacheManager
         if output_data is not None and use_cache:
             self._cache_manager.set(
@@ -459,8 +453,8 @@ class ProjectInterpreter:
         return output_data, running_time
 
     def _execute_control_structure(
-        self, 
-        begin_node_id: str, 
+        self,
+        begin_node_id: str,
         inputs: dict[str, Data],
         callbefore: Callable[[str], None],
         callafter: Callable[[str, Literal["success", "error"], dict[str, Any] | Exception, float | None], bool],
@@ -483,11 +477,13 @@ class ProjectInterpreter:
             # send strat message (by callbefore) for begin node and all body nodes
             callbefore(begin_node_id)
             # hash control structure
-            control_structure_hash = self._control_structure_manager.hash_control_structure(self._graph, begin_node_id, self._node_map)
+            control_structure_hash = self._control_structure_manager.hash_control_structure(
+                self._graph, begin_node_id, self._node_map
+            )
             # check cache
             cache_data = self._cache_manager.get(
                 node_type=self._node_map[end_node_id].type,
-                params={"control_structure_hash": control_structure_hash}, # set control structure hash as params
+                params={"control_structure_hash": control_structure_hash},  # set control structure hash as params
                 inputs=inputs,
             )
             if cache_data is not None:
@@ -497,8 +493,10 @@ class ProjectInterpreter:
                 callafter(begin_node_id, "success", outputs, total_running_time)
                 assert extra is not None, "Cache extra data should not be None for control structure nodes."
                 running_times = extra.get("running_times")
-                last_iter_result = extra.get("last_iter_result") # type: ignore
-                assert running_times is not None and isinstance(running_times, dict), "Cached running time should be a dict for control structure nodes."
+                last_iter_result = extra.get("last_iter_result")  # type: ignore
+                assert running_times is not None and isinstance(running_times, dict), (
+                    "Cached running time should be a dict for control structure nodes."
+                )
                 for node_id in self._control_structure_manager.iter_control_structure(self._graph, begin_node_id):
                     callafter(node_id, "success", last_iter_result.get(node_id, {}), running_times[node_id])
                 return outputs, total_running_time
@@ -507,9 +505,11 @@ class ProjectInterpreter:
             for node_id in self._control_structure_manager.iter_control_structure(self._graph, begin_node_id):
                 callbefore(node_id)
                 running_times[node_id] = 0.0
-            last_iter_result: dict[str, dict[str, Data]] = {} # to store last iteration's output data for each node
+            last_iter_result: dict[str, dict[str, Data]] = {}  # to store last iteration's output data for each node
             for input_datas in begin_node.iter_loop(inputs):
-                res_cache: dict[tuple[str, str], Data] = {} # local cache for exec result in this iteration: (node_id, port) -> Data
+                res_cache: dict[
+                    tuple[str, str], Data
+                ] = {}  # local cache for exec result in this iteration: (node_id, port) -> Data
                 last_iter_result[begin_node_id] = input_datas
 
                 # collect inputs for begin node
@@ -520,33 +520,29 @@ class ProjectInterpreter:
                 for node_id in self._control_structure_manager.iter_control_structure(self._graph, begin_node_id):
                     if node_id in self._unreached_node_ids:
                         return None
-                    in_edges = list(self._graph.in_edges(node_id, data=True)) # type: ignore
+                    in_edges = list(self._graph.in_edges(node_id, data=True))  # type: ignore
 
                     # 1. get input data
-                    input_data : dict[str, Data] = {}
+                    input_data: dict[str, Data] = {}
                     for src_id, _, edge_data in in_edges:
-                        src_port = edge_data['src_port']
-                        tar_port = edge_data['tar_port']
+                        src_port = edge_data["src_port"]
+                        tar_port = edge_data["tar_port"]
                         input_data[tar_port] = res_cache[(src_id, src_port)]
 
                     # 2. execute node
                     try:
                         output_data, running_time = self._execute_single_node(
-                            node_id, 
-                            input_data, 
+                            node_id,
+                            input_data,
                             lambda nid: None,
                             use_cache=False,
-                        ) # callbefore is a no-op for body nodes
+                        )  # callbefore is a no-op for body nodes
                     # 3. call callafter
                     except Exception as e:
-                        self._unreached_node_ids.update(
-                            [node_id, *nx.descendants(self._graph, node_id)]
-                        )
+                        self._unreached_node_ids.update([node_id, *nx.descendants(self._graph, node_id)])
                         continue_execution = callafter(node_id, "error", e, None)
                         if not continue_execution:
-                            self._unreached_node_ids.update(
-                                [node_id, *nx.descendants(self._graph, node_id)]
-                            )
+                            self._unreached_node_ids.update([node_id, *nx.descendants(self._graph, node_id)])
                             return None
                         else:
                             continue
@@ -561,11 +557,11 @@ class ProjectInterpreter:
                 # collect output in this iteration for end node
                 if end_node_id in self._unreached_node_ids:
                     return None
-                end_in_edges = list(self._graph.in_edges(end_node_id, data=True)) # type: ignore
+                end_in_edges = list(self._graph.in_edges(end_node_id, data=True))  # type: ignore
                 end_node_inputs: dict[str, Data] = {}
                 for src_id, _, edge_data in end_in_edges:
-                    src_port = edge_data['src_port']
-                    tar_port = edge_data['tar_port']
+                    src_port = edge_data["src_port"]
+                    tar_port = edge_data["tar_port"]
                     end_node_inputs[tar_port] = res_cache[(src_id, src_port)]
                 end_node.end_iter_loop(end_node_inputs)
             # combine outputs
@@ -574,7 +570,7 @@ class ProjectInterpreter:
             # cache outputs for end node
             self._cache_manager.set(
                 node_type=self._node_map[end_node_id].type,
-                params={"control_structure_hash": control_structure_hash}, # set control structure hash as params
+                params={"control_structure_hash": control_structure_hash},  # set control structure hash as params
                 inputs=inputs,
                 outputs=outputs,
                 running_time=total_running_time,
@@ -587,6 +583,6 @@ class ProjectInterpreter:
             callafter(begin_node_id, "success", last_iter_result.get(begin_node_id, {}), total_running_time)
             for node_id in self._control_structure_manager.iter_control_structure(self._graph, begin_node_id):
                 callafter(node_id, "success", last_iter_result.get(node_id, {}), running_times[node_id])
-            return outputs, total_running_time # execute method will call callafter for end node
+            return outputs, total_running_time  # execute method will call callafter for end node
         else:
             assert False, f"Unknown control structure begin node type {begin_node.type}."

@@ -251,7 +251,10 @@ export const useGraphStore = defineStore('graph', () => {
           data: {
             param: {
               op: 'ADD',
-              col: ''
+              col: '',
+              result_col: '',
+              num: 0,
+              data_type: 'int'
             }
           }
         }
@@ -344,6 +347,23 @@ export const useGraphStore = defineStore('graph', () => {
         }
         addNodes(addedColCompareNode)
         break
+      case 'ColWithPrimCompareNode':
+        const addedColWithPrimCompareNode: Nodetypes.ColWithPrimCompareNode = {
+          id,
+          position,
+          type: 'ColWithPrimCompareNode',
+          data: {
+            param: {
+              op: 'EQ',
+              col: '',
+              const: 0,
+              result_col: '',
+              data_type: 'int'
+            }
+          }
+        }
+        addNodes(addedColWithPrimCompareNode)
+        break
       case 'ToStringNode':
         const addedToStringNode: Nodetypes.ToStringNode = {
           id,
@@ -389,6 +409,63 @@ export const useGraphStore = defineStore('graph', () => {
           }
         }
         addNodes(addedToBoolNode)
+        break
+      case 'ColToStringNode':
+        const addedColToStringNode: Nodetypes.ColToStringNode = {
+          id,
+          position,
+          type: 'ColToStringNode',
+          data: {
+            param: {
+              col: '',
+              result_col: '',
+            }
+          }
+        }
+        addNodes(addedColToStringNode)
+        break
+      case 'ColToIntNode':
+        const addedColToIntNode: Nodetypes.ColToIntNode = {
+          id,
+          position,
+          type: 'ColToIntNode',
+          data: {
+            param: {
+              col: '',
+              result_col: '',
+              method: 'FLOOR'
+            }
+          }
+        }
+        addNodes(addedColToIntNode)
+        break
+      case 'ColToFloatNode':
+        const addedColToFloatNode: Nodetypes.ColToFloatNode = {
+          id,
+          position,
+          type: 'ColToFloatNode',
+          data: {
+            param: {
+              col: '',
+              result_col: ''
+            }
+          }
+        }
+        addNodes(addedColToFloatNode)
+        break
+      case 'ColToBoolNode':
+        const addedColToBoolNode: Nodetypes.ColToBoolNode = {
+          id,
+          position,
+          type: 'ColToBoolNode',
+          data: {
+            param: {
+              col: '',
+              result_col: ''
+            }
+          }
+        }
+        addNodes(addedColToBoolNode)
         break
       case 'UploadNode':
         const addedUploadNode: Nodetypes.UploadNode = {
@@ -448,6 +525,7 @@ export const useGraphStore = defineStore('graph', () => {
               x_col: '',
               y_col: [''],
               plot_type: ['line'],
+              y_axis: ['left'],
               title: null
             }
           }
@@ -682,7 +760,12 @@ export const useGraphStore = defineStore('graph', () => {
           data: {
             param: {
               col_name: '',
-              col_type: 'int'
+              col_type: 'int',
+              const_value: 0,
+              const_value_number: 0,
+              const_value_str: '',
+              const_value_bool: false,
+              const_value_datetime: ''
             }
           }
         }
@@ -883,7 +966,9 @@ export const useGraphStore = defineStore('graph', () => {
           data: {
             param: {
               op: 'ADD',
-              unit: 'DAYS'
+              unit: 'DAYS',
+              value: 0,
+              data_type: 'int'
             }
           }
         }
@@ -1289,6 +1374,65 @@ export const useGraphStore = defineStore('graph', () => {
           targetHandle: 'window',
           type: 'NodePyEdge'
         })
+        break
+      case 'MapColumnNode':
+        const MapColumnNodeId = nextId('NodeContainer')
+        const addedMapColumnNode: Nodetypes.BaseNode = {
+          id: MapColumnNodeId,
+          position,
+          type: 'NodeContainer',
+          data: {
+            param: {},
+            is_virtual_node: true
+          }
+        }
+        const addedMapColumnBeginNode: Nodetypes.MapColumnBeginNode = {
+          id: nextId('MapColumnBeginNode'),
+          position: {
+            x: padding + position.x,
+            y: containerHeight / 2 + position.y
+          },
+          type: 'MapColumnBeginNode',
+          data: {
+            param: {
+              pair_id,
+              col: ''
+            },
+            groupId: MapColumnNodeId
+          }
+        }
+        const addedMapColumnEndNode: Nodetypes.MapColumnEndNode = {
+          id: nextId('MapColumnEndNode'),
+          position: {
+            x: containerWidth - nodeWidth - padding + position.x,
+            y: containerHeight / 2 + position.y
+          },
+          type: 'MapColumnEndNode',
+          data: {
+            param: {
+              pair_id,
+              result_col: ''
+            },
+            groupId: MapColumnNodeId
+          }
+        }
+        addNodes([addedMapColumnNode, addedMapColumnBeginNode, addedMapColumnEndNode])
+        addEdges([
+          {
+            source: addedMapColumnBeginNode.id,
+            target: addedMapColumnEndNode.id,
+            sourceHandle: 'remains',
+            targetHandle: 'remains',
+            type: 'NodePyEdge'
+          },
+          {
+            source: addedMapColumnBeginNode.id,
+            target: addedMapColumnEndNode.id,
+            sourceHandle: 'cell',
+            targetHandle: 'cell',
+            type: 'NodePyEdge'
+          }
+        ])
         break
       case 'UnpackNode':
         const addedUnpackNode: Nodetypes.UnpackNode ={

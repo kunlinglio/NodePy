@@ -208,7 +208,9 @@ export const ColWithNumberBinOpList = ['ADD', 'COL_SUB_NUM', 'NUM_SUB_COL', 'MUL
 export interface ColWithNumberBinOpNodeParam {
     op: typeof ColWithNumberBinOpList[number],
     col: string,
-    result_col?: string
+    result_col: string,
+    num: number | null,
+    data_type: 'int'|'float'
 }
 export type ColWithNumberBinOpNodeData = BaseData & {
     param: ColWithNumberBinOpNodeParam
@@ -303,6 +305,21 @@ export interface ColCompareNode extends BaseNode<ColCompareNodeData>{
 }
 
 
+export interface ColWithPrimCompareNodeParam {
+    op: typeof CmpOpList[number],
+    col: string,
+    const: number | null,
+    result_col: string,
+    data_type: 'int' | 'float'
+}
+export type ColWithPrimCompareNodeData = BaseData & {
+    param: ColWithPrimCompareNodeParam
+}
+export interface ColWithPrimCompareNode extends BaseNode<ColWithPrimCompareNodeData>{
+    type: 'ColWithPrimCompareNode'
+}
+
+
 export interface ToStringNode extends BaseNode {
     type: 'ToStringNode'
 }
@@ -329,11 +346,61 @@ export interface ToBoolNode extends BaseNode {
 }
 
 
+export interface ColToStringNodeParam {
+    col: string
+    result_col: string
+}
+export type ColToStringNodeData = BaseData & {
+    param: ColToStringNodeParam
+}
+export interface ColToStringNode extends BaseNode<ColToStringNodeData> {
+    type: 'ColToStringNode'
+}
+
+
+export interface ColToIntNodeParam {
+    col: string
+    result_col: string
+    method: 'FLOOR'|'CEIL'|'ROUND'
+}
+export type ColToIntNodeData = BaseData & {
+    param: ColToIntNodeParam
+}
+export interface ColToIntNode extends BaseNode<ColToIntNodeData> {
+    type: 'ColToIntNode'
+}
+
+
+export interface ColToFloatNodeParam {
+    col: string
+    result_col: string
+}
+export type ColToFloatNodeData = BaseData & {
+    param: ColToFloatNodeParam
+}
+export interface ColToFloatNode extends BaseNode<ColToFloatNodeData> {
+    type: 'ColToFloatNode'
+}
+
+
+export interface ColToBoolNodeParam {
+    col: string
+    result_col: string
+}
+export type ColToBoolNodeData = BaseData & {
+    param: ColToBoolNodeParam
+}
+export interface ColToBoolNode extends BaseNode<ColToBoolNodeData> {
+    type: 'ColToBoolNode'
+}
+
+
 /*********************  Visualize Nodes  **************************/
 export interface QuickPlotNodeParam {
     x_col: string
     y_col: string[]
     plot_type: ("scatter" | "line" | "bar" | "area")[]
+    y_axis: ("left" | "right")[]
     title: string | null
 }
 export type QuickPlotNodeData = BaseData & {
@@ -539,7 +606,12 @@ export interface SentimentAnalysisNode extends BaseNode {
 /*********************  TableProcess Nodes  **************************/
 export interface InsertConstColNodeParam {
     col_name: string,
-    col_type: 'int'|'float'|'bool'|'str'|'Datetime'
+    col_type: 'int'|'float'|'bool'|'str'|'Datetime',
+    const_value: number|string|boolean|null,
+    const_value_number: number|null,
+    const_value_str: string,
+    const_value_bool: boolean,
+    const_value_datetime: string
 }
 export type InsertConstColNodeData = BaseData & {
     param: InsertConstColNodeParam
@@ -754,6 +826,8 @@ export interface TextFromFileNode extends BaseNode {
 export interface DatetimeComputeNodeParam {
     op: 'ADD'|'SUB'
     unit: 'DAYS'|'HOURS'|'MINUTES'|'SECONDS'
+    value: number
+    data_type: 'int' | 'float'
 }
 export type DatetimeComputeNodeData = BaseData & {
     param: DatetimeComputeNodeParam
@@ -944,6 +1018,30 @@ export type ForRollingWindowEndNodeData = BaseData & {
 }
 export interface ForRollingWindowEndNode extends BaseNode<ForRollingWindowEndNodeData> {
     type: 'ForRollingWindowEndNode'
+}
+
+
+export interface MapColumnBeginNodeParam {
+    pair_id: number
+    col: string
+}
+export type MapColumnBeginNodeData = BaseData & {
+    param: MapColumnBeginNodeParam
+}
+export interface MapColumnBeginNode extends BaseNode<MapColumnBeginNodeData> {
+    type: 'MapColumnBeginNode'
+}
+
+
+export interface MapColumnEndNodeParam {
+    pair_id: number
+    result_col: string
+}
+export type MapColumnEndNodeData = BaseData & {
+    param: MapColumnEndNodeParam
+}
+export interface MapColumnEndNode extends BaseNode<MapColumnEndNodeData> {
+    type: 'MapColumnEndNode'
 }
 
 
