@@ -64,15 +64,15 @@
         props.data.param.col_types = JSON.parse(JSON.stringify(tableStore.currentTableData.col_types))
     }
 
-    const openTableEditModal = ()=> {
+    const openTableEditModal = () => {
+        // 监听保存事件（保留）
         window.addEventListener('ApplyTableChanges', () => {
-            updateTableParam()
-        },{once: true})
-        tableStore.currentTableData.rows = JSON.parse(JSON.stringify(props.data.param.rows))
-        tableStore.currentTableData.col_names = JSON.parse(JSON.stringify(props.data.param.col_names))
-        tableStore.currentTableData.col_types = JSON.parse(JSON.stringify(props.data.param.col_types))
-        tableStore.createTableModal()
-    }
+            updateTableParam();
+        }, { once: true });
+
+        // 使用 initTableEdit 初始化编辑，传入节点 id 和当前参数
+        tableStore.initTableEdit(props.id, props.data.param);
+    };
 
     watch(() => JSON.stringify(props.data.error), () => {
         errMsg.value = []
