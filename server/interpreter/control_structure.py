@@ -20,6 +20,7 @@ class ControlStructureManager:
         class Type(str, Enum):
             FOR_EACH_ROW = "FOR_EACH_ROW"
             FOR_ROLLING_WINDOW = "FOR_ROLLING_WINDOW"
+            MAP_COLUMN = "MAP_COLUMN"
 
         type: Type | None
         begin_node_id: str | None
@@ -107,6 +108,8 @@ class ControlStructureManager:
                         control_structure.type = ControlStructureManager.ControlStructure.Type.FOR_EACH_ROW
                     elif node_object.type == "ForRollingWindowBeginNode":
                         control_structure.type = ControlStructureManager.ControlStructure.Type.FOR_ROLLING_WINDOW
+                    elif node_object.type == "MapColumnBeginNode":
+                        control_structure.type = ControlStructureManager.ControlStructure.Type.MAP_COLUMN
                     else:
                         assert False, f"Unknown begin node type {node_object.type} for pair id {pair_id}."
                     control_structure.begin_node_id = node_id
