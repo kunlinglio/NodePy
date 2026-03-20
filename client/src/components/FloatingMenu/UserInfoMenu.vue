@@ -45,7 +45,7 @@
           <div class="email">{{ userStore.currentUserInfo?.email || '暂无邮箱' }}</div>
         </div>
         <div class="user-edit" @click="handleEditUser">
-          点我修改个人信息
+            <svg-icon type="mdi" :path="mdiFileEdit" :size="20"></svg-icon>
         </div>
       </div>
 
@@ -85,7 +85,7 @@ import FloatingMenu from './FloatingMenu.vue'
 import Logout from '../Logout.vue'
 import { useTableStore } from '@/stores/tableStore'
 import SvgIcon from '@jamescoyle/vue-icon';
-import { mdiAccount, mdiLogout } from '@mdi/js'
+import { mdiAccount, mdiFileEdit, mdiLogout } from '@mdi/js'
 
 const loginStore = useLoginStore()
 const modalStore = useModalStore()
@@ -97,8 +97,8 @@ const router = useRouter()
 
 const logoutWidth = 350;
 const logoutHeight = 270;
-const EditUserWidth = 350;
-const EditUserHeight = 270;
+const EditUserWidth = 360;
+const EditUserHeight = 520;
 
 onMounted(async () => {
   if (!loginStore.isAuthenticated) return
@@ -424,6 +424,29 @@ const formatJoinDate = (dateString: string) => {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+    }
+
+    .user-edit {
+      margin-top: 10px;
+      display: flex;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #606266;
+      transition: all 0.3s ease;
+
+      svg{
+        width: 18px;
+        height: 18px;
+        color: rgba(0, 0, 0, 0.60);
+      }
+      &:hover {
+          background-color: rgba(0, 0, 0, 0.05);
       }
     }
   }

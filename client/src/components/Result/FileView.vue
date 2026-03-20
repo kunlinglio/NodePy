@@ -426,10 +426,19 @@ const canDownload = computed(() => {
 const handleDownloadFile = async () => {
     try {
         if (isValidFile.value && fileKey.value) {
-            await fileStore.downloadFile(fileKey.value, fileName.value)
+            // 确保文件名带有正确的扩展名
+            let fileNameWithExt = fileName.value;
+            const expectedExtension = '.' + fileFormat.value;
+            
+            // 检查文件名是否已包含正确的扩展名，如果没有则添加
+            if (!fileNameWithExt.toLowerCase().endsWith(expectedExtension.toLowerCase())) {
+                fileNameWithExt += expectedExtension;
+            }
+            
+            await fileStore.downloadFile(fileKey.value, fileNameWithExt);
         } else {
             // 回退到 downloadCurrentFile，fileStore 内部会处理当前文件名
-            await fileStore.downloadCurrentFile()
+            await fileStore.downloadCurrentFile();
         }
     } catch (err) {
         console.error('File download failed', err)

@@ -57,13 +57,17 @@ export const useTableStore = defineStore('table', () => {
         editingNodeId.value = nodeId;
         
         if (initialData) {
-            currentTableData.value = { ...initialData };
+            // 补全缺失字段，保证数据结构完整
+            currentTableData.value = {
+                rows: initialData.rows || defaultTableData.rows,
+                col_names: initialData.col_names || defaultTableData.col_names,
+                col_types: initialData.col_types || defaultTableData.col_types
+            };
         } else {
-            // 获取节点当前数据
+            // 从节点获取数据，并补全
             const node = findNode(nodeId);
             if (node?.data?.param) {
                 try {
-                    // 解析节点参数中的表格数据
                     const param = node.data.param;
                     currentTableData.value = {
                         rows: param.rows || defaultTableData.rows,
@@ -79,12 +83,12 @@ export const useTableStore = defineStore('table', () => {
             }
         }
         
-        // 清空历史记录
+        // 清空历史记录并保存初始状态
         historyStack.value = [];
         redoStack.value = [];
         saveToHistory();
         
-        // 打开编辑模态框
+        // 打开模态框
         createTableModal();
     }
 
