@@ -9,71 +9,233 @@ import {
   mdiLightbulb,
   mdiChevronLeft,
   mdiChevronRight,
+  mdiChevronDoubleLeft,
+  mdiChevronDoubleRight,
   mdiHome,
+  mdiRocketLaunch,
+  mdiBrain,
+  mdiChartTimeline,
+  mdiPlaylistCheck,
+  mdiRobot,
 } from '@mdi/js'
 import { usePageStore } from '@/stores/pageStore'
+import MarkdownIt from 'markdown-it'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github.css'
 
 const pageStore = usePageStore()
+
+// 当前日期（YYYY-MM-DD）
+const today = new Date().toISOString().slice(0, 10)
+
+// 初始化 markdown-it
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true,
+  highlight: function (str, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return '<pre class="hljs"><code>' +
+               hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+               '</code></pre>'
+      } catch (__) {}
+    }
+    return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>'
+  }
+})
+
+// 教程文件映射
+const tutorialFiles = [
+  '1_quick_start.md',
+  '2_core_concept.md',
+  '3_common_data_flow.md',
+  '4_logical_control_and_automation.md',
+  '5_machine_learning.md'
+]
+
+const docs = ref([
+  {
+    id: 1,
+    title: '快速上手',
+    description: '搭建并运行第一个节点项目，体验节点式编程的核心流程。',
+    icon: mdiRocketLaunch,
+    category: 'Quickstart',
+    pages: 9, // ✅ 根据实际文档统计
+  },
+  {
+    id: 2,
+    title: '核心概念',
+    description: '节点图的工作方式：节点、端口、连线、数据流与类型系统。',
+    icon: mdiBrain,
+    category: 'Concepts',
+    pages: 5,
+  },
+  {
+    id: 3,
+    title: '常见数据流程',
+    description: '涵盖数据采集、清洗、分析与可视化全流程，并包含K线数据实战。',
+    icon: mdiChartTimeline,
+    category: 'Workflow',
+    pages: 7,
+  },
+  {
+    id: 4,
+    title: '逻辑控制与自动化',
+    description: '使用循环、条件判断和自定义脚本构建智能流程。',
+    icon: mdiPlaylistCheck,
+    category: 'Automation',
+    pages: 8,
+  },
+  {
+    id: 5,
+    title: '机器学习实战',
+    description: '从特征工程到模型训练、预测与评估，全程节点搭建机器学习流程。',
+    icon: mdiRobot,
+    category: 'Machine Learning',
+    pages: 8,
+  }
+])
+
+// 辅助函数：根据章节数生成阅读时间信息
+const getDocInfo = (pages: number) => {
+  if (pages === 0) return '加载中...'
+  const minutesPerSection = 2 // 每章节约3分钟
+  const totalMinutes = pages * minutesPerSection
+  if (totalMinutes < 60) {
+    return `共 ${pages-2} 小节，阅读约需 ${totalMinutes} 分钟`
+  } else {
+    const hours = Math.floor(totalMinutes / 60)
+    const mins = totalMinutes % 60
+    return `共 ${pages-2} 小节，阅读约需 ${hours} 小时 ${mins} 分钟`
+  }
+}
 
 // 当前打开的教程ID
 const currentDocId = ref<number | null>(null)
 const hoverDoc = ref<number | null>(null)
+const isLoading = ref(false)
+const tutorialMarkdown = ref('')
+const tutorialSections = ref<Array<{ title: string; content: string; html: string }>>([])
+const currentSectionIndex = ref(0)
 
 // 布局相关
-const splitRatio = ref(35) // 左侧比例，默认35%（3.5-6.5开）
+const splitRatio = ref(35)
 const isDragging = ref(false)
 const tutorialContentRef = ref<HTMLElement | null>(null)
 
 // 标签相关
-const labelPosition = ref(25) // 标签显示位置，百分比（相对于左侧页面）
+const labelPosition = ref(25)
 const isLabelDragging = ref(false)
 const labelShowTime = ref<NodeJS.Timeout | null>(null)
 const labelHideTime = ref<NodeJS.Timeout | null>(null)
-const isLabelVisible = ref(false) // 标签是否显示
-const isLabelPinned = ref(false) // 标签是否常驻
-const labelLastInteractTime = ref(0) // 标签最后交互时间
-const tutorialLeftRef = ref<HTMLElement | null>(null) // 左侧页面ref
+const isLabelVisible = ref(false)
+const isLabelPinned = ref(false)
+const labelLastInteractTime = ref(0)
+const tutorialLeftRef = ref<HTMLElement | null>(null)
 
-// 控制栏相关
-const isControlBarIdle = ref(false) // 控制栏是否静默
-const controlBarIdleTime = ref<NodeJS.Timeout | null>(null)
-const isControlBarHovered = ref(false)
-
-// 教程内容
-const tutorialMarkdown = ref('') // 来自后端的 markdown 内容
-const tutorialHtml = computed(() => {
-  // 简单的 markdown 转 HTML（实际应该使用 markdown-it 库）
-  return convertMarkdownToHtml(tutorialMarkdown.value)
+// 当前显示的 HTML 内容
+const currentHtml = computed(() => {
+  if (tutorialSections.value.length > 0 && currentSectionIndex.value < tutorialSections.value.length) {
+    return tutorialSections.value[currentSectionIndex.value]!.html
+  }
+  return ''
 })
 
-// markdown 到 HTML 的简单转换函数
-const convertMarkdownToHtml = (markdown: string): string => {
-  if (!markdown) return ''
+// 分页信息
+const totalSections = computed(() => tutorialSections.value.length)
+const hasPrevSection = computed(() => currentSectionIndex.value > 0)
+const hasNextSection = computed(() => currentSectionIndex.value < totalSections.value - 1)
+
+// 将 Markdown 按标题拆分为章节
+const splitIntoSections = (markdown: string) => {
+  const lines = markdown.split('\n')
+  const sections: Array<{ title: string; content: string }> = []
+  let currentContent: string[] = []
+  let currentTitle = '概述'
+  let inCodeBlock = false
+  let hasContent = false
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    
+    if (line!.trim().startsWith('```')) {
+      inCodeBlock = !inCodeBlock
+      currentContent.push(line!)
+      continue
+    }
+    
+    if (!inCodeBlock) {
+      const h1Match = line!.match(/^# (.*)$/)
+      const h2Match = line!.match(/^## (.*)$/)
+      
+      if (h1Match || h2Match) {
+        if (hasContent || currentContent.length > 0) {
+          sections.push({
+            title: currentTitle,
+            content: currentContent.join('\n')
+          })
+        }
+        currentTitle = h1Match ? h1Match[1]! : (h2Match ? h2Match[2] : '')!
+        currentContent = [line!]
+        hasContent = true
+        continue
+      }
+    }
+    
+    currentContent.push(line!)
+    if (line!.trim()) hasContent = true
+  }
   
-  let html = markdown
-    // 代码块
-    .replace(/```(.*?)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
-    // 标题
-    .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.*?)$/gm, '<h1>$1</h1>')
-    // 加粗
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    // 斜体
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    // 列表
-    .replace(/^\* (.*?)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*?<\/li>)/s, '<ul>$1</ul>')
-    // 段落
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/^(?!<[hu]|<pre|<ul|<p)/gm, '<p>')
-    .replace(/$/gm, '</p>')
-    // 链接
-    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
-    // 换行符
-    .replace(/\n/g, '<br>')
+  if (hasContent || currentContent.length > 0) {
+    sections.push({
+      title: currentTitle,
+      content: currentContent.join('\n')
+    })
+  }
   
-  return html
+  if (sections.length === 0 && markdown.trim()) {
+    sections.push({
+      title: '概述',
+      content: markdown
+    })
+  }
+  
+  return sections.map(section => ({
+    title: section.title,
+    content: section.content,
+    html: md.render(section.content)
+  }))
+}
+
+// 加载教程内容
+const loadTutorial = async (docId: number) => {
+  isLoading.value = true
+  try {
+    const fileIndex = docId - 1
+    if (fileIndex >= 0 && fileIndex < tutorialFiles.length) {
+      const response = await fetch(`/guides/${tutorialFiles[fileIndex]}`)
+      if (!response.ok) throw new Error('加载失败')
+      const markdown = await response.text()
+      tutorialMarkdown.value = markdown
+      tutorialSections.value = splitIntoSections(markdown)
+      currentSectionIndex.value = 0
+      
+      const doc = docs.value.find(d => d.id === docId)
+      if (doc) {
+        doc.pages = tutorialSections.value.length
+      }
+    }
+  } catch (error) {
+    console.error('加载教程失败:', error)
+    tutorialSections.value = [{
+      title: '加载失败',
+      content: '无法加载教程内容，请稍后重试。',
+      html: '<p>无法加载教程内容，请稍后重试。</p>'
+    }]
+  } finally {
+    isLoading.value = false
+  }
 }
 
 // 开始拖拽
@@ -81,12 +243,11 @@ const startDragging = () => {
   isDragging.value = true
 }
 
-// 结束拖拽
 const stopDragging = () => {
   isDragging.value = false
 }
 
-// 处理分割线拖动（分割线）
+// 处理分割线拖动
 const handleMouseMove = (e: MouseEvent) => {
   if (!isDragging.value || !tutorialContentRef.value) return
   
@@ -94,7 +255,6 @@ const handleMouseMove = (e: MouseEvent) => {
   const rect = container.getBoundingClientRect()
   const newRatio = ((e.clientX - rect.left) / rect.width) * 100
   
-  // 限制比例 2:8 到 5:5（即 20%-50%）
   if (newRatio >= 20 && newRatio <= 50) {
     splitRatio.value = newRatio
   }
@@ -108,18 +268,15 @@ const handleLabelMouseMove = (e: MouseEvent) => {
   const rect = container.getBoundingClientRect()
   const newPosition = ((e.clientY - rect.top) / rect.height) * 100
   
-  // 限制范围 10%-75%
   if (newPosition >= 10 && newPosition <= 75) {
     labelPosition.value = newPosition
   }
 }
 
-// 开始拖动标签
 const startLabelDragging = () => {
   isLabelDragging.value = true
 }
 
-// 停止拖动标签
 const stopLabelDragging = () => {
   isLabelDragging.value = false
 }
@@ -129,10 +286,8 @@ const showLabel = () => {
   isLabelVisible.value = true
   labelLastInteractTime.value = Date.now()
   
-  // 清除之前的隐藏计时器
   if (labelHideTime.value) clearTimeout(labelHideTime.value)
   
-  // 如果不是常驻状态，3秒后隐藏
   if (!isLabelPinned.value) {
     labelHideTime.value = setTimeout(() => {
       isLabelVisible.value = false
@@ -151,27 +306,25 @@ const toggleLabelPin = () => {
   }
 }
 
-// 处理控制栏悬浮
-const handleControlBarHover = () => {
-  isControlBarHovered.value = true
-  isControlBarIdle.value = false
-  if (controlBarIdleTime.value) clearTimeout(controlBarIdleTime.value)
-}
-
-// 处理控制栏离开
-const handleControlBarLeave = () => {
-  isControlBarHovered.value = false
-  // 3秒后进入静默状态
-  controlBarIdleTime.value = setTimeout(() => {
-    if (!isControlBarHovered.value) {
-      isControlBarIdle.value = true
-    }
-  }, 3000)
-}
-
-// 监听鼠标抬起
 const handleMouseUp = () => {
   stopDragging()
+}
+
+// 章节导航
+const prevSection = () => {
+  if (hasPrevSection.value) {
+    currentSectionIndex.value--
+    const wrapper = tutorialLeftRef.value?.querySelector('.markdown-wrapper') as HTMLElement
+    if (wrapper) wrapper.scrollTop = 0
+  }
+}
+
+const nextSection = () => {
+  if (hasNextSection.value) {
+    currentSectionIndex.value++
+    const wrapper = tutorialLeftRef.value?.querySelector('.markdown-wrapper') as HTMLElement
+    if (wrapper) wrapper.scrollTop = 0
+  }
 }
 
 onMounted(() => {
@@ -181,138 +334,52 @@ onMounted(() => {
   window.addEventListener('mouseup', stopLabelDragging)
 })
 
-// 处理教程切换时更新内容
+// 监听教程切换
 watch(currentDocId, async (newId) => {
   if (newId) {
-    // 重置控制栏状态
-    isControlBarIdle.value = false
-    isControlBarHovered.value = false
-    if (controlBarIdleTime.value) clearTimeout(controlBarIdleTime.value)
-    
-    // 显示标签3秒
     showLabel()
-    
-    // 这里应该从后端 API 获取教程的 markdown 内容
-    // 示例：const response = await fetch(`/api/tutorials/${newId}`)
-    // const data = await response.json()
-    // tutorialMarkdown.value = data.content
-    tutorialMarkdown.value = `# ${currentDoc.value?.title}
-
-## 简介
-这是第 ${newId} 个教程的内容示例。实际内容会从后端 API 获取。
-
-## 主要功能
-- 支持 Markdown 格式
-- 自动渲染为 HTML
-- 支持代码高亮
-
-\`\`\`python
-def hello():
-    print("Hello, World!")
-\`\`\`
-
-## 使用步骤
-1. 选择一个教程
-2. 查看左侧的说明文档
-3. 在右侧使用图表工具
-
-**更多内容即将推出...**
-
----
-
-这是额外的内容用来测试滚动功能。
-
-### 小标题1
-这是一些文本内容。
-
-### 小标题2
-更多的文本内容。`
+    await loadTutorial(newId)
+  } else {
+    tutorialSections.value = []
+    currentSectionIndex.value = 0
   }
 })
 
-// 教程数据
-const docs = ref([
-  {
-    id: 1,
-    title: '用户指南',
-    description: '完整的 NodePy 使用指南，涵盖从入门到精通的全套教程。',
-    icon: mdiBookOpenPageVariant,
-    category: 'guide',
-    pages: 45,
-    updated: '2024-02-28'
-  },
-  {
-    id: 2,
-    title: '节点参考',
-    description: '所有节点的详细说明，包括参数配置、输入输出类型和使用示例。',
-    icon: mdiCloudDownloadOutline,
-    category: 'reference',
-    pages: 120,
-    updated: '2024-02-25'
-  },
-  {
-    id: 3,
-    title: '常见问题',
-    description: '常见问题解答，快速解决您在使用过程中遇到的问题。',
-    icon: mdiLightbulb,
-    category: 'faq',
-    pages: 28,
-    updated: '2024-02-20'
-  },
-  {
-    id: 4,
-    title: 'API 文档',
-    description: '开发者 API 文档，用于集成和扩展 NodePy 功能。',
-    icon: mdiCheckCircleOutline,
-    category: 'api',
-    pages: 87,
-    updated: '2024-02-15'
-  }
-])
-
-// 计算当前教程对象
 const currentDoc = computed(() => {
   return docs.value.find(doc => doc.id === currentDocId.value)
 })
 
-// 计算是否可以查看上一个教程
 const hasPrevious = computed(() => {
   if (!currentDoc.value) return false
   return currentDoc.value.id > 1
 })
 
-// 计算是否可以查看下一个教程
 const hasNext = computed(() => {
   if (!currentDoc.value) return false
   return currentDoc.value.id < docs.value.length
 })
 
-// 打开教程
 const openDoc = (doc: any) => {
   currentDocId.value = doc.id
 }
 
-// 回到教程主页
 const backToList = () => {
   currentDocId.value = null
 }
 
-// 上一个教程
 const previousDoc = () => {
   if (currentDoc.value && currentDoc.value.id > 1) {
     currentDocId.value = currentDoc.value.id - 1
   }
 }
 
-// 下一个教程
 const nextDoc = () => {
   if (currentDoc.value && currentDoc.value.id < docs.value.length) {
     currentDocId.value = currentDoc.value.id + 1
   }
 }
-
-// pageStore.setCurrentPage('Explore')
 </script>
+
 <template>
     <div class="explore-container">
       <!-- 背景装饰元素 -->
@@ -339,6 +406,7 @@ const nextDoc = () => {
               v-for="doc in docs"
               :key="doc.id"
               class="doc-card"
+              @click="openDoc(doc)"
               @mouseenter="hoverDoc = doc.id"
               @mouseleave="hoverDoc = null"
               :class="{ 'doc-card-hover': hoverDoc === doc.id }"
@@ -347,24 +415,25 @@ const nextDoc = () => {
                 <div class="doc-icon" :class="{ 'doc-icon-hover': hoverDoc === doc.id }">
                   <svg-icon :path="doc.icon" :size="28" type="mdi"></svg-icon>
                 </div>
-                <div class="doc-meta">
-                  <span class="doc-category" :class="{ 'doc-category-hover': hoverDoc === doc.id }">{{ doc.category.toUpperCase() }}</span>
-                  <span class="doc-pages">{{ doc.pages }} 页</span>
+                <div class="doc-info">
+                  <h3 class="doc-title">{{ doc.title }}</h3>
+                  <div class="doc-subtitle">{{ doc.category }}</div>
                 </div>
               </div>
-              <h3 class="doc-title" :class="{ 'doc-title-hover': hoverDoc === doc.id }">{{ doc.title }}</h3>
               <p class="doc-description">{{ doc.description }}</p>
               <div class="doc-footer">
-                <span class="updated">更新于 {{ doc.updated }}</span>
-                <button class="read-btn" :class="{ 'read-btn-hover': hoverDoc === doc.id }" @click="openDoc(doc)">立即阅读</button>
+                <div class="footer-left">
+                  <span class="read-time">{{ getDocInfo(doc.pages) }}</span>
+                </div>
+                <span class="date">{{ today }}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 教程详情视图 -->
+        <!-- 教程详情视图（全屏） -->
         <div v-else class="tutorial-detail-section">
-          <!-- 简约标签 -->
+          <!-- 简约标签 + 静默模式蓝色提示 -->
           <div 
             class="tutorial-label"
             :style="{ top: labelPosition + '%' }"
@@ -381,17 +450,46 @@ const nextDoc = () => {
 
           <!-- 主内容容器 -->
           <div class="tutorial-content" ref="tutorialContentRef" @mousemove="handleLabelMouseMove" @mouseleave="() => { stopDragging(); stopLabelDragging(); }">
-            <!-- 左侧：文档说明 -->
+            <!-- 左侧：文档说明 + 底部固定控制栏 -->
             <div class="tutorial-left" ref="tutorialLeftRef" :style="{ width: splitRatio + '%' }">
-              <div class="markdown-content" v-html="tutorialHtml"></div>
+              <div class="markdown-wrapper">
+                <div class="loading-state" v-if="isLoading">
+                  <p>加载教程内容中...</p>
+                </div>
+                <div class="markdown-content" v-else-if="currentHtml" v-html="currentHtml"></div>
+                <div class="empty-state" v-else>
+                  <p>暂无内容</p>
+                </div>
+              </div>
+              
+              <!-- 常驻底部控制栏（顺序：双左、单左、单右、双右、主页） -->
+              <div class="bottom-control-bar">
+                <button class="control-btn" :disabled="!hasPrevious" @click="previousDoc" title="上一个教程">
+                  <svg-icon :path="mdiChevronDoubleLeft" :size="18" type="mdi"></svg-icon>
+                </button>
+                <button class="control-btn" :disabled="!hasPrevSection" @click="prevSection" title="上一章节">
+                  <svg-icon :path="mdiChevronLeft" :size="18" type="mdi"></svg-icon>
+                </button>
+                <button class="control-btn" :disabled="!hasNextSection" @click="nextSection" title="下一章节">
+                  <svg-icon :path="mdiChevronRight" :size="18" type="mdi"></svg-icon>
+                </button>
+                <button class="control-btn" :disabled="!hasNext" @click="nextDoc" title="下一个教程">
+                  <svg-icon :path="mdiChevronDoubleRight" :size="18" type="mdi"></svg-icon>
+                </button>
+                <button class="control-btn" @click="backToList" title="回到教程列表">
+                  <svg-icon :path="mdiHome" :size="18" type="mdi"></svg-icon>
+                </button>
+              </div>
             </div>
 
-            <!-- 分割线 -->
+            <!-- 分割线 + 纯三角形指示器（无圆形背景） -->
             <div 
               class="divider" 
               @mousedown="startDragging"
               :class="{ 'divider-active': isDragging }"
-            ></div>
+            >
+              <div class="drag-handle">▶</div>
+            </div>
 
             <!-- 右侧：图表组件区域 -->
             <div class="tutorial-right" :style="{ width: (100 - splitRatio) + '%' }">
@@ -400,32 +498,11 @@ const nextDoc = () => {
               </div>
             </div>
           </div>
-
-          <!-- 浮动控制按钮栏 -->
-          <div 
-            class="floating-control-bar"
-            @mouseenter="handleControlBarHover"
-            @mouseleave="handleControlBarLeave"
-            :class="{ 'control-bar-idle': isControlBarIdle, 'control-bar-hovered': isControlBarHovered }"
-            style="left: auto; right: 20px;"
-          >
-            <button class="nav-btn prev-btn" :disabled="!hasPrevious" @click="previousDoc" title="上一个教程">
-              <svg-icon :path="mdiChevronLeft" :size="16" type="mdi"></svg-icon>
-              <span class="btn-text">上一个</span>
-            </button>
-            <button class="nav-btn home-btn" @click="backToList" title="回到教程列表">
-              <svg-icon :path="mdiHome" :size="16" type="mdi"></svg-icon>
-              <span class="btn-text">主页</span>
-            </button>
-            <button class="nav-btn next-btn" :disabled="!hasNext" @click="nextDoc" title="下一个教程">
-              <span class="btn-text">下一个</span>
-              <svg-icon :path="mdiChevronRight" :size="16" type="mdi"></svg-icon>
-            </button>
-          </div>
         </div>
       </div>
     </div>
 </template>
+
 <style lang='scss' scoped>
 @use '@/common/global.scss' as *;
 @use '@/common/node.scss' as *;
@@ -531,145 +608,6 @@ const nextDoc = () => {
   }
 }
 
-// 视频教程部分
-.video-section {
-  min-height: auto;
-
-  .videos-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 30px;
-  }
-
-  .video-card {
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(16, 142, 254, 0.1);
-    transition: all 0.3s ease;
-    border: 1px solid #e8f0f9;
-    display: flex;
-    flex-direction: column;
-
-    &:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 16px rgba(16, 142, 254, 0.15);
-      border-color: #108efe;
-
-      .video-overlay {
-        opacity: 1;
-      }
-
-      .play-btn {
-        transform: scale(1.1);
-      }
-    }
-
-    .video-thumbnail {
-      position: relative;
-      width: 100%;
-      height: 180px;
-      background: linear-gradient(135deg, rgba(16, 142, 254, 0.1), rgba(16, 142, 254, 0.05));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-
-      .emoji {
-        font-size: 64px;
-        opacity: 0.5;
-      }
-
-      .video-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        opacity: 0;
-        transition: all 0.3s ease;
-      }
-
-      .play-btn {
-        width: 60px;
-        height: 60px;
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        color: #108efe;
-      }
-
-      .video-duration {
-        position: absolute;
-        bottom: 12px;
-        right: 12px;
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        padding: 4px 12px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 600;
-      }
-
-      .difficulty-badge {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 600;
-      }
-    }
-
-    .video-info {
-      padding: 20px;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-
-      .video-title {
-        font-size: 16px;
-        font-weight: 700;
-        color: #333;
-        margin-bottom: 8px;
-        line-height: 1.4;
-      }
-
-      .video-description {
-        font-size: 13px;
-        color: #666;
-        line-height: 1.5;
-        margin-bottom: 12px;
-        flex: 1;
-      }
-
-      .video-meta {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        font-size: 12px;
-        color: #999;
-
-        .views {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-      }
-    }
-  }
-}
-
 // 文档教程部分
 .doc-section {
   background: transparent;
@@ -677,7 +615,7 @@ const nextDoc = () => {
 
   .docs-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 30px;
   }
 
@@ -690,6 +628,7 @@ const nextDoc = () => {
     border: 1px solid #e8f0f9;
     display: flex;
     flex-direction: column;
+    cursor: pointer;
 
     &:hover {
       transform: translateY(-4px);
@@ -699,7 +638,7 @@ const nextDoc = () => {
 
     .doc-header {
       display: flex;
-      align-items: flex-start;
+      align-items: center; // ✅ 垂直居中
       gap: 16px;
       margin-bottom: 16px;
 
@@ -715,32 +654,30 @@ const nextDoc = () => {
         flex-shrink: 0;
       }
 
-      .doc-meta {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
+      .doc-info {
         flex: 1;
-
-        .doc-category {
-          font-size: 11px;
+        min-width: 0;
+        overflow: hidden;
+        
+        .doc-title {
+          font-size: 16px;
           font-weight: 700;
+          color: #333;
+          margin: 0 0 4px 0; // 可选：减少下边距
+          line-height: 1.3;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .doc-subtitle {
+          font-size: 11px;
+          font-weight: 500;
           color: #108efe;
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
-
-        .doc-pages {
-          font-size: 12px;
-          color: #999;
-        }
       }
-    }
-
-    .doc-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: #333;
-      margin-bottom: 10px;
     }
 
     .doc-description {
@@ -758,49 +695,44 @@ const nextDoc = () => {
       padding-top: 16px;
       border-top: 1px solid #f0f0f0;
 
-      .updated {
+      .footer-left {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #999;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .read-time {
         font-size: 12px;
         color: #999;
       }
 
-      .read-btn {
-        background: none;
-        border: none;
-        color: #108efe;
-        font-weight: 600;
-        cursor: pointer;
-        font-size: 13px;
-        padding: 0;
-        transition: all 0.2s ease;
-
-        &:hover {
-          transform: translateX(4px);
-        }
+      .date {
+        font-size: 12px;
+        color: #999;
+        flex-shrink: 0;
       }
     }
   }
 }
 
-// 教程详情部分
+// 教程详情部分 - 全屏无边距
 .tutorial-detail-section {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: white;
   display: flex;
   flex-direction: column;
-  width: 90%;
-  height: 85vh;
-  padding: 0;
-  background: white;
   overflow: hidden;
-  margin: 0;
-  max-width: none;
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(16, 142, 254, 0.12);
-  z-index: 10;
+  border-radius: 0;
+  box-shadow: none;
 
-  // 简约标签 - 真正的标签风格
+  // 简约标签 + 静默模式蓝色提示
   .tutorial-label {
     position: absolute;
     left: -20px;
@@ -831,6 +763,20 @@ const nextDoc = () => {
         opacity: 1;
         left: -20px;
         box-shadow: -2px 2px 12px rgba(16, 142, 254, 0.2);
+      }
+
+      // 静默模式蓝色箭头提示
+      &::before {
+        content: "▶";
+        position: absolute;
+        right: -20px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #108efe;
+        font-size: 12px;
+        font-weight: bold;
+        opacity: 0.7;
+        animation: pulse-blue 1.5s ease-in-out infinite;
       }
     }
 
@@ -886,28 +832,42 @@ const nextDoc = () => {
     .tutorial-left {
       display: flex;
       flex-direction: column;
-      overflow-y: auto;
-      overflow-x: hidden;
+      overflow: hidden;
       position: relative;
       background: white;
-      padding: 30px;
       border-right: 1px solid #e8f0f9;
       
-      &::-webkit-scrollbar {
-        width: 6px;
-      }
-      
-      &::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      
-      &::-webkit-scrollbar-thumb {
-        background: #d0e0f0;
-        border-radius: 3px;
+      // 滚动区域
+      .markdown-wrapper {
+        flex: 1;
+        overflow-y: auto;
+        padding: 30px;
         
-        &:hover {
-          background: #a0c0f0;
+        &::-webkit-scrollbar {
+          width: 6px;
         }
+        
+        &::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        
+        &::-webkit-scrollbar-thumb {
+          background: #d0e0f0;
+          border-radius: 3px;
+          
+          &:hover {
+            background: #a0c0f0;
+          }
+        }
+      }
+
+      .loading-state,
+      .empty-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        color: #999;
       }
 
       .markdown-content {
@@ -915,55 +875,62 @@ const nextDoc = () => {
         line-height: 1.8;
         color: #333;
 
-        h1, h2, h3 {
+        :deep(h1), :deep(h2), :deep(h3) {
           margin-top: 20px;
           margin-bottom: 12px;
           font-weight: 700;
           color: #1a1a1a;
         }
 
-        h1 {
+        :deep(h1) {
           font-size: 24px;
           border-bottom: 2px solid #108efe;
           padding-bottom: 10px;
         }
 
-        h2 {
+        :deep(h2) {
           font-size: 20px;
           color: #108efe;
         }
 
-        h3 {
+        :deep(h3) {
           font-size: 16px;
           color: #333;
         }
 
-        p {
+        :deep(p) {
           margin-bottom: 10px;
           text-align: justify;
         }
 
-        strong {
+        :deep(strong) {
           color: #108efe;
           font-weight: 700;
         }
 
-        em {
+        :deep(em) {
           font-style: italic;
           color: #666;
         }
 
-        ul {
+        :deep(ul), :deep(ol) {
           margin: 15px 0;
           padding-left: 20px;
 
           li {
             margin-bottom: 8px;
-            list-style-type: disc;
           }
         }
 
-        pre {
+        :deep(ul li) {
+          list-style-type: disc;
+        }
+
+        :deep(ol li) {
+          list-style-type: decimal;
+        }
+
+        :deep(pre) {
           background: #f5f8fc;
           border-left: 3px solid #108efe;
           padding: 15px;
@@ -978,7 +945,7 @@ const nextDoc = () => {
           }
         }
 
-        code {
+        :deep(code) {
           background: #f0f7ff;
           color: #108efe;
           padding: 2px 6px;
@@ -987,7 +954,7 @@ const nextDoc = () => {
           font-size: 13px;
         }
 
-        a {
+        :deep(a) {
           color: #108efe;
           text-decoration: none;
           border-bottom: 1px solid #108efe;
@@ -999,14 +966,78 @@ const nextDoc = () => {
           }
         }
 
-        br {
-          display: block;
-          content: '';
+        :deep(blockquote) {
+          border-left: 4px solid #108efe;
+          padding-left: 16px;
+          margin: 16px 0;
+          color: #666;
+          font-style: italic;
+        }
+
+        :deep(table) {
+          border-collapse: collapse;
+          width: 100%;
+          margin: 16px 0;
+
+          th, td {
+            border: 1px solid #e0e0e0;
+            padding: 8px 12px;
+            text-align: left;
+          }
+
+          th {
+            background: #f5f8fc;
+            font-weight: 600;
+          }
+        }
+
+        :deep(hr) {
+          border: none;
+          border-top: 1px solid #e8f0f9;
+          margin: 20px 0;
+        }
+      }
+
+      // 常驻底部控制栏
+      .bottom-control-bar {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: white;
+        border-top: 1px solid #e8f0f9;
+        z-index: 10;
+
+        .control-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: 4px;
+          background: transparent;
+          border: 1px solid #d0e0f0;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          color: #666;
+
+          &:hover:not(:disabled) {
+            border-color: #108efe;
+            color: #108efe;
+            background: rgba(16, 142, 254, 0.05);
+          }
+
+          &:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+          }
         }
       }
     }
 
-    // 分割线
+    // 分割线 + 纯三角形指示器（无圆形背景）
     .divider {
       width: 1px;
       background: #e8f0f9;
@@ -1014,16 +1045,55 @@ const nextDoc = () => {
       transition: all 0.2s ease;
       position: relative;
 
+      // 热区：扩大可点击区域
+      &::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 0;
+        transform: translateX(-50%);
+        width: 10px;
+        height: 100%;
+        background: transparent;
+        cursor: col-resize;
+        pointer-events: auto;
+      }
+
+      .drag-handle {
+        position: absolute;
+        left: 100%;          // 三角形左侧与分割线右侧对齐
+        top: 50%;
+        transform: translateY(-50%);  // 垂直居中，不水平移动
+        margin-left: -2px;    // 可选，让三角形稍远离分割线，视觉更清晰
+        font-size: 14px;
+        color: #e8f0f9;
+        pointer-events: auto;
+        cursor: col-resize;
+        font-weight: bold;
+        transition: color 0.2s ease;
+        z-index: 5;
+        background: transparent;
+        text-shadow: 0 0 2px rgba(255,255,255,0.5);
+      }
+
       &:hover {
         width: 2px;
         background: #108efe;
         box-shadow: 0 0 4px rgba(16, 142, 254, 0.3);
+
+        .drag-handle {
+          color: #108efe; // hover 时与分割线颜色一致
+        }
       }
 
       &.divider-active {
         width: 2px;
         background: #108efe;
         box-shadow: 0 0 4px rgba(16, 142, 254, 0.3);
+
+        .drag-handle {
+          color: #108efe;
+        }
       }
     }
 
@@ -1053,96 +1123,8 @@ const nextDoc = () => {
       }
     }
   }
-
-  // 浮动控制栏
-  .floating-control-bar {
-    position: absolute;
-    left: 20px;
-    bottom: 20px;
-    display: flex;
-    gap: 8px;
-    padding: 8px 10px;
-    background: white;
-    border-radius: 6px;
-    border: 1px solid #d0e0f0;
-    box-shadow: 0 2px 8px rgba(16, 142, 254, 0.12);
-    z-index: 20;
-    transition: all 0.3s ease;
-    opacity: 1;
-    backdrop-filter: blur(10px);
-
-    &.control-bar-idle {
-      opacity: 0.2;
-    }
-
-    &.control-bar-hovered {
-      opacity: 1;
-      box-shadow: 0 4px 12px rgba(16, 142, 254, 0.15);
-      border-color: #108efe;
-    }
-
-    .nav-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      background: #108efe;
-      border: none;
-      border-radius: 4px;
-      padding: 6px 10px;
-      color: white;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      font-size: 12px;
-      white-space: nowrap;
-
-      .btn-text {
-        display: none;
-      }
-
-      @media (min-width: 1200px) {
-        .btn-text {
-          display: inline;
-        }
-      }
-
-      &:hover:not(:disabled) {
-        background: #0056d4;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 6px rgba(16, 142, 254, 0.3);
-      }
-
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-
-      svg {
-        width: 14px;
-        height: 14px;
-      }
-    }
-
-    .prev-btn {
-      flex-direction: row-reverse;
-    }
-
-    .home-btn {
-      background: #6c757d;
-
-      &:hover:not(:disabled) {
-        background: #5a6268;
-      }
-    }
-
-    .next-btn {
-      flex-direction: row;
-    }
-  }
 }
 
-// 标签提示闪烁动画
 @keyframes hintBlink {
   0%, 100% {
     opacity: 0.5;
@@ -1152,137 +1134,14 @@ const nextDoc = () => {
   }
 }
 
-// 动画
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
+@keyframes pulse-blue {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translateY(-50%) translateX(0);
   }
-  to {
+  50% {
     opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-// 关于我们部分
-.about-section {
-  min-height: 70vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  .about-container {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 80px;
-    background: white;
-    border-radius: 8px;
-    padding: 60px;
-    box-shadow: 0 4px 16px rgba(16, 142, 254, 0.1);
-    border: 1px solid #e8f0f9;
-
-    @media (max-width: 992px) {
-      flex-direction: column;
-      gap: 40px;
-      padding: 40px;
-    }
-
-    .about-content {
-      flex: 1;
-
-      .about-title {
-        font-size: 32px;
-        font-weight: 900;
-        color: #333;
-        margin-bottom: 24px;
-      }
-
-      .about-text {
-        font-size: 16px;
-        line-height: 1.8;
-        color: #666;
-        margin-bottom: 20px;
-      }
-
-      .about-features {
-        display: flex;
-        gap: 40px;
-        margin-top: 40px;
-
-        @media (max-width: 992px) {
-          flex-wrap: wrap;
-          gap: 30px;
-        }
-
-        .about-feature-item {
-          text-align: center;
-          flex: 1;
-          min-width: 120px;
-
-          .feature-number {
-            font-size: 32px;
-            font-weight: 900;
-            color: #108efe;
-            margin-bottom: 8px;
-          }
-
-          p {
-            font-size: 14px;
-            color: #666;
-            font-weight: 600;
-          }
-        }
-      }
-    }
-
-    .about-illustration {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 40px;
-      flex-wrap: wrap;
-
-      .illustration-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 16px;
-        text-align: center;
-
-        .illus-emoji {
-          font-size: 64px;
-          filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
-        }
-
-        p {
-          font-size: 14px;
-          font-weight: 700;
-          color: #333;
-        }
-      }
-    }
+    transform: translateY(-50%) translateX(2px);
   }
 }
 </style>
