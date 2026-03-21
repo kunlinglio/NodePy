@@ -12,6 +12,7 @@ class ExploreListItem(BaseModel):
     owner_name: str
     created_at: int  # unix timestamp in milliseconds
     updated_at: int  # unix timestamp in milliseconds
+    tags: list[str]
     thumb: str | None = None  # base64 encoded thumbnail image
 
 

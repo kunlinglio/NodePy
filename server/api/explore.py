@@ -15,7 +15,7 @@ API router for explore-related endpoints.
 router = APIRouter()
 
 @router.get(
-    "/explore/projects", 
+    "/projects", 
     status_code=200,
 )
 async def get_explore_projects(
@@ -58,6 +58,10 @@ async def get_explore_projects(
         if not author_record:
             raise ValueError(f"Author with id {author_id} not found.")
         author_name = author_record.username  # type: ignore
+        # get tags
+        tag_subquery = select(ProjectTagRecord.tag_id).where(ProjectTagRecord.project_id == record.id)
+        tag_records = await db.execute(select(TagRecord).where(TagRecord.id.in_(tag_subquery)))
+        tags = [tag.name for tag in tag_records.scalars().all()]
         project_items.append(
             ExploreListItem(
                 project_id=record.id,  # type: ignore
@@ -66,6 +70,7 @@ async def get_explore_projects(
                 owner_name=author_name,  # type: ignore
                 created_at=int(record.created_at.timestamp() * 1000),  # type: ignore
                 updated_at=int(record.updated_at.timestamp() * 1000),  # type: ignore
+                tags=tags, # type: ignore
                 thumb=base64.b64encode(record.thumb).decode("utf-8") if record.thumb else None,  # type: ignore
             )
         )
