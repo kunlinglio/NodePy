@@ -52,4 +52,8 @@ celery_app.conf.beat_schedule = {
         "schedule": FETCH_BACKWARD_INTERVAL_SEC,
         # "schedule": 120.0,  # Every 2 minutes (for testing purposes)
     },
+    "cleanup-guest-data-every-hour": {
+        "task": "server.lib.FileManager.cleanup_guest_data_task",
+        "schedule": 4 * 3600.0, # Every 4 hour
+    },
 }

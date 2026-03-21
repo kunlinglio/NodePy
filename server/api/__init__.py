@@ -7,6 +7,7 @@ from .files import router as files_router
 from .project import router as project_router
 from .user import router as user_router
 from .tag import router as tag_router
+from .playground import router as playground_router
 
 # Create main API router
 router = APIRouter()
@@ -19,5 +20,6 @@ router.include_router(auth_router, prefix="/auth")
 router.include_router(explore_router, prefix="/explore")
 router.include_router(user_router, prefix="/user")
 router.include_router(tag_router, prefix="/tag")
+router.include_router(playground_router, prefix="/playground")
 
 __all__ = ["router"]

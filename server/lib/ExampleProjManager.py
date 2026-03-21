@@ -8,7 +8,13 @@ from uuid import uuid4
 from loguru import logger
 from pydantic import BaseModel
 
-from server.config import EXAMPLE_USER_EMAIL, EXAMPLE_USER_USERNAME, EXAMPLES_DIR
+from server.config import (
+    EXAMPLE_USER_EMAIL,
+    EXAMPLE_USER_USERNAME,
+    EXAMPLES_DIR,
+    GUEST_USER_EMAIL,
+    GUEST_USER_USERNAME,
+)
 from server.lib.FileManager import FileManager
 from server.lib.utils import get_project_by_id_sync
 from server.models.data import Data
@@ -80,6 +86,19 @@ def initialize_example_projects() -> None:
                 file_total_space=10 * 1024 * 1024 * 1024 * 1024,  # 10 TB
             )
             db.add(user)
+            db.flush()
+
+        # 1.1 Ensure Guest user exists
+        guest_user = db.query(UserRecord).filter_by(username=GUEST_USER_USERNAME).first()
+        if not guest_user:
+            logger.info(f"Creating guest user for playground: {GUEST_USER_USERNAME}")
+            guest_user = UserRecord(
+                username=GUEST_USER_USERNAME,
+                email=GUEST_USER_EMAIL,
+                hashed_password=None,
+                file_total_space=100 * 1024 * 1024 * 1024,  # 100 GB for guest pool
+            )
+            db.add(guest_user)
             db.flush()
 
         file_manager = FileManager(sync_db_session=db)

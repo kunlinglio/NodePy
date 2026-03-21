@@ -67,6 +67,8 @@ CORE_SYMBOLS = {
 # Example projects configuration
 EXAMPLE_USER_USERNAME = "NodePy-Learning"
 EXAMPLE_USER_EMAIL = "learning@nodepy.com"
+GUEST_USER_USERNAME = "NodePy-Guest"
+GUEST_USER_EMAIL = "guest@nodepy.com"
 EXAMPLES_DIR = Path("/nodepy/server/assets/examples")
 
 # Interpreter configuration
