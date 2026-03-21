@@ -170,7 +170,8 @@ class ForRollingWindowEndNode(ForBaseEndNode):
         for row in self._outputs_tables:
             assert isinstance(row.payload, Table)
             dfs.append(row.payload.df)
-        combined_df = pd.concat(dfs, ignore_index=True)
+        combined_df: pd.DataFrame = pd.concat(dfs, ignore_index=True) 
+        combined_df: pd.DataFrame = combined_df.drop(columns = ["_index"]) # to trigger recalculate index
         combined_col_types = self._outputs_tables[0].payload.col_types
         assert combined_col_types is not None
         return {
