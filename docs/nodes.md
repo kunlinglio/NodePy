@@ -858,7 +858,7 @@ K线图绘制节点，支持对输入的K线数据表格进行K线图绘制。
 **hint：**
 - subset_col_choices: 列名列表，类型为List[str]，用于在UI中为subset_cols参数提供可选值。
 
-##### 5.7 FillNaNValueNode
+#### 5.7 FillNaNValueNode
 表格缺失值填充节点，根据指定的列名列表和填充值填充NaN值。
 
 **参数：**
