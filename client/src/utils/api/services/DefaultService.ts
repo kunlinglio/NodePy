@@ -450,6 +450,7 @@ export class DefaultService {
             },
         });
     }
+
     /**
      * List Tags
      * @returns Tag List of tags retrieved successfully
@@ -481,6 +482,54 @@ export class DefaultService {
             },
             errors: {
                 400: `Tag name duplicate`,
+            422: `Validation Error`,
+            500: `Internal server error`,
+          },
+        });
+    }
+    /**
+     * Get Playground Project
+     * Get a project for playground. Only allows projects owned by NodePy-Learning that are public.
+     * @param projectId
+     * @returns Project Graph retrieved successfully
+     * @throws ApiError
+     */
+    public static getPlaygroundProjectApiPlaygroundProjectIdGet(
+        projectId: number,
+    ): CancelablePromise<Project> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/playground/{project_id}',
+            path: {
+                'project_id': projectId,
+            },
+            errors: {
+                403: `Project is not a public example`,
+                404: `Project not found`,
+                422: `Validation Error`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Sync Playground Project
+     * Execute a project in playground mode. Does not save changes to the database.
+     * @param requestBody
+     * @returns TaskResponse Task accepted and running
+     * @throws ApiError
+     */
+    public static syncPlaygroundProjectApiPlaygroundSyncPost(
+        requestBody: Project,
+    ): CancelablePromise<TaskResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/playground/sync',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                400: `Invalid thumbnail data`,
+                403: `Project is not a public example`,
+                404: `Project not found`,
                 422: `Validation Error`,
                 500: `Internal server error`,
             },

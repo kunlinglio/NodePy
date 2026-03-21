@@ -124,6 +124,8 @@ class AuthUtils:
 
 
 security = HTTPBearer()
+security_optional = HTTPBearer(auto_error=False)
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db_client: AsyncSession = Depends(get_async_session),
@@ -158,3 +160,24 @@ async def get_current_user(
         )
 
     return user
+
+async def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
+    db_client: AsyncSession = Depends(get_async_session),
+) -> Optional[UserRecord]:
+    """
+    Extract the current authenticated user if token is provided.
+    Does not raise 401 if token is missing.
+    """
+    if credentials is None:
+        return None
+    
+    token = credentials.credentials
+    try:
+        payload = AuthUtils.verify_token(token)
+        user_id_str = payload.get("sub")
+        user_id = int(user_id_str) # type: ignore
+        user = await db_client.get(UserRecord, user_id)
+        return user
+    except Exception:
+        return None
