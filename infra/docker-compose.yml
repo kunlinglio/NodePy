@@ -94,6 +94,9 @@ services:
       - ../client/dist:/nodepy/static:ro
       # mount scripts
       - ../scripts:/nodepy/scripts
+      # migrations
+      - ../migrations:/nodepy/migrations
+      - ../alembic.ini:/nodepy/alembic.ini
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/nodepy
       - REDIS_URL=redis://redis:6379

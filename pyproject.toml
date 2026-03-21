@@ -21,6 +21,7 @@ dependencies = [
     "joblib>=1.5.2",
     "scikit-learn>=1.7.2",
     "taskipy>=1.13.0",
+    "alembic>=1.18.4",
 ]
 
 [dependency-groups]
