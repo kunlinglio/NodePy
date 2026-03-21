@@ -2,7 +2,8 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type Body_upload_file_api_files_upload__project_id__post = {
-    file: string;
+export type Tag = {
+    id: number;
+    name: string;
 };
 

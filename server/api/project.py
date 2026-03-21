@@ -17,13 +17,13 @@ from server.lib.AuthUtils import get_current_user
 from server.lib.ProjectLock import ProjectLock
 from server.lib.StreamQueue import Status, StreamQueue
 from server.lib.utils import get_project_by_id, set_project_record
-from server.models.database import ProjectRecord, UserRecord, get_async_session
+from server.models.database import ProjectRecord, ProjectTagRecord, TagRecord, UserRecord, get_async_session
 from server.models.exception import ProjectLockError, ProjLockIdentityError
 from server.models.project import Project, ProjectSetting, ProjUIState, ProjWorkflow
 from server.models.project_list import ProjectList, ProjectListItem
 
 """
-The api for nodes runing, reporting and so on,
+The api for nodes running, reporting and so on,
 """
 router = APIRouter() 
 
@@ -49,6 +49,11 @@ async def list_projects(
         )
         projects: list[ProjectListItem] = []
         for project_record in project_records:
+            # query tags
+            tag_records = await db_client.execute(
+                select(ProjectTagRecord).where(ProjectTagRecord.project_id == project_record.id)
+            )
+            tags = [tag_record.name for tag_record in tag_records]
             projects.append(
                 ProjectListItem(
                     project_id=project_record.id,  # type: ignore
@@ -56,6 +61,7 @@ async def list_projects(
                     owner=project_record.owner_id,  # type: ignore
                     created_at=int(project_record.created_at.timestamp() * 1000) if project_record.created_at else None,  # type: ignore
                     updated_at=int(project_record.updated_at.timestamp() * 1000) if project_record.updated_at else None,  # type: ignore
+                    tags=tags, # type: ignore
                     thumb=base64.b64encode(project_record.thumb).decode('utf-8') if project_record.thumb else None  # type: ignore
                 )
             )
@@ -276,9 +282,15 @@ async def get_project_setting(
             raise HTTPException(status_code=404, detail="Project not found")
         if project_record.owner_id != user_id: # type: ignore
             raise HTTPException(status_code=403, detail="User has no access to this project")
+        # query tags
+        tag_records = await db_client.execute(
+            select(ProjectTagRecord).where(ProjectTagRecord.project_id == project_record.id)
+        )
+        tags = [tag_record.name for tag_record in tag_records]
         return ProjectSetting(
             show_to_explore=project_record.show_in_explore,  # type: ignore
             project_name=project_record.name,  # type: ignore
+            tags=tags  # type: ignore
         )
     except HTTPException:
         raise
@@ -324,6 +336,19 @@ async def update_project_setting(
             )
             if existing_project.first() is not None:
                 raise HTTPException(status_code=400, detail="Project name already exists")
+            # check if tags exists and update tags
+            for tag in setting.tags:
+                tag_record = await db_client.execute(
+                    select(TagRecord).where(TagRecord.name == tag)
+                )
+                if tag_record.first() is None:
+                    raise HTTPException(status_code=400, detail=f"Tag not found: {tag}")
+                tag_id = tag_record.first().id # type: ignore
+                new_project_tag = ProjectTagRecord(
+                    project_id=project_id,
+                    tag_id=tag_id
+                )
+                db_client.add(new_project_tag)
             # update settings
             project_record.name = setting.project_name # type: ignore
             project_record.show_in_explore = setting.show_to_explore # type: ignore

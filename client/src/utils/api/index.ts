@@ -35,6 +35,7 @@ export { server__models__schema__Schema__Type } from './models/server__models__s
 export type { SignupRequest } from './models/SignupRequest';
 export type { TableSchema } from './models/TableSchema';
 export type { TableView } from './models/TableView';
+export type { Tag } from './models/Tag';
 export type { TaskResponse } from './models/TaskResponse';
 export type { TokenResponse } from './models/TokenResponse';
 export type { UserFileList } from './models/UserFileList';
