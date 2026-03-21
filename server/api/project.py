@@ -175,7 +175,7 @@ async def get_project(
     },
 )
 async def create_project(
-    project_name: str,
+    project_setting: ProjectSetting,
     db_client: AsyncSession = Depends(get_async_session),
     user_record: UserRecord = Depends(get_current_user),
 ) -> int:
@@ -192,20 +192,29 @@ async def create_project(
         # 2. check if project name already exists
         existing_project = await db_client.execute(
             select(ProjectRecord).where(
-                (ProjectRecord.name == project_name) & 
+                (ProjectRecord.name == project_setting.project_name) & 
                 (ProjectRecord.owner_id == user_id))
         )
         if existing_project.first() is not None:
             raise HTTPException(status_code=400, detail="Project name already exists")
         # 3. create new project
         new_project = ProjectRecord(
-            name=project_name,
+            name=project_setting.project_name,
             owner_id=user_id,
             workflow=ProjWorkflow.get_empty_workflow().model_dump(),
             ui_state = ProjUIState.get_empty_ui_state().model_dump(),
+            show_in_explore=project_setting.show_to_explore,
             thumb=None
         )
         db_client.add(new_project)
+        # 4. add tags
+        for tag_name in project_setting.tags:
+            tags = await db_client.execute(select(TagRecord).where(TagRecord.name == tag_name))
+            tag = tags.first()
+            if tag is None:
+                raise HTTPException(status_code=400, detail=f"Tag not found: {tag_name}")
+            project_tag = ProjectTagRecord(project_id=new_project.id, tag_id=tag.id)
+            db_client.add(project_tag)
         await db_client.commit()
         await db_client.refresh(new_project)
         return new_project.id  # type: ignore
@@ -214,7 +223,7 @@ async def create_project(
         raise
     except Exception as e:
         await db_client.rollback()
-        logger.exception(f"Error creating project '{project_name}': {e}")
+        logger.exception(f"Error creating project '{project_setting.project_name}': {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.delete(
