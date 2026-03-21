@@ -22,6 +22,7 @@ export type { ModelSchema } from './models/ModelSchema';
 export type { ModelView } from './models/ModelView';
 export type { Project } from './models/Project';
 export type { ProjectList } from './models/ProjectList';
+export { ProjectListFilter } from './models/ProjectListFilter';
 export type { ProjectListItem } from './models/ProjectListItem';
 export type { ProjectSetting } from './models/ProjectSetting';
 export type { ProjEdge } from './models/ProjEdge';
