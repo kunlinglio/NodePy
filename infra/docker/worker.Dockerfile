@@ -37,7 +37,7 @@ RUN uv sync --no-install-project --no-group server --no-group dev --group worker
 # Use the non-root user to run our application
 USER nonroot
 # Run server
-CMD ["uv", "run", "celery", "-A", "server.celery", "worker", "--beat", "--schedule", "/tmp/celerybeat-schedule", "--loglevel=debug"]
+CMD ["uv", "run", "celery", "-A", "server.celery", "worker", "--beat", "--schedule", "/tmp/celerybeat-schedule", "--loglevel=info"]
 
 
 FROM python:3.13 AS production

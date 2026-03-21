@@ -226,10 +226,11 @@ K线数据节点，可以输出指定时间范围内的金融K线数据表格。
 - op: 运算类型，类型为str，取值为"ADD", "COL_SUB_NUM", "NUM_SUB_COL", "MUL", "COL_DIV_NUM", "NUM_DIV_COL", "COL_POW_NUM", "NUM_POW_COL"。
 - col: 要操作的表格列名，类型为str，该列必须为数值类型(int或float)。
 - result_col: 结果表格列名，类型为str，可以为空，表示使用默认结果列名。
+- num: 数值操作数，类型为int或float，可选，如果未提供则从输入端口获取。
 
 **输入：**
 - table: 输入的表格，类型为Table。
-- num: 数值操作数，类型为int或float。
+- num: 数值操作数，类型为int或float，可选，如果未提供则从输入端口获取。
 
 **输出：**
 - table: 输出的表格，类型为Table，包含新增的结果列。
@@ -346,7 +347,26 @@ K线数据节点，可以输出指定时间范围内的金融K线数据表格。
 - col1_choices: 列名列表，类型为List[str]，用于在UI中为col1参数提供可选值。
 - col2_choices: 列名列表，类型为List[str]，用于在UI中为col2参数提供可选值。
 
-#### 2.13 ToStringNode
+#### 2.13 ColWithPrimCompareNode
+列与常量比较节点，支持对表格中的指定列与一个Prim类型(int, float)的输入进行`EQ`, `NEQ`, `LT`, `LTE`, `GT`, `GTE`六种比较运算，将结果存储在新的表格列中。
+
+**参数：**
+- op: 运算类型，类型为str，取值为"EQ", "NEQ", "LT", "LTE", "GT", "GTE"。
+- col: 要操作的表格列名，类型为str，该列必须为Prim类型(int, float)。
+- const: 要比较的常量值，类型为int, float，必须与列的数据类型一致，如果为空则表示使用输入端口来提供常量值。
+- result_col: 结果表格列名，类型为str，可以为空，表示使用默认结果列名。
+
+**输入：**
+- table: 输入的表格，类型为Table。
+- const: 要比较的常量值，类型为int, float（可选），如果不为空，则优先级高于参数中的const。
+
+**输出：**
+- table: 输出的表格，类型为Table，包含新增的结果列。
+
+**hint：**
+- col_choices: 列名列表，类型为List[str]，用于在UI中为col参数提供可选值。
+
+#### 2.14 ToStringNode
 节点将输入的任意类型转换为字符串类型。
 
 **参数：**
@@ -358,7 +378,7 @@ K线数据节点，可以输出指定时间范围内的金融K线数据表格。
 **输出：**
 - output: 输出的字符串，类型为str。
 
-#### 2.14 ToIntNode
+#### 2.15 ToIntNode
 节点将输入的任意类型转换为整数类型。
 
 **参数：**
@@ -370,7 +390,7 @@ method: 转换方法，类型为str，取值为"FLOOR", "CEIL", "ROUND"。
 **输出：**
 - output: 输出的整数，类型为int。
 
-#### 2.15 ToFloatNode
+#### 2.16 ToFloatNode
 节点将输入的任意类型转换为浮点数类型。
 
 **参数：**
@@ -382,7 +402,7 @@ method: 转换方法，类型为str，取值为"FLOOR", "CEIL", "ROUND"。
 **输出：**
 - output: 输出的浮点数，类型为float。
 
-#### 2.16 ToBoolNode
+#### 2.17 ToBoolNode
 节点将输入的任意类型转换为布尔类型。
 
 **参数：**
@@ -394,6 +414,70 @@ method: 转换方法，类型为str，取值为"FLOOR", "CEIL", "ROUND"。
 **输出：**
 - output: 输出的布尔值，类型为bool。
 
+#### 2.18 ColToStringNode
+将指定列的数据类型转换为字符串类型。
+
+**参数：**
+- col: 要转换的表格列名，类型为str，该列可以是int, float, bool类型。
+- result_col: 结果表格列名，类型为str，可以为空，表示使用默认结果列名。
+
+**输入：**
+- table: 输入的表格，类型为Table。
+
+**输出：**
+- table: 输出的表格，类型为Table，指定列的数据类型已转换为str类型。
+
+**hint：**
+- col_choices: 列名列表，类型为List[str]，用于在UI中为col参数提供可选值。
+
+#### 2.19 ColToIntNode
+将指定列的数据类型转换为整数类型。
+
+**参数：**
+- col: 要转换的表格列名，类型为str，该列可以是float, bool或str类型。对于str类型，字符串必须能转换为float或是int格式。
+- result_col: 结果表格列名，类型为str，可以为空，表示使用默认结果列名。
+- method: 转换方法，类型为str，取值为"FLOOR", "CEIL", "ROUND"。
+
+**输入：**
+- table: 输入的表格，类型为Table。
+
+**输出：**
+- table: 输出的表格，类型为Table，指定列的数据类型已转换为int类型。
+
+**hint：**
+- col_choices: 列名列表，类型为List[str]，用于在UI中为col参数提供可选值。
+
+#### 2.20 ColToFloatNode
+将指定列的数据类型转换为浮点数类型。
+
+**参数：**
+- col: 要转换的表格列名，类型为str，该列可以是int, bool或str类型。对于str类型，字符串必须能转换为float格式。
+- result_col: 结果表格列名，类型为str，可以为空，表示使用默认结果列名。
+
+**输入：**
+- table: 输入的表格，类型为Table。
+
+**输出：**
+- table: 输出的表格，类型为Table，指定列的数据类型已转换为float类型。
+
+**hint：**
+- col_choices: 列名列表，类型为List[str]，用于在UI中为col参数提供可选值。
+
+#### 2.21 ColToBoolNode
+将指定列的数据类型转换为布尔类型。
+
+**参数：**
+- col: 要转换的表格列名，类型为str，该列可以是int, float或str类型。对于str类型，字符串必须是"true"或"false"（不区分大小写）。
+- result_col: 结果表格列名，类型为str，可以为空，表示使用默认结果列名。
+
+**输入：**
+- table: 输入的表格，类型为Table。
+
+**输出：**
+- table: 输出的表格，类型为Table，指定列的数据类型已转换为bool类型。
+
+**hint：**
+- col_choices: 列名列表，类型为List[str]，用于在UI中为col参数提供可选值。
 
 ### 3. 可视化节点(visualize)
 #### 3.1 QuickPlotNode
@@ -403,6 +487,7 @@ method: 转换方法，类型为str，取值为"FLOOR", "CEIL", "ROUND"。
 - x_col: x轴列名，类型为str，表格中该列的类型必须为int, float, str或datetime。
 - y_col: y轴列名，类型为list[str]，表格中该列的类型必须为int或float。
 - plot_type: 图形类型，类型为list[str], str取值为"scatter", "line", "bar", "area"。
+- y_axis: y轴位置，类型为list[str], str取值为"left", "right"。
 - title: 图形标题，类型为str，可以为空。
 
 **输入：**
@@ -686,10 +771,11 @@ K线图绘制节点，支持对输入的K线数据表格进行K线图绘制。
 **参数：**
 - col_name: 列名，类型为str，可以为空，如果为空则生成默认列名。
 - col_type: 列的数据类型，类型为str，取值为"int", "float", "bool", "str", "Datetime"。
+- const_value: 列的常量值，类型根据col_type而定，如果为空则表示使用输入端口来提供常量值。
 
 **输入：**
 - table: 输入的表格，类型为Table。
-- const_value: 列的常量值，类型根据col_type而定。
+- const_value: 列的常量值，类型根据col_type而定，（可选），如果不为空，则优先级高于参数中的const_value。
 
 **输出：**
 - table: 输出的表格，类型为Table，包含新增的常量列。
@@ -772,7 +858,7 @@ K线图绘制节点，支持对输入的K线数据表格进行K线图绘制。
 **hint：**
 - subset_col_choices: 列名列表，类型为List[str]，用于在UI中为subset_cols参数提供可选值。
 
-##### 5.7 FillNaNValueNode
+#### 5.7 FillNaNValueNode
 表格缺失值填充节点，根据指定的列名列表和填充值填充NaN值。
 
 **参数：**
@@ -850,6 +936,7 @@ K线图绘制节点，支持对输入的K线数据表格进行K线图绘制。
 
 **输出：**
 - sliced_table: 切片后的表格，类型为Table。
+- remaining_table: 剩余的表格，类型为Table。
 
 #### 5.12 SelectColNode
 表格列选择节点，根据指定的列名列表从表格中选择对应的列。
@@ -987,10 +1074,11 @@ K线图绘制节点，支持对输入的K线数据表格进行K线图绘制。
 **参数：**
 - op: 运算类型，类型为str，取值为"ADD", "SUB"。
 - unit: 时间单位，用来指定输入float/int的单位，类型为str，取值为"DAYS", "HOURS", "MINUTES", "SECONDS"。
+- value: 数值操作数，类型为int或float，可选，如果未提供则从输入端口获取。
 
 **输入：**
 - datetime: 日期时间操作数，类型为Datetime。
-- value: 数值操作数，类型为int或float。
+- value: 数值操作数，类型为int或float（可选），如果不为空，则优先级高于参数中的value。
 
 **输出：**
 - result: 运算结果，类型为Datetime。
@@ -1165,7 +1253,7 @@ K线图绘制节点，支持对输入的K线数据表格进行K线图绘制。
 **hint：**
 - col_choices: 列名列表，类型为List[str]，用于在UI中为col参数提供可选值。
 
-### 9. 控制节点(control)
+### 9 控制节点(control)
 #### 9.1 CustomScriptNode
 用户自定义脚本节点，允许用户编写自定义的Python脚本来处理输入数据并生成输出数据。注意，为了安全起见，用户脚本将在受限的环境中执行，且只能使用预定义的安全库和函数。
 
@@ -1188,7 +1276,8 @@ K线图绘制节点，支持对输入的K线数据表格进行K线图绘制。
 - script_template: str，预定义的脚本模版内容，供用户参考和编辑使用。
 
 #### 9.2 ForEachRowNode
-表格逐行处理节点。该节点包含两个实际的节点：ForEachRowBeginNode, ForEachRowEndNode。前者标志循环体的开始，后者标志循环体的结束。用户可以在这两个节点之间插入任意数量的处理节点，这些节点将对输入表格的每一行依次进行处理。
+表格逐行处理节点。该节点包含两个实际的节点：ForEachRowBeginNode, ForEachRowEndNode。
+前者标志循环体的开始，后者标志循环体的结束。用户可以在这两个节点之间插入任意数量的处理节点，这些节点将对输入表格的每一行依次进行处理。
 
 *注意：这两个节点以及循环体都被视为一个节点，它的runningtime、data_out等运行数据都会储存在begin节点上。*
 
@@ -1217,7 +1306,8 @@ K线图绘制节点，支持对输入的K线数据表格进行K线图绘制。
 - table: 输出的表格，类型为Table，包含所有处理后的行。
 
 #### 9.3 ForRollingWindowNode
-表格滚动窗口处理节点。该节点包含两个实际的节点：ForRollingWindowBeginNode, ForRollingWindowEndNode。前者标志滚动窗口循环体的开始，后者标志滚动窗口循环体的结束。用户可以在这两个节点之间插入任意数量的处理节点，这些节点将对输入表格的每一个滚动窗口依次进行处理。
+表格滚动窗口处理节点。该节点包含两个实际的节点ForRollingWindowBeginNode, ForRollingWindowEndNode。
+前者标志滚动窗口循环体的开始，后者标志滚动窗口循环体的结束。用户可以在这两个节点之间插入任意数量的处理节点，这些节点将对输入表格的每一个滚动窗口依次进行处理。
 
 ##### (1) ForRollingWindowBeginNode
 表格滚动窗口处理开始节点，标志滚动窗口循环体的开始。
@@ -1244,7 +1334,42 @@ K线图绘制节点，支持对输入的K线数据表格进行K线图绘制。
 **输出：**
 - table: 输出的表格，类型为Table，包含所有处理后的滚动窗口行。
 
-#### 9.4 UnpackNode
+#### 9.4 MapColumnNode
+列映射节点。该节点包含两个实际的节点：MapColumnBeginNode, MapColumnEndNode。
+表格的某一列的每一行上应用更改，相当于`ForEachRowNode` + `GetCellNode` + `PackNode`的组合。
+
+注：两个节点的remains和cell端口在创建后默认连接在一起。
+
+##### (1) MapColumnBeginNode
+列映射起始节点，标志列映射循环体的开始。
+
+**参数：**
+- col: 应用的列。
+
+**输入：**
+- table: 需要处理的表格，类型为Table。
+
+**输出：**
+- remains: 剩余的列组成的行，类型为Table。
+- cell: 当前需要处理的单元格，类型可以为任何能够填入表格的数据。
+
+**hint：**
+- col_choices: 列名列表，类型为List[str]，用于在UI中为col参数提供可选值。
+
+##### (2) MapColumnEndNode
+列映射结束节点，标志列映射循环体的结束。
+
+**参数：**
+- result_col: 结果列名，类型为str，可以为空，表示使用默认结果列名。
+
+**输入：**
+- remains: 剩余的列组成的行，类型为Table。
+- cell: 处理完毕的单元格，类型可以为`int`, `float`, `bool`, `str`, `datetime`。
+
+**输出：**
+- table: 处理后的表格，类型为Table。
+
+#### 9.5 UnpackNode
 解包节点，将输入的单行表格拆分为多个输出端口，每个端口对应表格中的一列。
 
 **参数：**
@@ -1261,7 +1386,7 @@ K线图绘制节点，支持对输入的K线数据表格进行K线图绘制。
 - cols_choices: 列名列表，类型为List[str]，用于在UI中为cols参数提供可选值。
 - outputs: 列名列表，类型为List[str]，用于在UI中显示动态输出端口的名称。
 
-#### 9.5 PackNode
+#### 9.6 PackNode
 打包节点，将多个输入端口的数据打包为单行表格，每个端口对应表格中的一列。
 
 **参数：**
@@ -1277,7 +1402,7 @@ K线图绘制节点，支持对输入的K线数据表格进行K线图绘制。
 **hint：**
 - inputs: 输入端口名称列表，类型为List[str]，用于在UI中显示动态输入端口的名称。
 
-#### 9.6 GetCellNode
+#### 9.7 GetCellNode
 单元格获取节点，从输入的表格中获取指定行、指定列的值。
 
 **参数：**
@@ -1294,7 +1419,7 @@ K线图绘制节点，支持对输入的K线数据表格进行K线图绘制。
 **hint：**
 - col_choices: 列名列表，类型为List[str]，用于在UI中为col参数提供可选值。
 
-#### 9.7 SetCellNode
+#### 9.8 SetCellNode
 单元格设置节点，向输入的表格中指定行、指定列设置值。
 
 **参数：**

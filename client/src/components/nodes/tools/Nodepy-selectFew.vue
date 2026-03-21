@@ -43,6 +43,10 @@
         acceptEmpty: {
             type: Boolean,
             default: false
+        },
+        disabled: {
+            type: Boolean,
+            default: false
         }
     })
     const emit = defineEmits(['selectChange'])
@@ -50,6 +54,7 @@
 
 
     const onClick = (index: number) => {
+        if(props.disabled) return
         const idx = selectedIdx.value.indexOf(index)
         if(idx !== -1) {
             if(!props.acceptEmpty && selectedIdx.value.length <= 1) return

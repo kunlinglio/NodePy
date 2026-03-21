@@ -96,6 +96,10 @@ export const nodeMenuItems: MenuNode[] = [
                 value: 'ColCompareNode'
             },
             {
+                label: '列与常量比较',
+                value: 'ColWithPrimCompareNode'
+            },
+            {
                 label: '转为字符串',
                 value: 'ToStringNode'
             },
@@ -111,6 +115,22 @@ export const nodeMenuItems: MenuNode[] = [
                 label: '转为布尔',
                 value: 'ToBoolNode'
             },
+            {
+                label: '列转字符串',
+                value: 'ColToStringNode'
+            },
+            {
+                label: '列转整数',
+                value: 'ColToIntNode'
+            },
+            {
+                label: '列转浮点数',
+                value: 'ColToFloatNode'
+            },
+            {
+                label: '列转布尔值',
+                value: 'ColToBoolNode'
+            }
         ]
     },
     {
@@ -128,6 +148,10 @@ export const nodeMenuItems: MenuNode[] = [
             {
                 label: '滑动窗口循环',
                 value: 'ForRollingWindowNode'
+            },
+            {
+                label: '列映射',
+                value: 'MapColumnNode'
             },
             {
                 label: '解包',

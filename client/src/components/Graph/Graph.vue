@@ -35,10 +35,15 @@ import BoolColUnaryOpNode from '../nodes/compute/BoolColUnaryOpNode.vue'
 import NumberColWithColBinOpNode from '../nodes/compute/NumberColWithColBinOpNode.vue'
 import BoolColWithColBinOpNode from '../nodes/compute/BoolColWithColBinOpNode.vue'
 import ColCompareNode from '../nodes/compute/ColCompareNode.vue'
+import ColWithPrimCompareNode from '../nodes/compute/ColWithPrimCompareNode.vue'
 import ToStringNode from '../nodes/compute/ToStringNode.vue'
 import ToIntNode from '../nodes/compute/ToIntNode.vue'
 import ToFloatNode from '../nodes/compute/ToFloatNode.vue'
 import ToBoolNode from '../nodes/compute/ToBoolNode.vue'
+import ColToStringNode from '../nodes/compute/ColToStringNode.vue'
+import ColToIntNode from '../nodes/compute/ColToIntNode.vue'
+import ColToFloatNode from '../nodes/compute/ColToFloatNode.vue'
+import ColToBoolNode from '../nodes/compute/ColToBoolNode.vue'
 import QuickPlotNode from '../nodes/visualize/QuickPlotNode.vue'
 import DualAxisPlotNode from '../nodes/visualize/DualAxisPlotNode.vue'
 import StatisticalPlotNode from '../nodes/visualize/StatisticalPlotNode.vue'
@@ -102,6 +107,8 @@ import ForEachRowBeginNode from '../nodes/control/ForEachRowBeginNode.vue'
 import ForEachRowEndNode from '../nodes/control/ForEachRowEndNode.vue'
 import ForRollingWindowBeginNode from '../nodes/control/ForRollingWindowBeginNode.vue'
 import ForRollingWindowEndNode from '../nodes/control/ForRollingWindowEndNode.vue'
+import MapColumnBeginNode from '../nodes/control/MapColumnBeginNode.vue'
+import MapColumnEndNode from '../nodes/control/MapColumnEndNode.vue'
 import UnpackNode from '../nodes/control/UnpackNode.vue'
 import PackNode from '../nodes/control/PackNode.vue'
 import GetCellNode from '../nodes/control/GetCellNode.vue'
@@ -226,7 +233,9 @@ onNodesChange((changes) => {
       'ForEachRowBeginNode',
       'ForEachRowEndNode', 
       'ForRollingWindowBeginNode',
-      'ForRollingWindowEndNode'
+      'ForRollingWindowEndNode',
+      'MapColumnBeginNode',
+      'MapColumnEndNode'
     ];
     const removeChanges = changes.filter(change => change.type === 'remove')
     removeChanges.forEach(change => {
@@ -360,10 +369,15 @@ const nodeColor = (node: BaseNode) => {
     case 'NumberColWithColBinOpNode':
     case 'BoolColWithColBinOpNode':
     case 'ColCompareNode':
+    case 'ColWithPrimCompareNode':
     case 'ToStringNode':
     case 'ToIntNode':
     case 'ToFloatNode':
     case 'ToBoolNode':
+    case 'ColToStringNode':
+    case 'ColToIntNode':
+    case 'ColToFloatNode':
+    case 'ColToBoolNode':
       return nodeCategoryColor.compute
     case 'QuickPlotNode':
     case 'StatisticalPlotNode':
@@ -435,6 +449,8 @@ const nodeColor = (node: BaseNode) => {
     case 'ForEachRowEndNode':
     case 'ForRollingWindowBeginNode':
     case 'ForRollingWindowEndNode':
+    case 'MapColumnBeginNode':
+    case 'MapColumnEndNode':
     case 'UnpackNode':
     case 'PackNode':
     case 'GetCellNode':
@@ -625,6 +641,10 @@ const editableStyle = computed(() => graphStore.project.editable ? 'auto' : 'non
         <template #node-ColCompareNode="ColCompareNodeProps">
           <ColCompareNode v-bind="ColCompareNodeProps"/>
         </template>
+        
+        <template #node-ColWithPrimCompareNode="ColWithPrimCompareNodeProps">
+          <ColWithPrimCompareNode v-bind="ColWithPrimCompareNodeProps"/>
+        </template>
 
         <template #node-ToStringNode="ToStringNodeProps">
           <ToStringNode v-bind="ToStringNodeProps"/>
@@ -640,6 +660,22 @@ const editableStyle = computed(() => graphStore.project.editable ? 'auto' : 'non
 
         <template #node-ToBoolNode="ToBoolNodeProps">
           <ToBoolNode v-bind="ToBoolNodeProps"/>
+        </template>
+
+        <template #node-ColToStringNode="ColToStringNodeProps">
+          <ColToStringNode v-bind="ColToStringNodeProps"/>
+        </template>
+
+        <template #node-ColToIntNode="ColToIntNodeProps">
+          <ColToIntNode v-bind="ColToIntNodeProps"/>
+        </template>
+
+        <template #node-ColToFloatNode="ColToFloatNodeProps">
+          <ColToFloatNode v-bind="ColToFloatNodeProps"/>
+        </template>
+
+        <template #node-ColToBoolNode="ColToBoolNodeProps">
+          <ColToBoolNode v-bind="ColToBoolNodeProps"/>
         </template>
 
         <template #node-QuickPlotNode="QuickPlotNodeProps">
@@ -892,6 +928,14 @@ const editableStyle = computed(() => graphStore.project.editable ? 'auto' : 'non
 
         <template #node-ForRollingWindowEndNode="ForRollingWindowEndNodeProps">
           <ForRollingWindowEndNode v-bind="ForRollingWindowEndNodeProps"/>
+        </template>
+
+        <template #node-MapColumnBeginNode="MapColumnBeginNodeProps">
+          <MapColumnBeginNode v-bind="MapColumnBeginNodeProps"/>
+        </template>
+
+        <template #node-MapColumnEndNode="MapColumnEndNodeProps">
+          <MapColumnEndNode v-bind="MapColumnEndNodeProps"/>
         </template>
 
         <template #node-UnpackNode="UnpackNodeProps">

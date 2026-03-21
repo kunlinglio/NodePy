@@ -1,12 +1,8 @@
-from typing import Any, Dict, Generator, Literal, override
+from typing import Any, Dict, Generator, override
 
 import pandas as pd
 from pydantic import PrivateAttr
 
-from server.interpreter.nodes.control.for_base_node import (
-    ForBaseBeginNode,
-    ForBaseEndNode,
-)
 from server.models.data import Data, Table
 from server.models.exception import (
     NodeExecutionError,
@@ -17,7 +13,11 @@ from server.models.schema import (
     Schema,
 )
 
-from ..base_node import InPort, OutPort, register_node
+from ...base_node import InPort, OutPort, register_node
+from .for_base_node import (
+    ForBaseBeginNode,
+    ForBaseEndNode,
+)
 
 """
 This file defines a pair for node for ForRollingWindow loop control.
@@ -30,11 +30,6 @@ class ForRollingWindowBeginNode(ForBaseBeginNode):
     """
 
     window_size: int
-
-    @property
-    @override
-    def pair_type(self) -> Literal["BEGIN", "END"]:
-        return "BEGIN"
 
     @override
     def validate_parameters(self) -> None:
@@ -113,11 +108,6 @@ class ForRollingWindowEndNode(ForBaseEndNode):
 
     _outputs_tables: list[Data] = PrivateAttr(default=[])
 
-    @property
-    @override
-    def pair_type(self) -> Literal["BEGIN", "END"]:
-        return "END"
-
     @override
     def validate_parameters(self) -> None:
         if not self.type == "ForRollingWindowEndNode":
@@ -180,7 +170,8 @@ class ForRollingWindowEndNode(ForBaseEndNode):
         for row in self._outputs_tables:
             assert isinstance(row.payload, Table)
             dfs.append(row.payload.df)
-        combined_df = pd.concat(dfs, ignore_index=True)
+        combined_df: pd.DataFrame = pd.concat(dfs, ignore_index=True) 
+        combined_df: pd.DataFrame = combined_df.drop(columns = ["_index"]) # to trigger recalculate index
         combined_col_types = self._outputs_tables[0].payload.col_types
         assert combined_col_types is not None
         return {

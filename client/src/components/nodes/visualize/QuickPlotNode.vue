@@ -41,7 +41,18 @@
                     <NodepySelectMany
                         :options="plot_type_options_chinese"
                         :default-selected="y_col.defaultSelectedPlot_type"
-                        @select-change="(e: any) => onSelectChange(e, idx)"
+                        @select-change="(e: any) => onSelectChangePlot_type(e, idx)"
+                        class="nodrag"
+                    />
+                </div>
+                <div class="y_axis">
+                    <div class="param-description" :class="{'node-has-paramerr': y_axisHasErr.value}">
+                        y轴位置
+                    </div>
+                    <NodepySelectFew
+                        :options="y_axis_options_chinese"
+                        :default-selected="y_col.defaultSelectedY_axis"
+                        @select-change="(e: any) => onSelectChangeY_axis(e, idx)"
                         class="nodrag"
                     />
                 </div>
@@ -71,6 +82,7 @@
     import { getInputType } from '../getInputType'
     import { handleExecError, handleParamError, handleValidationError, handleOutputError } from '../handleError'
     import NodepyStringInput from '../tools/Nodepy-StringInput.vue'
+    import NodepySelectFew from '../tools/Nodepy-selectFew.vue'
     import NodepySelectMany from '../tools/Nodepy-selectMany.vue'
     import NodepyButton from '../tools/Nodepy-button.vue'
     import NodepyCross from '../tools/Nodepy-cross.vue'
@@ -83,6 +95,8 @@
     const props = defineProps<NodeProps<QuickPlotNodeData>>()
     const plot_type_options = ["scatter", "line", "bar", "area"]
     const plot_type_options_chinese = ['散点图', '折线图', '条形图', '面积图']
+    const y_axis_options = ['left', 'right']
+    const y_axis_options_chinese = ['左侧', '右侧']
     const x_col_hint = computed(() => {
         if(props.data.hint?.x_col_choices?.length === 0) return ['']
         return props.data.hint?.x_col_choices || ['']
@@ -97,7 +111,8 @@
         return {
             id: Date.now().toString()+`_${idx}`,
             defaultSelected: y_col_hint.value.indexOf(item),
-            defaultSelectedPlot_type: plot_type_options.indexOf(props.data.param.plot_type[idx]!)
+            defaultSelectedPlot_type: plot_type_options.indexOf(props.data.param.plot_type[idx]!),
+            defaultSelectedY_axis: [y_axis_options.indexOf(props.data.param.y_axis[idx]!)]
         }
     }))
     const title = ref(props.data.param.title)
@@ -121,11 +136,19 @@
         id: 'plot_type',
         value: false
     })
+    const y_axisHasErr = ref({
+        id: 'y_axis',
+        value: false
+    })
 
 
-    const onSelectChange = (plot_typeIdx: number, y_colsIdx: number) => {
+    const onSelectChangePlot_type = (plot_typeIdx: number, y_colsIdx: number) => {
         const selected_plot_type = plot_type_options[plot_typeIdx] as 'scatter'| 'line'| 'bar' | 'area'
         props.data.param.plot_type[y_colsIdx] = selected_plot_type
+    }
+    const onSelectChangeY_axis = (y_axisIdx: any, y_colsIdx: number) => {
+        const selected_y_axis = y_axis_options[y_axisIdx[0]] as 'left'| 'right'
+        props.data.param.y_axis[y_colsIdx] = selected_y_axis
     }
     const onUpdateX_col = (e: any) => {
         props.data.param.x_col = x_col_hint.value[e]
@@ -151,19 +174,21 @@
             y_cols.value.splice(idx, 1)
             props.data.param.y_col.splice(idx, 1)
             props.data.param.plot_type.splice(idx, 1)
+            props.data.param.y_axis.splice(idx, 1)
         }
     }
     const addY_col = () => {
-        y_cols.value.push({id: Date.now().toString()+`_${y_cols.value.length}`, defaultSelected: -1, defaultSelectedPlot_type: 1})
+        y_cols.value.push({id: Date.now().toString()+`_${y_cols.value.length}`, defaultSelected: -1, defaultSelectedPlot_type: 1, defaultSelectedY_axis: [0]})
         props.data.param.y_col.push('')
         props.data.param.plot_type.push('line')
+        props.data.param.y_axis.push('left')
     }
 
 
     watch(() => JSON.stringify(props.data.error), () => {
         errMsg.value = []
         handleExecError(props.data.error, errMsg)
-        handleParamError(props.data.error, errMsg, x_colHasErr, y_colHasErr, plot_typeHasErr)
+        handleParamError(props.data.error, errMsg, x_colHasErr, y_colHasErr, plot_typeHasErr, y_axisHasErr)
         handleValidationError(props.id, props.data.error, errMsg, inputHasErr)
     }, {immediate: true})
 
@@ -180,7 +205,7 @@
             .input-input {
                 margin-bottom: $node-margin;
             }
-            .x_col, .y_col, .addY_col, .plot_type, .title {
+            .x_col, .y_col, .addY_col, .plot_type, .y_axis, .title {
                 padding: 0 $node-padding-hor;
                 margin-bottom: $node-margin;
             }

@@ -59,6 +59,20 @@ export const setGroupIdsByBFS = () => {
     endNodes2.forEach(endNode => {
         bfsFromEndNode(endNode, nodeMap, edgeMap, updates, 'ForRollingWindowBeginNode');
     });
+
+
+    // 找到所有 BeginNode3 和 EndNode3
+    const beginNodes3 = nodes.value.filter(n => n.type === 'MapColumnBeginNode');
+    const endNodes3 = nodes.value.filter(n => n.type === 'MapColumnEndNode');
+    // 从每个 BeginNode3 开始正向 BFS
+    beginNodes3.forEach(beginNode => {
+        bfsFromBeginNode(beginNode, nodeMap, edgeMap, updates, 'MapColumnEndNode');
+    });
+    
+    // 从每个 EndNode3 开始逆向 BFS
+    endNodes3.forEach(endNode => {
+        bfsFromEndNode(endNode, nodeMap, edgeMap, updates, 'MapColumnBeginNode');
+    });
     
     // 应用所有更新
     if (updates.length > 0) {
@@ -66,7 +80,7 @@ export const setGroupIdsByBFS = () => {
             updateNode(id, node => ({
                 data: {
                     ...node.data,
-                    groupId: groupId
+                    groupId: node.data.groupId || groupId // 如果节点已存在 groupId，则不覆盖
                 }
             }))
         });
@@ -167,10 +181,12 @@ const bfsFromEndNode = (endNode, nodeMap, edgeMap, updates, stopNode) => {
 export const deleteGroupIdWhenDeleteEdge = (removedEdge: any) => {
     const { updateNode, findNode, getNodes } = useVueFlow('main');
     const EXCLUDED_NODE_TYPES = [
-    'ForEachRowBeginNode',
-    'ForEachRowEndNode', 
-    'ForRollingWindowBeginNode',
-    'ForRollingWindowEndNode'
+        'ForEachRowBeginNode',
+        'ForEachRowEndNode', 
+        'ForRollingWindowBeginNode',
+        'ForRollingWindowEndNode',
+        'MapColumnBeginNode',
+        'MapColumnEndNode'
     ];
     const { source: src} = removedEdge;
     const source = findNode(src)
@@ -204,7 +220,9 @@ export const handleSpecialNodeDelete = (removedNode: any) => {
         'ForEachRowBeginNode': 'ForEachRowEndNode',
         'ForEachRowEndNode': 'ForEachRowBeginNode',
         'ForRollingWindowBeginNode': 'ForRollingWindowEndNode',
-        'ForRollingWindowEndNode': 'ForRollingWindowBeginNode'
+        'ForRollingWindowEndNode': 'ForRollingWindowBeginNode',
+        'MapColumnBeginNode': 'MapColumnEndNode',
+        'MapColumnEndNode': 'MapColumnBeginNode'
     };
 
     // 1. 移除同groupId的其他节点的groupId

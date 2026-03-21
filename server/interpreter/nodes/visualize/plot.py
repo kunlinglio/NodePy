@@ -13,8 +13,10 @@ class QuickPlotNode(BaseNode):
     """
     Node to visualize data from input table using matplotlib.
     """
+
     x_col: str
     y_col: list[str]
+    y_axis: list[Literal["left", "right"]]  # which axis will this y column be plotted on
     plot_type: list[Literal["scatter", "line", "bar", "area"]]
     title: str | None = None
 
@@ -22,16 +24,10 @@ class QuickPlotNode(BaseNode):
     def validate_parameters(self) -> None:
         if not self.type == "QuickPlotNode":
             raise NodeParameterError(
-                node_id=self.id, 
-                err_param_key="type", 
-                err_msg = "Node type must be 'QuickPlotNode'."
+                node_id=self.id, err_param_key="type", err_msg="Node type must be 'QuickPlotNode'."
             )
         if self.x_col.strip() == "":
-            raise NodeParameterError(
-                node_id=self.id,
-                err_param_key="x_col",
-                err_msg="x_col cannot be empty."
-            )
+            raise NodeParameterError(node_id=self.id, err_param_key="x_col", err_msg="x_col cannot be empty.")
         if len(self.y_col) != len(self.plot_type):
             raise NodeParameterError(
                 node_id=self.id,
@@ -43,13 +39,20 @@ class QuickPlotNode(BaseNode):
             )
         for col in self.y_col:
             if col.strip() == "":
-                raise NodeParameterError(
-                    node_id=self.id,
-                    err_param_key="y_col",
-                    err_msg="y_col cannot be empty."
-                )
+                raise NodeParameterError(node_id=self.id, err_param_key="y_col", err_msg="y_col cannot be empty.")
         if self.title is not None and self.title.strip() == "":
             self.title = None
+        if len(self.y_col) != len(self.y_axis):
+            raise NodeParameterError(
+                node_id=self.id,
+                err_param_keys=["y_col", "y_axis"],
+                err_msgs=[
+                    "y_col and y_axis must have the same length.",
+                    "y_col and y_axis must have the same length.",
+                ],
+            )
+        if len(self.y_col) == 0:
+            raise NodeParameterError(node_id=self.id, err_param_key="y_col", err_msg="y_col cannot be empty.")
         return
 
     @override
@@ -63,23 +66,13 @@ class QuickPlotNode(BaseNode):
                 name="input",
                 description="Input table data to visualize",
                 optional=False,
-                accept=Pattern(
-                    types = {Schema.Type.TABLE},
-                    table_columns = input_col_types
-                )
+                accept=Pattern(types={Schema.Type.TABLE}, table_columns=input_col_types),
             ),
-        ], [
-            OutPort(name="plot", description="Generated plot image in PNG format")
-        ]
+        ], [OutPort(name="plot", description="Generated plot image in PNG format")]
 
     @override
     def infer_output_schemas(self, input_schemas: dict[str, Schema]) -> dict[str, Schema]:
-        return {
-            "plot": Schema(
-                type=Schema.Type.FILE,
-                file=FileSchema(format="png")
-            )
-        }
+        return {"plot": Schema(type=Schema.Type.FILE, file=FileSchema(format="png"))}
 
     @override
     def process(self, input: dict[str, Data]) -> dict[str, Data]:
@@ -90,68 +83,66 @@ class QuickPlotNode(BaseNode):
         assert isinstance(input_table, Table)
         df = input_table.df
 
-        plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP', 'Roboto']
-        plt.rcParams['axes.unicode_minus'] = False
+        plt.rcParams["font.sans-serif"] = ["Noto Sans CJK JP", "Roboto"]
+        plt.rcParams["axes.unicode_minus"] = False
 
-        plt.figure(figsize=(8, 6))
+        fig, ax_left = plt.subplots(figsize=(8, 6))
+        ax_right = ax_left.twinx() if "right" in self.y_axis else None
 
         x_data = df[self.x_col]
 
-        # Check if we have any bar plots to handle grouping
-        bar_indices = [i for i, t in enumerate(self.plot_type) if t == "bar"]
-        num_bars = len(bar_indices)
+        colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
-        if num_bars > 0:
-            # Use index-based plotting for grouped bars to avoid overlap
-            indices = np.arange(len(x_data))
-            total_width = 0.8
-            bar_width = total_width / num_bars
-            
+        def plot_on_axis(ax, indices, axis_label):
+            if not ax:
+                return
+            axis_bar_indices = [i for i in indices if self.plot_type[i] == "bar"]
+            num_bars = len(axis_bar_indices)
+
             current_bar_pos = 0
-            
-            for i, y_col in enumerate(self.y_col):
+            bar_width = 0.8 / max(num_bars, 1)
+            x_indices = np.arange(len(x_data))
+
+            for i in indices:
+                y_col = self.y_col[i]
                 y_data = df[y_col]
-                label = y_col
                 ptype = self.plot_type[i]
+                color = colors[i % len(colors)]
 
                 if ptype == "bar":
-                    # Calculate offset to place bars side by side
                     offset = (current_bar_pos - (num_bars - 1) / 2) * bar_width
-                    plt.bar(indices + offset, y_data, width=bar_width, label=label, alpha=0.8)
+                    ax.bar(
+                        x_indices + offset,
+                        y_data,
+                        width=bar_width,
+                        label=f"{y_col} ({axis_label})",
+                        alpha=0.6,
+                        color=color,
+                    )
                     current_bar_pos += 1
                 elif ptype == "line":
-                    plt.plot(indices, y_data, label=label)
+                    ax.plot(x_data, y_data, label=f"{y_col} ({axis_label})", color=color)
                 elif ptype == "scatter":
-                    plt.scatter(indices, y_data, label=label)
+                    ax.scatter(x_data, y_data, label=f"{y_col} ({axis_label})", color=color)
                 elif ptype == "area":
-                    plt.fill_between(indices, y_data, label=label, alpha=0.4)
-            
-            # Restore x-axis labels
-            if len(x_data) > 20:
-                step = len(x_data) // 10
-                plt.xticks(indices[::step], x_data.iloc[::step], rotation=45) # type: ignore
-            else:
-                plt.xticks(indices, x_data, rotation=45) # type: ignore
-        else:
-            # Standard plotting for non-bar types (preserves x-axis scaling)
-            for i, y_col in enumerate(self.y_col):
-                y_data = df[y_col]
-                label = y_col
-                ptype = self.plot_type[i]
+                    ax.fill_between(x_data, y_data, label=f"{y_col} ({axis_label})", alpha=0.3, color=color)
 
-                if ptype == "line":
-                    plt.plot(x_data, y_data, label=label)
-                elif ptype == "scatter":
-                    plt.scatter(x_data, y_data, label=label)
-                elif ptype == "area":
-                    plt.fill_between(x_data, y_data, label=label, alpha=0.4)
+        left_idx = [i for i, axis in enumerate(self.y_axis) if axis == "left"]
+        right_idx = [i for i, axis in enumerate(self.y_axis) if axis == "right"]
 
+        plot_on_axis(ax_left, left_idx, "L")
+        plot_on_axis(ax_right, right_idx, "R")
+
+        ax_left.set_xlabel(self.x_col)
         if self.title:
             plt.title(self.title)
-        plt.xlabel(self.x_col)
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
+
+        lines_l, labels_l = ax_left.get_legend_handles_labels()
+        lines_r, labels_r = ax_right.get_legend_handles_labels() if ax_right else ([], [])
+        ax_left.legend(lines_l + lines_r, labels_l + labels_r, loc="upper left")
+
+        ax_left.grid(True, alpha=0.3)
+        fig.tight_layout()
         # save to byte stream
         file_manager = self.context.file_manager
         buf = file_manager.get_buffer()
@@ -163,7 +154,7 @@ class QuickPlotNode(BaseNode):
             format="png",
             node_id=self.id,
             project_id=self.context.project_id,
-            user_id=self.context.user_id
+            user_id=self.context.user_id,
         )
         return {"plot": Data(payload=file)}
 
@@ -194,6 +185,7 @@ class DualAxisPlotNode(BaseNode):
     """
     A dual-axis plotting node.
     """
+
     x_col: str
     left_y_col: str
     left_plot_type: Literal["line", "bar"]
@@ -205,27 +197,15 @@ class DualAxisPlotNode(BaseNode):
     def validate_parameters(self) -> None:
         if not self.type == "DualAxisPlotNode":
             raise NodeParameterError(
-                node_id=self.id, 
-                err_param_key="type", 
-                err_msg = "Node type must be 'DualAxisPlotNode'."
+                node_id=self.id, err_param_key="type", err_msg="Node type must be 'DualAxisPlotNode'."
             )
         if self.x_col.strip() == "":
-            raise NodeParameterError(
-                node_id=self.id,
-                err_param_key="x_col",
-                err_msg="x_col cannot be empty."
-            )
+            raise NodeParameterError(node_id=self.id, err_param_key="x_col", err_msg="x_col cannot be empty.")
         if self.left_y_col.strip() == "":
-            raise NodeParameterError(
-                node_id=self.id,
-                err_param_key="left_y_col",
-                err_msg="left_y_col cannot be empty."
-            )
+            raise NodeParameterError(node_id=self.id, err_param_key="left_y_col", err_msg="left_y_col cannot be empty.")
         if self.right_y_col.strip() == "":
             raise NodeParameterError(
-                node_id=self.id,
-                err_param_key="right_y_col",
-                err_msg="right_y_col cannot be empty."
+                node_id=self.id, err_param_key="right_y_col", err_msg="right_y_col cannot be empty."
             )
         if self.title is not None and self.title.strip() == "":
             self.title = None
@@ -239,26 +219,19 @@ class DualAxisPlotNode(BaseNode):
                 description="Input table data to visualize",
                 optional=False,
                 accept=Pattern(
-                    types = {Schema.Type.TABLE},
-                    table_columns = {
+                    types={Schema.Type.TABLE},
+                    table_columns={
                         self.x_col: {ColType.INT, ColType.FLOAT, ColType.STR, ColType.DATETIME},
                         self.left_y_col: {ColType.INT, ColType.FLOAT},
-                        self.right_y_col: {ColType.INT, ColType.FLOAT}
-                    }
-                )
+                        self.right_y_col: {ColType.INT, ColType.FLOAT},
+                    },
+                ),
             ),
-        ], [
-            OutPort(name="plot", description="Generated dual-axis plot image in PNG format")
-        ]
+        ], [OutPort(name="plot", description="Generated dual-axis plot image in PNG format")]
 
     @override
     def infer_output_schemas(self, input_schemas: dict[str, Schema]) -> dict[str, Schema]:
-        return {
-            "plot": Schema(
-                type=Schema.Type.FILE,
-                file=FileSchema(format="png")
-            )
-        }
+        return {"plot": Schema(type=Schema.Type.FILE, file=FileSchema(format="png"))}
 
     @override
     def process(self, input: dict[str, Data]) -> dict[str, Data]:
@@ -272,31 +245,31 @@ class DualAxisPlotNode(BaseNode):
         left_y_data = df[self.left_y_col]
         right_y_data = df[self.right_y_col]
 
-        plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP', 'Roboto']
-        plt.rcParams['axes.unicode_minus'] = False
+        plt.rcParams["font.sans-serif"] = ["Noto Sans CJK JP", "Roboto"]
+        plt.rcParams["axes.unicode_minus"] = False
 
         plt.figure(figsize=(8, 6))
         fig, ax1 = plt.subplots(figsize=(8, 6))
 
         if self.left_plot_type == "line":
-            ax1.plot(x_data, left_y_data, 'b-', label=self.left_y_col)
+            ax1.plot(x_data, left_y_data, "b-", label=self.left_y_col)
         elif self.left_plot_type == "bar":
-            ax1.bar(x_data, left_y_data, color='b', alpha=0.6, label=self.left_y_col)
+            ax1.bar(x_data, left_y_data, color="b", alpha=0.6, label=self.left_y_col)
         ax1.set_xlabel(self.x_col)
-        ax1.set_ylabel(self.left_y_col, color='b')
-        ax1.tick_params(axis='y', labelcolor='b')
+        ax1.set_ylabel(self.left_y_col, color="b")
+        ax1.tick_params(axis="y", labelcolor="b")
 
         ax2 = ax1.twinx()
         if self.right_plot_type == "line":
-            ax2.plot(x_data, right_y_data, 'r-', label=self.right_y_col)
+            ax2.plot(x_data, right_y_data, "r-", label=self.right_y_col)
         elif self.right_plot_type == "bar":
-            ax2.bar(x_data, right_y_data, color='r', alpha=0.6, label=self.right_y_col)
-        ax2.set_ylabel(self.right_y_col, color='r')
-        ax2.tick_params(axis='y', labelcolor='r')
+            ax2.bar(x_data, right_y_data, color="r", alpha=0.6, label=self.right_y_col)
+        ax2.set_ylabel(self.right_y_col, color="r")
+        ax2.tick_params(axis="y", labelcolor="r")
 
         if self.title:
             plt.title(self.title)
-        fig.tight_layout()  
+        fig.tight_layout()
         # save to byte stream
         file_manager = self.context.file_manager
         buf = file_manager.get_buffer()
@@ -308,7 +281,7 @@ class DualAxisPlotNode(BaseNode):
             format="png",
             node_id=self.id,
             project_id=self.context.project_id,
-            user_id=self.context.user_id
+            user_id=self.context.user_id,
         )
         return {"plot": Data(payload=file)}
 
@@ -331,11 +304,13 @@ class DualAxisPlotNode(BaseNode):
                 hint["right_y_col_choices"] = y_col_choices
         return hint
 
+
 @register_node()
 class StatisticalPlotNode(BaseNode):
     """
     A advanced plotting node with more graph types.
     """
+
     x_col: str
     y_col: str | None = None
     hue_col: str | None = None
@@ -346,26 +321,17 @@ class StatisticalPlotNode(BaseNode):
     def validate_parameters(self) -> None:
         if not self.type == "StatisticalPlotNode":
             raise NodeParameterError(
-                node_id=self.id, 
-                err_param_key="type", 
-                err_msg = "Node type must be 'StatisticalPlotNode'."
+                node_id=self.id, err_param_key="type", err_msg="Node type must be 'StatisticalPlotNode'."
             )
         if self.x_col.strip() == "":
-            raise NodeParameterError(
-                node_id=self.id,
-                err_param_key="x_col",
-                err_msg="x_col cannot be empty."
-            )
+            raise NodeParameterError(node_id=self.id, err_param_key="x_col", err_msg="x_col cannot be empty.")
         if self.y_col is not None and self.y_col.strip() == "":
             self.y_col = None
         if self.plot_type not in {"count", "hist"} and self.y_col is None:
             raise NodeParameterError(
-                node_id=self.id,
-                err_param_key="y_col",
-                err_msg="y_col cannot be None for the selected plot_type."
+                node_id=self.id, err_param_key="y_col", err_msg="y_col cannot be None for the selected plot_type."
             )
-        if ((self.hue_col is not None and self.hue_col.strip() == "")
-          or self.hue_col == NO_SPECIFIED_COL):
+        if (self.hue_col is not None and self.hue_col.strip() == "") or self.hue_col == NO_SPECIFIED_COL:
             self.hue_col = None
         if self.title is not None and self.title.strip() == "":
             self.title = None
@@ -379,32 +345,29 @@ class StatisticalPlotNode(BaseNode):
                 description="Input table data to visualize",
                 optional=False,
                 accept=Pattern(
-                    types = {Schema.Type.TABLE},
-                    table_columns = {
+                    types={Schema.Type.TABLE},
+                    table_columns={
                         self.x_col: {ColType.INT, ColType.FLOAT, ColType.STR, ColType.DATETIME},
                         **({self.y_col: {ColType.INT, ColType.FLOAT}} if self.y_col else {}),
-                        **({self.hue_col: {ColType.INT, ColType.FLOAT, ColType.STR, ColType.DATETIME}} if self.hue_col else {})
-                    }
-                )
+                        **(
+                            {self.hue_col: {ColType.INT, ColType.FLOAT, ColType.STR, ColType.DATETIME}}
+                            if self.hue_col
+                            else {}
+                        ),
+                    },
+                ),
             ),
-        ], [
-            OutPort(name="plot", description="Generated plot image in PNG format")
-        ]
+        ], [OutPort(name="plot", description="Generated plot image in PNG format")]
 
     @override
     def infer_output_schemas(self, input_schemas: dict[str, Schema]) -> dict[str, Schema]:
-        return {
-            "plot": Schema(
-                type=Schema.Type.FILE,
-                file=FileSchema(format="png")
-            )
-        }
+        return {"plot": Schema(type=Schema.Type.FILE, file=FileSchema(format="png"))}
 
     @override
     def process(self, input: dict[str, Data]) -> dict[str, Data]:
         import matplotlib.pyplot as plt
         import seaborn as sns
-        
+
         input_table = input["input"].payload
         assert isinstance(input_table, Table)
 
@@ -416,9 +379,9 @@ class StatisticalPlotNode(BaseNode):
         hue_data = input_table.df[self.hue_col] if self.hue_col else None  # type: ignore
 
         file_manager = self.context.file_manager
-        
-        plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP', 'Roboto']
-        plt.rcParams['axes.unicode_minus'] = False
+
+        plt.rcParams["font.sans-serif"] = ["Noto Sans CJK JP", "Roboto"]
+        plt.rcParams["axes.unicode_minus"] = False
 
         plt.figure(figsize=(8, 6))
         if self.plot_type == "scatter":
@@ -441,7 +404,7 @@ class StatisticalPlotNode(BaseNode):
             sns.histplot(x=x_data, hue=hue_data, bins=30)
         if self.title:
             plt.title(self.title)
-        plt.tight_layout()      
+        plt.tight_layout()
         # save to byte stream
         buf = file_manager.get_buffer()
         plt.savefig(buf, format="png", dpi=FIGURE_DPI)
@@ -452,7 +415,7 @@ class StatisticalPlotNode(BaseNode):
             format="png",
             node_id=self.id,
             project_id=self.context.project_id,
-            user_id=self.context.user_id
+            user_id=self.context.user_id,
         )
         return {"plot": Data(payload=file)}
 
