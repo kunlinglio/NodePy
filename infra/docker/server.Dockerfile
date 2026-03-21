@@ -33,7 +33,7 @@ RUN uv sync --locked --no-install-project --no-group worker --group server --no-
 # Use the non-root user to run our application
 USER nonroot
 # Run server
-CMD ["uv", "run", "fastapi", "dev", "server/main.py", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn server.main:app --host 0.0.0.0 --port 8000 --access-log"]
 
 
 FROM python:3.13-slim AS production
@@ -53,6 +53,9 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-install-project --no-group worker --no-group dev --group server
 # Copy src
 COPY server /nodepy/server
+# Copy migration
+COPY migrations /nodepy/migrations
+COPY alembic.ini /nodepy/alembic.ini
 # Copy frontend build artifacts produced on host into image
 COPY client/dist /nodepy/static
 # Copy scripts
@@ -60,4 +63,4 @@ COPY scripts /nodepy/scripts
 # Use the non-root user to run our application
 USER nonroot
 # Run server
-CMD ["uv", "run", "uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8000", "--access-log"]
+CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn server.main:app --host 0.0.0.0 --port 8000 --access-log"]
