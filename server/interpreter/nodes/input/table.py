@@ -29,12 +29,13 @@ A series of node that generates a table.
 Such as generate by user input, generate by range, generate by random, etc.
 """
 
+
 @register_node()
 class TableNode(BaseNode):
     """
     A node to generate a table from user provided data.
     Notice: if providing column_names but not providing rows, will throw error, because cannot infer column types.
-    
+
     Parameters (provided at construction time):
       - rows: list[dict[column_name -> value]]
       - column_names: optional list[str] to enforce column order/selection
@@ -48,17 +49,13 @@ class TableNode(BaseNode):
     @override
     def validate_parameters(self) -> None:
         if not self.type == "TableNode":
-            raise NodeParameterError(
-                node_id=self.id,
-                err_param_key="type",
-                err_msg="Node type must be 'TableNode'."
-            )
+            raise NodeParameterError(node_id=self.id, err_param_key="type", err_msg="Node type must be 'TableNode'.")
         # check no illegal column names
         if not check_no_illegal_cols(self.col_names):
             raise NodeParameterError(
                 node_id=self.id,
                 err_param_key="col_names",
-                err_msg="Column names contain illegal names (e.g., reserved keywords)."
+                err_msg="Column names contain illegal names (e.g., reserved keywords).",
             )
         # check all rows key equals col_names (compare as list to avoid dict_keys mismatch)
         for row in self.rows:
@@ -87,12 +84,12 @@ class TableNode(BaseNode):
                             self._rows[row_index][col] = val
                         elif self.col_types[col] == ColType.DATETIME:
                             try:
-                                datetime_obj =  datetime.fromisoformat(val)
+                                datetime_obj = datetime.fromisoformat(val)
                             except ValueError as e:
                                 raise NodeParameterError(
                                     node_id=self.id,
                                     err_param_key="rows",
-                                    err_msg=f"Invalid datetime format in column '{col}': {val}. Error: {e}"
+                                    err_msg=f"Invalid datetime format in column '{col}': {val}. Error: {e}",
                                 )
                             if datetime_obj.tzinfo is None:
                                 # assume UTC if no timezone info
@@ -102,7 +99,7 @@ class TableNode(BaseNode):
                             raise NodeParameterError(
                                 node_id=self.id,
                                 err_param_key="rows",
-                                err_msg=f"Column '{col}' has mixed types: {self.col_types[col]} and STR."
+                                err_msg=f"Column '{col}' has mixed types: {self.col_types[col]} and STR.",
                             )
                     elif isinstance(val, bool):
                         if self.col_types[col] == ColType.BOOL:
@@ -111,7 +108,7 @@ class TableNode(BaseNode):
                             raise NodeParameterError(
                                 node_id=self.id,
                                 err_param_key="rows",
-                                err_msg=f"Column '{col}' has mixed types: {self.col_types[col]} and BOOL."
+                                err_msg=f"Column '{col}' has mixed types: {self.col_types[col]} and BOOL.",
                             )
                     elif isinstance(val, int):
                         if self.col_types[col] == ColType.INT:
@@ -122,7 +119,7 @@ class TableNode(BaseNode):
                             raise NodeParameterError(
                                 node_id=self.id,
                                 err_param_key="rows",
-                                err_msg=f"Column '{col}' has mixed types: {self.col_types[col]} and INT."
+                                err_msg=f"Column '{col}' has mixed types: {self.col_types[col]} and INT.",
                             )
                     elif isinstance(val, float):
                         if self.col_types[col] == ColType.FLOAT:
@@ -131,38 +128,29 @@ class TableNode(BaseNode):
                             raise NodeParameterError(
                                 node_id=self.id,
                                 err_param_key="rows",
-                                err_msg=f"Column '{col}' has mixed types: {self.col_types[col]} and FLOAT."
+                                err_msg=f"Column '{col}' has mixed types: {self.col_types[col]} and FLOAT.",
                             )
                     else:
                         raise NodeParameterError(
                             node_id=self.id,
                             err_param_key="rows",
-                            err_msg=f"Unsupported value type {type(val)} in column '{col}'."
+                            err_msg=f"Unsupported value type {type(val)} in column '{col}'.",
                         )
         assert self._rows is not None
         return
 
     @override
     def port_def(self) -> tuple[list[InPort], list[OutPort]]:
-        return [], [
-            OutPort(name="table", description="The generated table.")
-        ]
+        return [], [OutPort(name="table", description="The generated table.")]
 
     @override
     def infer_output_schemas(self, input_schemas: Dict[str, Schema]) -> Dict[str, Schema]:
-        return {
-            "table": Schema(type=Schema.Type.TABLE, tab=TableSchema(col_types=self.col_types))
-        }
+        return {"table": Schema(type=Schema.Type.TABLE, tab=TableSchema(col_types=self.col_types))}
 
     @override
     def process(self, input: Dict[str, Data]) -> Dict[str, Data]:
-        df = DataFrame(self.rows, columns=self.col_names)
-        out_table = Data(
-            payload=Table(
-                df=df,
-                col_types=self.col_types
-            )
-        )
+        df = DataFrame(self._rows, columns=self.col_names)
+        out_table = Data(payload=Table(df=df, col_types=self.col_types))
         return {"table": out_table}
 
 
@@ -170,10 +158,11 @@ class TableNode(BaseNode):
 class RandomNode(BaseNode):
     """
     Node to generate a table, with a random column of specified type and range.
-    
+
     The row_count and min_value and max_value can be got from inputs.
     If col_type is "str" or "bool", min_value and max_value must be None
     """
+
     col_name: str | None
     col_type: Literal["float", "int", "str", "bool"]
 
@@ -182,11 +171,7 @@ class RandomNode(BaseNode):
     @override
     def validate_parameters(self) -> None:
         if not self.type == "RandomNode":
-            raise NodeParameterError(
-                node_id=self.id,
-                err_param_key="type",
-                err_msg="Node type must be 'RandomNode'."
-            )
+            raise NodeParameterError(node_id=self.id, err_param_key="type", err_msg="Node type must be 'RandomNode'.")
         if self.col_name is None or self.col_name.strip() == "":
             self.col_name = generate_default_col_name(self.id, self.col_type)
         if not check_no_illegal_cols([self.col_name]):
@@ -203,89 +188,65 @@ class RandomNode(BaseNode):
             InPort(
                 name="row_count",
                 description="Input to specify number of rows to generate.",
-                accept=Pattern(
-                    types={Schema.Type.INT}
-                )
+                accept=Pattern(types={Schema.Type.INT}),
             ),
             InPort(
                 name="min_value",
                 description="Optional input to specify minimum value for numeric columns.",
                 optional=True,
-                accept=Pattern(
-                    types={Schema.Type.FLOAT, Schema.Type.INT}
-                )
+                accept=Pattern(types={Schema.Type.FLOAT, Schema.Type.INT}),
             ),
             InPort(
                 name="max_value",
                 description="Optional input to specify maximum value for numeric columns.",
                 optional=True,
-                accept=Pattern(
-                    types={Schema.Type.FLOAT, Schema.Type.INT}
-                )
-            )
-        ], [
-            OutPort(name="table", description="The generated table with random column.")
-        ]
+                accept=Pattern(types={Schema.Type.FLOAT, Schema.Type.INT}),
+            ),
+        ], [OutPort(name="table", description="The generated table with random column.")]
 
     @override
     def infer_output_schemas(self, input_schemas: Dict[str, Schema]) -> Dict[str, Schema]:
-        col_type_map = {
-            "float": ColType.FLOAT,
-            "int": ColType.INT,
-            "str": ColType.STR,
-            "bool": ColType.BOOL
-        }
+        col_type_map = {"float": ColType.FLOAT, "int": ColType.INT, "str": ColType.STR, "bool": ColType.BOOL}
         # check if input min_value and max_value are compatible
         if self.col_type in ["float", "int"]:
             if input_schemas.get("min_value") is None:
                 raise NodeValidationError(
-                    node_id=self.id,
-                    err_input="min_value",
-                    err_msg="min_value must be provided for numeric col_type."
+                    node_id=self.id, err_input="min_value", err_msg="min_value must be provided for numeric col_type."
                 )
             min_schema = input_schemas["min_value"]
-            if not(
-                (min_schema.type == Schema.Type.INT and self.col_type == "int") or 
-                (min_schema.type == Schema.Type.FLOAT and self.col_type == "float")):
+            if not (
+                (min_schema.type == Schema.Type.INT and self.col_type == "int")
+                or (min_schema.type == Schema.Type.FLOAT and self.col_type == "float")
+            ):
                 raise NodeValidationError(
                     node_id=self.id,
                     err_input="min_value",
-                    err_msg=f"min_value input type {min_schema.type} incompatible with col_type {self.col_type}."
+                    err_msg=f"min_value input type {min_schema.type} incompatible with col_type {self.col_type}.",
                 )
             if input_schemas.get("max_value") is None:
                 raise NodeValidationError(
-                    node_id=self.id,
-                    err_input="max_value",
-                    err_msg="max_value must be provided for numeric col_type."
+                    node_id=self.id, err_input="max_value", err_msg="max_value must be provided for numeric col_type."
                 )
             max_schema = input_schemas["max_value"]
-            if not(
-                (max_schema.type == Schema.Type.INT and self.col_type == "int") or 
-                (max_schema.type == Schema.Type.FLOAT and self.col_type == "float")):
+            if not (
+                (max_schema.type == Schema.Type.INT and self.col_type == "int")
+                or (max_schema.type == Schema.Type.FLOAT and self.col_type == "float")
+            ):
                 raise NodeValidationError(
                     node_id=self.id,
                     err_input="max_value",
-                    err_msg=f"max_value input type {max_schema.type} incompatible with col_type {self.col_type}."
+                    err_msg=f"max_value input type {max_schema.type} incompatible with col_type {self.col_type}.",
                 )
         # check if row_count has been set
         if input_schemas.get("row_count") is None:
             raise NodeValidationError(
-                node_id=self.id,
-                err_input="row_count",
-                err_msg="row_count must be provided as input."
+                node_id=self.id, err_input="row_count", err_msg="row_count must be provided as input."
             )
         assert self.col_name is not None
 
         self._col_types = {self.col_name: col_type_map[self.col_type]}
 
-        return {
-            "table": Schema(
-                type=Schema.Type.TABLE,
-                tab=TableSchema(
-                    col_types=self._col_types
-                )
-            )
-        }
+        return {"table": Schema(type=Schema.Type.TABLE, tab=TableSchema(col_types=self._col_types))}
 
     @override
     def process(self, input: Dict[str, Data]) -> Dict[str, Data]:
@@ -297,17 +258,13 @@ class RandomNode(BaseNode):
 
         if row_count_data.payload > MAX_GENERATED_TABLE_ROWS:
             raise NodeExecutionError(
-                node_id=self.id,
-                err_msg=f"row_count too large, maximum allowed is {MAX_GENERATED_TABLE_ROWS}."
+                node_id=self.id, err_msg=f"row_count too large, maximum allowed is {MAX_GENERATED_TABLE_ROWS}."
             )
-        
+
         if min_value_data is not None and max_value_data is not None:
             if isinstance(min_value_data.payload, (int, float)) and isinstance(max_value_data.payload, (int, float)):
                 if min_value_data.payload >= max_value_data.payload:
-                    raise NodeExecutionError(
-                        node_id=self.id,
-                        err_msg="min_value must be less than max_value."
-                    )
+                    raise NodeExecutionError(node_id=self.id, err_msg="min_value must be less than max_value.")
 
         data_rows = []
         for _ in range(row_count_data.payload):
@@ -326,14 +283,11 @@ class RandomNode(BaseNode):
                 assert isinstance(max_value, int)
                 val = random.randint(int(min_value), int(max_value) - 1)
             elif self.col_type == "str":
-                val = ''.join(random.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
+                val = "".join(random.choices("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=8))
             elif self.col_type == "bool":
                 val = random.choice([True, False])
             else:
-                raise NodeExecutionError(
-                    node_id=self.id,
-                    err_msg=f"Unsupported col_type: {self.col_type}."
-                )
+                raise NodeExecutionError(node_id=self.id, err_msg=f"Unsupported col_type: {self.col_type}.")
             data_rows.append({self.col_name: val})
         col_dtype_map = {
             "float": "float64",
@@ -341,16 +295,9 @@ class RandomNode(BaseNode):
             "str": "object",
             "bool": "bool",
         }
-        df = DataFrame(
-            data_rows, columns=[self.col_name], dtype=col_dtype_map[self.col_type]
-        )
+        df = DataFrame(data_rows, columns=[self.col_name], dtype=col_dtype_map[self.col_type])
         assert self._col_types is not None
-        out_table = Data(
-            payload=Table(
-                df=df,
-                col_types=self._col_types
-            )
-        )
+        out_table = Data(payload=Table(df=df, col_types=self._col_types))
         return {"table": out_table}
 
 
@@ -360,6 +307,7 @@ class RangeNode(BaseNode):
     Node to generate a table, with a range column of specified type and range.
     Parameters start, end, step can be specified by parameters or inputs.
     """
+
     col_name: str | None
     col_type: Literal["float", "int", "Datetime"]
 
@@ -368,18 +316,14 @@ class RangeNode(BaseNode):
     @override
     def validate_parameters(self) -> None:
         if not self.type == "RangeNode":
-            raise NodeParameterError(
-                node_id=self.id,
-                err_param_key="type",
-                err_msg="Node type must be 'RangeNode'."
-            )
+            raise NodeParameterError(node_id=self.id, err_param_key="type", err_msg="Node type must be 'RangeNode'.")
         if self.col_name is None or self.col_name.strip() == "":
             self.col_name = generate_default_col_name(self.id, self.col_type)
         if not check_no_illegal_cols([self.col_name]):
             raise NodeParameterError(
                 node_id=self.id,
                 err_param_key="col_name",
-                err_msg="Column name contains illegal names (e.g., reserved keywords)."
+                err_msg="Column name contains illegal names (e.g., reserved keywords).",
             )
         return
 
@@ -389,36 +333,24 @@ class RangeNode(BaseNode):
             InPort(
                 name="start",
                 description="Input to specify start value of the range.",
-                accept=Pattern(
-                    types={Schema.Type.FLOAT, Schema.Type.INT, Schema.Type.DATETIME}
-                )
+                accept=Pattern(types={Schema.Type.FLOAT, Schema.Type.INT, Schema.Type.DATETIME}),
             ),
             InPort(
                 name="end",
                 description="Input to specify end value of the range.",
-                accept=Pattern(
-                    types={Schema.Type.FLOAT, Schema.Type.INT, Schema.Type.DATETIME}
-                )
+                accept=Pattern(types={Schema.Type.FLOAT, Schema.Type.INT, Schema.Type.DATETIME}),
             ),
             InPort(
                 name="step",
                 description="Optional input to specify step value of the range.",
                 optional=True,
-                accept=Pattern(
-                    types={Schema.Type.FLOAT, Schema.Type.INT, Schema.Type.DATETIME}
-                )
-            )
-        ], [
-            OutPort(name="table", description="The generated table with range column.")
-        ]
+                accept=Pattern(types={Schema.Type.FLOAT, Schema.Type.INT, Schema.Type.DATETIME}),
+            ),
+        ], [OutPort(name="table", description="The generated table with range column.")]
 
     @override
     def infer_output_schemas(self, input_schemas: Dict[str, Schema]) -> Dict[str, Schema]:
-        col_type_map = {
-            "float": ColType.FLOAT,
-            "int": ColType.INT,
-            "Datetime": ColType.DATETIME
-        }
+        col_type_map = {"float": ColType.FLOAT, "int": ColType.INT, "Datetime": ColType.DATETIME}
         # check if input start, end, step are compatible
         if self.col_type == "float":
             start_schema = input_schemas["start"]
@@ -426,14 +358,14 @@ class RangeNode(BaseNode):
                 raise NodeValidationError(
                     node_id=self.id,
                     err_input="start",
-                    err_msg=f"start input type {start_schema.type} incompatible with col_type {self.col_type}."
+                    err_msg=f"start input type {start_schema.type} incompatible with col_type {self.col_type}.",
                 )
             end_schema = input_schemas["end"]
             if end_schema.type != Schema.Type.FLOAT:
                 raise NodeValidationError(
                     node_id=self.id,
                     err_input="end",
-                    err_msg=f"end input type {end_schema.type} incompatible with col_type {self.col_type}."
+                    err_msg=f"end input type {end_schema.type} incompatible with col_type {self.col_type}.",
                 )
             step_schema = input_schemas.get("step")
             if step_schema is not None:
@@ -441,7 +373,7 @@ class RangeNode(BaseNode):
                     raise NodeValidationError(
                         node_id=self.id,
                         err_input="step",
-                        err_msg=f"step input type {step_schema.type} incompatible with col_type {self.col_type}."
+                        err_msg=f"step input type {step_schema.type} incompatible with col_type {self.col_type}.",
                     )
         elif self.col_type == "int":
             start_schema = input_schemas["start"]
@@ -449,14 +381,14 @@ class RangeNode(BaseNode):
                 raise NodeValidationError(
                     node_id=self.id,
                     err_input="start",
-                    err_msg=f"start input type {start_schema.type} incompatible with col_type {self.col_type}."
+                    err_msg=f"start input type {start_schema.type} incompatible with col_type {self.col_type}.",
                 )
             end_schema = input_schemas["end"]
             if end_schema.type != Schema.Type.INT:
                 raise NodeValidationError(
                     node_id=self.id,
                     err_input="end",
-                    err_msg=f"end input type {end_schema.type} incompatible with col_type {self.col_type}."
+                    err_msg=f"end input type {end_schema.type} incompatible with col_type {self.col_type}.",
                 )
             step_schema = input_schemas.get("step")
             if step_schema is not None:
@@ -464,22 +396,22 @@ class RangeNode(BaseNode):
                     raise NodeValidationError(
                         node_id=self.id,
                         err_input="step",
-                        err_msg=f"step input type {step_schema.type} incompatible with col_type {self.col_type}."
-                )
+                        err_msg=f"step input type {step_schema.type} incompatible with col_type {self.col_type}.",
+                    )
         elif self.col_type == "Datetime":
             start_schema = input_schemas["start"]
             if start_schema.type != Schema.Type.DATETIME:
                 raise NodeValidationError(
                     node_id=self.id,
                     err_input="start",
-                    err_msg=f"start input type {start_schema.type} incompatible with col_type {self.col_type}."
+                    err_msg=f"start input type {start_schema.type} incompatible with col_type {self.col_type}.",
                 )
             end_schema = input_schemas["end"]
             if end_schema.type != Schema.Type.DATETIME:
                 raise NodeValidationError(
                     node_id=self.id,
                     err_input="end",
-                    err_msg=f"end input type {end_schema.type} incompatible with col_type {self.col_type}."
+                    err_msg=f"end input type {end_schema.type} incompatible with col_type {self.col_type}.",
                 )
             step_schema = input_schemas.get("step")
             if step_schema is not None:
@@ -487,18 +419,11 @@ class RangeNode(BaseNode):
                     raise NodeValidationError(
                         node_id=self.id,
                         err_input="step",
-                        err_msg=f"step input type {step_schema.type} incompatible with col_type {self.col_type}."
-                )
+                        err_msg=f"step input type {step_schema.type} incompatible with col_type {self.col_type}.",
+                    )
         assert self.col_name is not None
         self._col_types = {self.col_name: col_type_map[self.col_type]}
-        return {
-            "table": Schema(
-                type=Schema.Type.TABLE,
-                tab=TableSchema(
-                    col_types=self._col_types
-                )
-            )
-        }
+        return {"table": Schema(type=Schema.Type.TABLE, tab=TableSchema(col_types=self._col_types))}
 
     @override
     def process(self, input: Dict[str, Data]) -> Dict[str, Data]:
@@ -510,7 +435,7 @@ class RangeNode(BaseNode):
             step = None
         assert start is not None
         assert end is not None
-        
+
         # limit the number of rows to MAX_GENERATED_TABLE_ROWS
         total_steps: int = 0
         if step is None:
@@ -536,9 +461,9 @@ class RangeNode(BaseNode):
         if total_steps > MAX_GENERATED_TABLE_ROWS:
             raise NodeExecutionError(
                 node_id=self.id,
-                err_msg=f"The generated range is too large, maximum allowed number of rows is {MAX_GENERATED_TABLE_ROWS}."
+                err_msg=f"The generated range is too large, maximum allowed number of rows is {MAX_GENERATED_TABLE_ROWS}.",
             )
-        
+
         data_rows = []
         if self.col_type == "float":
             assert isinstance(start, float)
@@ -590,14 +515,7 @@ class RangeNode(BaseNode):
             "int": "int64",
             "Datetime": "datetime64[ns, UTC]",
         }
-        df = DataFrame(
-            data_rows, columns=[self.col_name], dtype=col_dtype_map[self.col_type]
-        )
+        df = DataFrame(data_rows, columns=[self.col_name], dtype=col_dtype_map[self.col_type])
         assert self._col_types is not None
-        out_table = Data(
-            payload=Table(
-                df=df,
-                col_types=self._col_types
-            )
-        )
+        out_table = Data(payload=Table(df=df, col_types=self._col_types))
         return {"table": out_table}
