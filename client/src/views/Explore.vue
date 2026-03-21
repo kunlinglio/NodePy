@@ -158,17 +158,17 @@ const splitIntoSections = (markdown: string) => {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    
+
     if (line!.trim().startsWith('```')) {
       inCodeBlock = !inCodeBlock
       currentContent.push(line!)
       continue
     }
-    
+
     if (!inCodeBlock) {
       const h1Match = line!.match(/^# (.*)$/)
       const h2Match = line!.match(/^## (.*)$/)
-      
+
       if (h1Match || h2Match) {
         if (hasContent || currentContent.length > 0) {
           sections.push({
@@ -182,25 +182,25 @@ const splitIntoSections = (markdown: string) => {
         continue
       }
     }
-    
+
     currentContent.push(line!)
     if (line!.trim()) hasContent = true
   }
-  
+
   if (hasContent || currentContent.length > 0) {
     sections.push({
       title: currentTitle,
       content: currentContent.join('\n')
     })
   }
-  
+
   if (sections.length === 0 && markdown.trim()) {
     sections.push({
       title: '概述',
       content: markdown
     })
   }
-  
+
   return sections.map(section => ({
     title: section.title,
     content: section.content,
@@ -214,13 +214,15 @@ const loadTutorial = async (docId: number) => {
   try {
     const fileIndex = docId - 1
     if (fileIndex >= 0 && fileIndex < tutorialFiles.length) {
-      const response = await fetch(`/guides/${tutorialFiles[fileIndex]}`)
+      // 获取 Vite 配置的基准路径 (Vite 注入的常量)
+      const baseUrl = import.meta.env.BASE_URL
+      const response = await fetch(`${baseUrl}guides/${tutorialFiles[fileIndex]}`)
       if (!response.ok) throw new Error('加载失败')
       const markdown = await response.text()
       tutorialMarkdown.value = markdown
       tutorialSections.value = splitIntoSections(markdown)
       currentSectionIndex.value = 0
-      
+
       const doc = docs.value.find(d => d.id === docId)
       if (doc) {
         doc.pages = tutorialSections.value.length
@@ -250,11 +252,11 @@ const stopDragging = () => {
 // 处理分割线拖动
 const handleMouseMove = (e: MouseEvent) => {
   if (!isDragging.value || !tutorialContentRef.value) return
-  
+
   const container = tutorialContentRef.value
   const rect = container.getBoundingClientRect()
   const newRatio = ((e.clientX - rect.left) / rect.width) * 100
-  
+
   if (newRatio >= 20 && newRatio <= 50) {
     splitRatio.value = newRatio
   }
@@ -263,11 +265,11 @@ const handleMouseMove = (e: MouseEvent) => {
 // 处理标签拖动
 const handleLabelMouseMove = (e: MouseEvent) => {
   if (!isLabelDragging.value || !tutorialLeftRef.value) return
-  
+
   const container = tutorialLeftRef.value
   const rect = container.getBoundingClientRect()
   const newPosition = ((e.clientY - rect.top) / rect.height) * 100
-  
+
   if (newPosition >= 10 && newPosition <= 75) {
     labelPosition.value = newPosition
   }
@@ -285,9 +287,9 @@ const stopLabelDragging = () => {
 const showLabel = () => {
   isLabelVisible.value = true
   labelLastInteractTime.value = Date.now()
-  
+
   if (labelHideTime.value) clearTimeout(labelHideTime.value)
-  
+
   if (!isLabelPinned.value) {
     labelHideTime.value = setTimeout(() => {
       isLabelVisible.value = false
@@ -434,7 +436,7 @@ const nextDoc = () => {
         <!-- 教程详情视图（全屏） -->
         <div v-else class="tutorial-detail-section">
           <!-- 简约标签 + 静默模式蓝色提示 -->
-          <div 
+          <div
             class="tutorial-label"
             :style="{ top: labelPosition + '%' }"
             :class="{ 'label-visible': isLabelVisible, 'label-dragging': isLabelDragging, 'label-pinned': isLabelPinned }"
@@ -461,7 +463,7 @@ const nextDoc = () => {
                   <p>暂无内容</p>
                 </div>
               </div>
-              
+
               <!-- 常驻底部控制栏（顺序：双左、单左、单右、双右、主页） -->
               <div class="bottom-control-bar">
                 <button class="control-btn" :disabled="!hasPrevious" @click="previousDoc" title="上一个教程">
@@ -483,8 +485,8 @@ const nextDoc = () => {
             </div>
 
             <!-- 分割线 + 纯三角形指示器（无圆形背景） -->
-            <div 
-              class="divider" 
+            <div
+              class="divider"
               @mousedown="startDragging"
               :class="{ 'divider-active': isDragging }"
             >
@@ -658,7 +660,7 @@ const nextDoc = () => {
         flex: 1;
         min-width: 0;
         overflow: hidden;
-        
+
         .doc-title {
           font-size: 16px;
           font-weight: 700;
@@ -758,7 +760,7 @@ const nextDoc = () => {
     &:not(.label-visible):not(.label-pinned) {
       left: -32px;
       opacity: 0.5;
-      
+
       &:hover {
         opacity: 1;
         left: -20px;
@@ -836,25 +838,25 @@ const nextDoc = () => {
       position: relative;
       background: white;
       border-right: 1px solid #e8f0f9;
-      
+
       // 滚动区域
       .markdown-wrapper {
         flex: 1;
         overflow-y: auto;
         padding: 30px;
-        
+
         &::-webkit-scrollbar {
           width: 6px;
         }
-        
+
         &::-webkit-scrollbar-track {
           background: transparent;
         }
-        
+
         &::-webkit-scrollbar-thumb {
           background: #d0e0f0;
           border-radius: 3px;
-          
+
           &:hover {
             background: #a0c0f0;
           }
