@@ -9,6 +9,7 @@ import type { File } from '../models/File';
 import type { LoginRequest } from '../models/LoginRequest';
 import type { Project } from '../models/Project';
 import type { ProjectList } from '../models/ProjectList';
+import type { ProjectListFilter } from '../models/ProjectListFilter';
 import type { ProjectSetting } from '../models/ProjectSetting';
 import type { ProjUIState } from '../models/ProjUIState';
 import type { SignupRequest } from '../models/SignupRequest';
@@ -112,19 +113,18 @@ export class DefaultService {
      * Create Project
      * Create a new project for a user.
      * Return project id.
-     * @param projectName
+     * @param requestBody
      * @returns number Project created successfully
      * @throws ApiError
      */
     public static createProjectApiProjectCreatePost(
-        projectName: string,
+        requestBody: ProjectSetting,
     ): CancelablePromise<number> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/project/create',
-            query: {
-                'project_name': projectName,
-            },
+            body: requestBody,
+            mediaType: 'application/json',
             errors: {
                 400: `Project name already exists`,
                 404: `User not found`,
@@ -417,13 +417,21 @@ export class DefaultService {
     /**
      * Get Explore Projects
      * Get the list of projects that are marked as 'show in explore'.
+     * @param requestBody
      * @returns ExploreList Successful Response
      * @throws ApiError
      */
-    public static getExploreProjectsApiExploreExploreProjectsGet(): CancelablePromise<ExploreList> {
+    public static getExploreProjectsApiExploreExploreProjectsGet(
+        requestBody: ProjectListFilter,
+    ): CancelablePromise<ExploreList> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/explore/explore/projects',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
         });
     }
     /**

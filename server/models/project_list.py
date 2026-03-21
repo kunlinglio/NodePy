@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 """
@@ -16,3 +18,9 @@ class ProjectListItem(BaseModel):
 class ProjectList(BaseModel):
     userid: int
     projects: list[ProjectListItem]
+
+class ProjectListFilter(BaseModel):
+    tags: list[str] = []
+    search_keyword: str | None = None
+    ordered_by: Literal["created_at", "updated_at", "project_name", "owner"] = "updated_at"
+    ranging: tuple[int, int] = (0, 20)
