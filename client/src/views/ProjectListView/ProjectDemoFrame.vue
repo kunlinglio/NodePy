@@ -20,7 +20,8 @@ const props = defineProps<{
     thumb?: string | null,
     created_at?: number | string | null,
     updated_at?: number | string | null,
-    tags?: TagInstance[],
+    tags?: string[],
+    isCreate?: boolean,
     handleOpenExistingProject?: (id: number) => void,
     handleCreateNewProject?: () => void,
 }>();
@@ -96,8 +97,8 @@ async function handleClickUpdate(){
     cardRef.value?.blur();
     await projectStore.getProjectSettings(props.id)
     projectStore.currentProjectId = props.id
-    const modalWidth = 350;
-    const modalHeight = 420;
+    const modalWidth = 400;
+    const modalHeight = 600;
     modalStore.createModal({
         id: 'update-modal',
         title: "更新项目",
@@ -156,13 +157,18 @@ async function handleClickUpdate(){
         <div class="project-info">
             <div class="project-title">{{ props.title ?? (props.id ? `Project ${props.id}` : 'New') }}</div>
             <div class="project-tags">
-                <div v-if="props.tags" class="tags-container">
+                <div v-if="props.tags?.length!=0 && !props.isCreate" class="tags-container">
                     <Tag
                         v-for="tag in props.tags" 
-                        :key="tag.content" 
-                        :tag="tag"
-                        >
+                        :key="tag" 
+                        :tag="{ content: tag }"
+                    >
                     </Tag>
+                </div>
+                <div v-else-if="props.isCreate" class="tags-container">
+                    <div class="occupation-1">
+
+                    </div>
                 </div>
                 <div v-else class="tags-container">
                     暂无标签
@@ -171,6 +177,9 @@ async function handleClickUpdate(){
             <div v-if="!(props.id === 0 && props.handleCreateNewProject)" class="project-meta">
                 <span class="meta-item">修改: {{ formatDate(props.updated_at) }}</span>
                 <span class="meta-item">创建: {{ formatDate(props.created_at) }}</span>
+            </div>
+            <div v-else class="occupation-2">
+
             </div>
         </div>
     </div>
@@ -285,6 +294,12 @@ async function handleClickUpdate(){
 .tags-container{
     display: flex;
     gap: 10px;
+}
+.occupation-1{
+    height: 0px;
+}
+.occupation-2{
+    height: 38px;
 }
 .new-card{ border: 1px solid rgba(28,128,199,0.06); }
 .meta-item{opacity:0.95}

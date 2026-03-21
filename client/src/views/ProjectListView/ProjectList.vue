@@ -17,39 +17,10 @@
     const router = useRouter();
     const route = useRoute();
     
-    const testTags: TagInstance[] = [
-        {
-            content: 'test-tag1',
-            color: '#aaaaaa'
-        },
-        {
-            content: 'test-tag2',
-            color: '#bbbbbb'
-        },
-        {
-            content: 'test-tag3',
-            color: '#cccccc'
-        },
-        {
-            content: 'test-tag4',
-            color: '#dddddd'
-        },
-        // {
-        //     content: 'test-tag5',
-        //     color: '#eeeeee'
-        // },
-        // {
-        //     content: 'test-tag6',
-        //     color: '#ffffff'
-        // },
-        // {
-        //     content: 'test-tag7',
-        //     color: '#000000'
-        // },
-        // {
-        //     content: 'test-tag8',
-        //     color: '#999999'
-        // }
+    const testTags: string[] = [
+        '标签1',
+        '标签2',
+        '标签3'
     ]
 
     // 定时器引用
@@ -124,8 +95,8 @@
     })
 
     function openAddProjectModal(){
-        const modalWidth = 350;
-        const modalHeight = 270;
+        const modalWidth = 400;
+        const modalHeight = 600;
         modalStore.createModal({
             id: 'create-project',
             title: '创建项目',
@@ -171,6 +142,7 @@
                 :thumb="(project as any).thumb"
                 :created_at="project.created_at"
                 :updated_at="project.updated_at"
+                :tags="project.tags"
                 :handleOpenExistingProject="handleOpenExistingProject"
             />
 
@@ -179,6 +151,7 @@
                         :handleCreateNewProject="handleCreateNewProject"
                         :title="'创建新项目'"
                         :id="0" 
+                        :isCreate="true"
                         :tags="testTags"/>
         </div>
     </div>
