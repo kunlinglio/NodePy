@@ -32,26 +32,113 @@ export const useProjectStore = defineStore('project', () => {
     const default_rename_pid: number = 22222222
     const default_rename_pname: string = 'toBeRenamed'//原名
     const default_whether_show: boolean = false//默认不公开
+    const default_project_tags: string[] = []
     const default_project_setting: ProjectSetting = {
         project_name: default_pname,
-        show_to_explore: default_whether_show
+        show_to_explore: default_whether_show,
+        tags: default_project_tags
     }
 
     const projectList = ref<ProjectList>({userid: default_uid,projects: []});
+    const allProjectTags = ref<string[]>([]);
     const currentProjectName = ref<string>(default_pname);
     const currentProjectId = ref<number>(default_pid);
     const currentProject = ref<Project>(default_project);
-    const currentWhetherShow = ref<boolean>(default_whether_show)
+    const currentWhetherShow = ref<boolean>(default_whether_show);
+    const currentProjectTags = ref<string[]>([]);
     const toBeDeleted = ref<{id: number,name: string}>({id: default_delete_pid,name: default_delete_pname});
     const toBeRenamed = ref<{id: number,name: string}>({id: default_rename_pid,name: default_rename_pname});
     const toBeUpdated = ref<ProjectSetting>(default_project_setting)
+    const toBeCreated=ref<ProjectSetting>(default_project_setting)
 
     // 项目ID到名称的映射
     const projectIdToNameMap = ref<Map<number, string>>(new Map());
+    const projectIdToTagsMap = ref<Map<number, string[]>>(new Map());
 
     const graphStore = useGraphStore();
     const modalStore = useModalStore();
     const authService = AuthenticatedServiceFactory.getService();
+
+    async function getAllTags(){
+        try{
+            const response = await authService.listTagsApiTagListGet();
+            allProjectTags.value = response.map(tag => tag.name);
+            return true;
+        }
+        catch(error){
+            if(error instanceof ApiError){
+                switch(error.status){
+                    case(500):
+                        notify({
+                            message: '服务器内部错误',
+                            type: 'error'
+                        });
+                        break;
+                    default:
+                        const errMsg = handleNetworkError(error)
+                        notify({
+                            message: errMsg,
+                            type: 'error'
+                        });
+                        break;
+                }
+            }
+            else{
+                const errMsg = handleNetworkError(error)
+                notify({
+                    message: errMsg,
+                    type: 'error'
+                });
+            }
+            return false;
+        }
+    }
+
+    async function createTag(tagName: string){
+        try{
+            const response = await authService.createTagsApiTagCreatePost(tagName);
+            return true;
+        }
+        catch(error){
+            if(error instanceof ApiError){
+                switch(error.status){
+                    case(400):
+                        notify({
+                            message: '标签名称已存在',
+                            type: 'error'
+                        });
+                        break;
+                    case(422):
+                        notify({
+                            message: '验证错误',
+                            type: 'error'
+                        });
+                        break;
+                    case(500):
+                        notify({
+                            message: '服务器内部错误',
+                            type: 'error'
+                        });
+                        break;
+                    default:
+                        const errMsg = handleNetworkError(error)
+                        notify({
+                            message: errMsg,
+                            type: 'error'
+                        });
+                        break;
+                }
+            }
+            else{
+                const errMsg = handleNetworkError(error)
+                notify({
+                    message: errMsg,
+                    type: 'error'
+                });
+            }
+            return false;
+        }
+    }
 
     // async function openProject(id: number){
     //     console.log('Openning project by ID:',id)
@@ -95,6 +182,15 @@ export const useProjectStore = defineStore('project', () => {
             projectList.value = response;
             // 初始化项目ID到名称的映射
             updateProjectIdToNameMap(response.projects);
+            projectIdToTagsMap.value.clear();
+            response.projects.forEach(project => {
+                if (project.tags && Array.isArray(project.tags)) {
+                    projectIdToTagsMap.value.set(project.project_id, project.tags);
+                } else {
+                    projectIdToTagsMap.value.set(project.project_id, []);
+                }
+            });
+            await getAllTags();
             refresh();
             return true;
         }
@@ -131,7 +227,12 @@ export const useProjectStore = defineStore('project', () => {
         console.log('Creating project by name:', currentProjectName.value);
         try{
             const name = currentProjectName.value
-            const response = await authService.createProjectApiProjectCreatePost(currentProjectName.value);
+            const toBeCreated = {
+                project_name: name,
+                show_to_explore: currentWhetherShow.value,
+                tags: currentProjectTags.value
+            }
+            const response = await authService.createProjectApiProjectCreatePost(toBeCreated);
             if(response){
                 notify({
                     message: '项目' + name + '创建成功',
@@ -202,6 +303,7 @@ export const useProjectStore = defineStore('project', () => {
                 });
                 // 从映射中删除项目
                 projectIdToNameMap.value.delete(id);
+                projectIdToTagsMap.value.delete(id);
             }
             return true;
         }
@@ -386,6 +488,7 @@ export const useProjectStore = defineStore('project', () => {
             toBeUpdated.value = response
             currentWhetherShow.value = response.show_to_explore!
             currentProjectName.value = response.project_name
+            currentProjectTags.value = response.tags || [];
         }
         catch(error){
             if(error instanceof ApiError){
@@ -439,7 +542,8 @@ export const useProjectStore = defineStore('project', () => {
         try{
             const setting: ProjectSetting = {
                 project_name: currentProjectName.value,
-                show_to_explore: currentWhetherShow.value
+                show_to_explore: currentWhetherShow.value,
+                tags: currentProjectTags.value
             }
             const response = await authService.updateProjectSettingApiProjectUpdateSettingPost(id,setting);
             
@@ -447,7 +551,7 @@ export const useProjectStore = defineStore('project', () => {
             if (projectIdToNameMap.value.has(id)) {
                 projectIdToNameMap.value.set(id, currentProjectName.value);
             }
-            
+            projectIdToTagsMap.value.set(id, currentProjectTags.value);
             notify({
                 message: '项目' + setting.project_name + '更新成功',
                 type: 'success'
@@ -515,6 +619,8 @@ export const useProjectStore = defineStore('project', () => {
 
     return{
         projectList,
+        allProjectTags,
+        currentProjectTags,
         currentProjectId,
         currentProjectName,
         currentProject,
@@ -523,6 +629,9 @@ export const useProjectStore = defineStore('project', () => {
         toBeRenamed,
         toBeUpdated,
         projectIdToNameMap, // 导出映射
+        projectIdToTagsMap,
+        getAllTags,
+        createTag,
         getProject,
         createProject,
         deleteProject,
