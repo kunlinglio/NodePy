@@ -119,23 +119,44 @@ class ResampleNode(BaseNode):
 
         assert self.result_col is not None
 
-        resampled = df.set_index(self.col).resample(self.frequency)
-
-        if self.method == "mean":
-            agg_df = resampled.mean()
-        elif self.method == "sum":
-            agg_df = resampled.sum()
-        elif self.method == "max":
-            agg_df = resampled.max()
-        elif self.method == "min":
-            agg_df = resampled.min()
-        elif self.method == "count":
-            agg_df = resampled.count()
-        else:
+        # Validate method before touching pandas resample (prevents pandas from raising
+        # for unrelated issues such as invalid frequency when method is already invalid).
+        allowed_methods = {"mean", "sum", "max", "min", "count"}
+        if self.method not in allowed_methods:
             raise NodeExecutionError(
                 node_id=self.id,
                 err_msg=f"Unsupported resampling method: {self.method}",
             )
+
+        # Wrap pandas resample creation so pandas errors (e.g. invalid frequency)
+        # are converted into NodeExecutionError with a clear message.
+        try:
+            resampled = df.set_index(self.col).resample(self.frequency)
+        except Exception as e:
+            raise NodeExecutionError(
+                node_id=self.id,
+                err_msg=f"Error creating resampler with frequency '{self.frequency}': {e}",
+            ) from e
+
+        # Perform aggregation and convert any pandas errors into NodeExecutionError.
+        try:
+            if self.method == "mean":
+                agg_df = resampled.mean()
+            elif self.method == "sum":
+                agg_df = resampled.sum()
+            elif self.method == "max":
+                agg_df = resampled.max()
+            elif self.method == "min":
+                agg_df = resampled.min()
+            elif self.method == "count":
+                agg_df = resampled.count()
+            else:
+                assert False, "Unreachable"
+        except Exception as e:
+            raise NodeExecutionError(
+                node_id=self.id,
+                err_msg=f"Error during resampling aggregation: {e}",
+            ) from e
 
         agg_df = agg_df.reset_index().rename(columns={self.col: self.result_col}).drop(columns=[Table.INDEX_COL])
 
