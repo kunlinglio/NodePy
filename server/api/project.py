@@ -49,11 +49,13 @@ async def list_projects(
         )
         projects: list[ProjectListItem] = []
         for project_record in project_records:
-            # query tags
-            tag_records = await db_client.execute(
-                select(ProjectTagRecord).where(ProjectTagRecord.project_id == project_record.id)
+            # query tags by joining ProjectTagRecord and TagRecord
+            tag_query = await db_client.execute(
+                select(TagRecord.name)
+                .join(ProjectTagRecord, TagRecord.id == ProjectTagRecord.tag_id)
+                .where(ProjectTagRecord.project_id == project_record.id)
             )
-            tags = [tag_record.name for tag_record in tag_records]
+            tags = [row[0] for row in tag_query.all()]
             projects.append(
                 ProjectListItem(
                     project_id=project_record.id,  # type: ignore
@@ -195,7 +197,7 @@ async def create_project(
                 (ProjectRecord.name == project_setting.project_name) & 
                 (ProjectRecord.owner_id == user_id))
         )
-        if existing_project.first() is not None:
+        if existing_project.scalar_one_or_none() is not None:
             raise HTTPException(status_code=400, detail="Project name already exists")
         # 3. create new project
         new_project = ProjectRecord(
@@ -210,7 +212,7 @@ async def create_project(
         # 4. add tags
         for tag_name in project_setting.tags:
             tags = await db_client.execute(select(TagRecord).where(TagRecord.name == tag_name))
-            tag = tags.first()
+            tag = tags.scalar_one_or_none()
             if tag is None:
                 raise HTTPException(status_code=400, detail=f"Tag not found: {tag_name}")
             project_tag = ProjectTagRecord(project_id=new_project.id, tag_id=tag.id)
@@ -292,10 +294,12 @@ async def get_project_setting(
         if project_record.owner_id != user_id: # type: ignore
             raise HTTPException(status_code=403, detail="User has no access to this project")
         # query tags
-        tag_records = await db_client.execute(
-            select(ProjectTagRecord).where(ProjectTagRecord.project_id == project_record.id)
+        tag_query = await db_client.execute(
+            select(TagRecord.name)
+            .join(ProjectTagRecord, TagRecord.id == ProjectTagRecord.tag_id)
+            .where(ProjectTagRecord.project_id == project_record.id)
         )
-        tags = [tag_record.name for tag_record in tag_records]
+        tags = [row[0] for row in tag_query.all()]
         return ProjectSetting(
             show_to_explore=project_record.show_in_explore,  # type: ignore
             project_name=project_record.name,  # type: ignore
