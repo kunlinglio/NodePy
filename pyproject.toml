@@ -60,7 +60,7 @@ worker = [
 build = "python scripts/build.py build"
 dev = "python scripts/build.py dev"
 prod = "python scripts/build.py prod"
-persist = "python scripts/persist_project.py"
+persist = "PYTHONPATH=. python scripts/persist_project.py"
 check = "ruff check"
 
 [tool.ruff]
