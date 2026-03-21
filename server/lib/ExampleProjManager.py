@@ -17,7 +17,9 @@ from server.models.database import (
     FileRecord,
     NodeOutputRecord,
     ProjectRecord,
+    ProjectTagRecord,
     SessionLocal,
+    TagRecord,
     UserRecord,
 )
 from server.models.file import File
@@ -49,6 +51,7 @@ class ExampleProject(BaseModel):
     updated_at: int
     created_at: int
     thumb: str | None
+    tags: list[str] = []
     editable: bool
     workflow: ProjWorkflow
     ui_state: ProjUIState
@@ -110,6 +113,18 @@ def initialize_example_projects() -> None:
                 db.add(new_project)
                 db.flush()  # Flush to get new_project.id
                 logger.info(f"Created example project, ID: {new_project.id}, name: {new_project.name}")
+
+                # 4.5. Add Tags
+                for tag_name in example.tags:
+                    tag_rec = db.query(TagRecord).filter_by(name=tag_name).first()
+                    if not tag_rec:
+                        tag_rec = TagRecord(name=tag_name)
+                        db.add(tag_rec)
+                        db.flush()
+                    
+                    # Link tag to project
+                    assoc = ProjectTagRecord(project_id=new_project.id, tag_id=tag_rec.id)
+                    db.add(assoc)
 
                 # 5. Restore Files with NEW Keys
                 file_key_map: dict[str, str] = {}  # old_key -> new_key
@@ -259,7 +274,16 @@ def persist_projects(project_name: str, new_name: str | None = None) -> None:
             )
         )
 
-    # 4. Build ExampleProject
+    # 4. Collect Tags
+    tag_records = (
+        db_client.query(TagRecord)
+        .join(ProjectTagRecord)
+        .filter(ProjectTagRecord.project_id == project_id)
+        .all()
+    )
+    tags: list[str] = [str(t.name) for t in tag_records]
+
+    # 5. Build ExampleProject
     new_project_name = project_name
     if new_name:
         new_project_name = new_name
@@ -268,6 +292,7 @@ def persist_projects(project_name: str, new_name: str | None = None) -> None:
         updated_at=project_data.updated_at,
         created_at=project_created_at,
         thumb=project_data.thumb,
+        tags=tags,
         editable=project_data.editable,
         workflow=project_data.workflow,
         ui_state=project_data.ui_state,
@@ -275,7 +300,7 @@ def persist_projects(project_name: str, new_name: str | None = None) -> None:
         datas=example_datas,
     )
 
-    # 5. Save to JSON
+    # 6. Save to JSON
     output_path = EXAMPLES_DIR / f"{new_project_name}.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -285,3 +310,4 @@ def persist_projects(project_name: str, new_name: str | None = None) -> None:
     print(f"Successfully exported '{project_name}' to '{output_path}'.")
     print(f"  - Files: {len(example_files)}")
     print(f"  - Data records: {len(example_datas)}")
+    print(f"  - Tags: {len(tags)}")
