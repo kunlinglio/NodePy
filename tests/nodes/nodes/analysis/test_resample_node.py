@@ -42,7 +42,8 @@ def test_resample_process_unsupported_method_raises(node_ctor, context):
     times = pd.to_datetime(["2020-01-01T00:00:00", "2020-01-01T01:00:00"])
     df = pd.DataFrame({"time": times, "v": [1, 2]})
     table = make_table(df, {"time": ColType.DATETIME, "v": ColType.INT})
-    node = node_ctor("ResampleNode", id="n_res4", col="time", frequency="H", method="mean")
+    # use a lowercase frequency token that pandas accepts in this environment
+    node = node_ctor("ResampleNode", id="n_res4", col="time", frequency="D", method="mean")
     node.method = "unsupported_method"
     with pytest.raises(NodeExecutionError):
         node.process({"table": Data(payload=table)})
