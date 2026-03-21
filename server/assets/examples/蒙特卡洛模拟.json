@@ -765,6 +765,9 @@
                     "plot_type": [
                         "line"
                     ],
+                    "y_axis": [
+                        "left"
+                    ],
                     "title": "MonteCarlo for Pi"
                 },
                 "runningtime": 651.5586709999752,
@@ -1133,64 +1136,48 @@
                 "id": "RandomNode_1",
                 "x": 796,
                 "y": 413,
-                "width": 210,
-                "height": 272,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "ConstNode_2",
                 "x": 269,
                 "y": 461,
-                "width": 210,
-                "height": 179,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "ConstNode_3",
                 "x": 270,
                 "y": 700,
-                "width": 210,
-                "height": 179,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "InsertRandomColNode_1",
                 "x": 1132,
                 "y": 621,
-                "width": 210,
-                "height": 272,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "ColWithNumberBinOpNode_1",
                 "x": 1793.158765251405,
                 "y": 843.8117091353597,
-                "width": 210,
-                "height": 299,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "ConstNode_4",
                 "x": 1454.455711580147,
                 "y": 948.5606546491728,
-                "width": 210,
-                "height": 179,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "ColWithNumberBinOpNode_2",
                 "x": 2170.637997899979,
                 "y": 843.6266628825949,
-                "width": 210,
-                "height": 299,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "ConstNode_5",
                 "x": 1456.1418934724134,
                 "y": 1239.9915641105042,
-                "width": 210,
-                "height": 179,
                 "groupId": "NodeContainer_1"
             },
             {
@@ -1211,80 +1198,60 @@
                 "id": "NumberColWithColBinOpNode_1",
                 "x": 2489.374431480687,
                 "y": 846.3309263900751,
-                "width": 210,
-                "height": 326,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "NumberColUnaryOpNode_1",
                 "x": 2784.913241794144,
                 "y": 863.1082387659483,
-                "width": 210,
-                "height": 268,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "InsertConstColNode_1",
                 "x": 3115.021338439775,
                 "y": 1068.4641354880514,
-                "width": 210,
-                "height": 241,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "ConstNode_6",
                 "x": 2786.9089403607513,
                 "y": 1230.4830575829596,
-                "width": 210,
-                "height": 179,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "ColCompareNode_1",
                 "x": 3411.386043163368,
                 "y": 1244.82915428361,
-                "width": 210,
-                "height": 326,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "GroupNode_1",
                 "x": 3841.49269330925,
                 "y": 1507.9114517417133,
-                "width": 210,
-                "height": 270,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "GetCellNode_1",
                 "x": 4171.595022810389,
                 "y": 1522.9082029168485,
-                "width": 210,
-                "height": 210,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "NumberBinOpNode_1",
                 "x": 4493.657733648437,
                 "y": 1610.3026093685726,
-                "width": 210,
-                "height": 183,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "ConstNode_7",
                 "x": 4499.415325195505,
                 "y": 1849.617466798625,
-                "width": 210,
-                "height": 179,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "NumberBinOpNode_2",
                 "x": 4802.120478018135,
                 "y": 1731.8139508619486,
-                "width": 210,
-                "height": 183,
                 "groupId": "NodeContainer_1"
             },
             {
@@ -1297,60 +1264,44 @@
             {
                 "id": "RangeNode_1",
                 "x": -782.1888693309013,
-                "y": -76.22521480478508,
-                "width": 210,
-                "height": 272
+                "y": -76.22521480478508
             },
             {
                 "id": "ConstNode_8",
                 "x": -1222.707424600836,
-                "y": -195.4831953713164,
-                "width": 210,
-                "height": 179
+                "y": -195.4831953713164
             },
             {
                 "id": "ConstNode_9",
                 "x": -1223.0865674131087,
-                "y": 22.4640048801055,
-                "width": 210,
-                "height": 179
+                "y": 22.4640048801055
             },
             {
                 "id": "ConstNode_10",
                 "x": -1222.3202956255755,
-                "y": 238.55264896447426,
-                "width": 210,
-                "height": 179
+                "y": 238.55264896447426
             },
             {
                 "id": "GetCellNode_2",
                 "x": 267.726372493428,
                 "y": 165.91143544966835,
-                "width": 210,
-                "height": 210,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "InsertConstColNode_2",
                 "x": 5179.089175722491,
                 "y": 1819.6787000305735,
-                "width": 210,
-                "height": 241,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "QuickPlotNode_1",
                 "x": 5855.549929878382,
-                "y": 2025.7511317744656,
-                "width": 210,
-                "height": 375
+                "y": 2025.7511317744656
             },
             {
                 "id": "TableSliceNode_1",
                 "x": -448.0671639752864,
-                "y": -19.898593433738487,
-                "width": 210,
-                "height": 268
+                "y": -19.898593433738487
             },
             {
                 "id": "TextAnnotationNode_1",
@@ -1370,16 +1321,12 @@
                 "id": "ForEachRowBeginNode_1",
                 "x": -69.36370544433696,
                 "y": 116.88852021419373,
-                "width": 210,
-                "height": 94,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "ForEachRowEndNode_1",
                 "x": 5508.014220011544,
                 "y": 2061.521438874226,
-                "width": 210,
-                "height": 94,
                 "groupId": "NodeContainer_1"
             }
         ]

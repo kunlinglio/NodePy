@@ -268,6 +268,9 @@
                     "plot_type": [
                         "area"
                     ],
+                    "y_axis": [
+                        "left"
+                    ],
                     "title": null
                 },
                 "runningtime": 217.41866599995774,
@@ -508,90 +511,66 @@
                 "id": "ForEachRowBeginNode_1",
                 "x": 768.9362887843422,
                 "y": 609.5497946674301,
-                "width": 210,
-                "height": 94,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "ForEachRowEndNode_1",
                 "x": 1962.4310026081055,
                 "y": 603.9381711270788,
-                "width": 210,
-                "height": 94,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "RangeNode_1",
                 "x": 447.78491281142294,
-                "y": 569.2294494586579,
-                "width": 210,
-                "height": 272
+                "y": 569.2294494586579
             },
             {
                 "id": "ConstNode_1",
                 "x": 119.0732291481718,
-                "y": 453.4688656293705,
-                "width": 210,
-                "height": 179
+                "y": 453.4688656293705
             },
             {
                 "id": "ConstNode_2",
                 "x": 114.95081349674552,
-                "y": 682.6180483210892,
-                "width": 210,
-                "height": 179
+                "y": 682.6180483210892
             },
             {
                 "id": "UnpackNode_1",
                 "x": 1080.4530489031697,
                 "y": 639.0565808815405,
-                "width": 210,
-                "height": 184,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "PackNode_1",
                 "x": 1694.6560121794973,
                 "y": 727.6894691649499,
-                "width": 210,
-                "height": 212,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "CustomScriptNode_1",
                 "x": 1383.9480702135647,
                 "y": 806.1754114838018,
-                "width": 210,
-                "height": 452,
                 "groupId": "NodeContainer_1"
             },
             {
                 "id": "QuickPlotNode_1",
                 "x": 2949.3712525699766,
-                "y": 637.8622557002906,
-                "width": 210,
-                "height": 375
+                "y": 637.8622557002906
             },
             {
                 "id": "FilterNode_1",
                 "x": 2279.9653374886266,
-                "y": 633.930234485781,
-                "width": 210,
-                "height": 183
+                "y": 633.930234485781
             },
             {
                 "id": "InsertRangeColNode_1",
                 "x": 2623.424570238375,
-                "y": 634.08674932724,
-                "width": 210,
-                "height": 272
+                "y": 634.08674932724
             },
             {
                 "id": "ConstNode_3",
                 "x": 2278.3947964854833,
-                "y": 851.0615726117406,
-                "width": 210,
-                "height": 179
+                "y": 851.0615726117406
             }
         ]
     },
