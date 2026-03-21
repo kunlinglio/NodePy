@@ -250,3 +250,4 @@ class ProjectSetting(BaseModel):
     show_to_explore: bool = False  
     # whether the project is shown in explore list to other users
     project_name: str
+    tags: list[str]

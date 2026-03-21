@@ -12,6 +12,7 @@ import type { ProjectList } from '../models/ProjectList';
 import type { ProjectSetting } from '../models/ProjectSetting';
 import type { ProjUIState } from '../models/ProjUIState';
 import type { SignupRequest } from '../models/SignupRequest';
+import type { Tag } from '../models/Tag';
 import type { TaskResponse } from '../models/TaskResponse';
 import type { TokenResponse } from '../models/TokenResponse';
 import type { UserFileList } from '../models/UserFileList';
@@ -437,6 +438,42 @@ export class DefaultService {
             url: '/api/user/me',
             errors: {
                 401: `Unauthorized`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * List Tags
+     * @returns Tag List of tags retrieved successfully
+     * @throws ApiError
+     */
+    public static listTagsApiTagListGet(): CancelablePromise<Array<Tag>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/tag/list',
+            errors: {
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Create Tags
+     * @param tagName
+     * @returns any Tag created successfully
+     * @throws ApiError
+     */
+    public static createTagsApiTagCreatePost(
+        tagName: string,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/tag/create',
+            query: {
+                'tag_name': tagName,
+            },
+            errors: {
+                400: `Tag name duplicate`,
+                422: `Validation Error`,
                 500: `Internal server error`,
             },
         });

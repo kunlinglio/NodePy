@@ -5,5 +5,6 @@
 export type ProjectSetting = {
     show_to_explore?: boolean;
     project_name: string;
+    tags: Array<string>;
 };
 

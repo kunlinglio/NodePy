@@ -8,6 +8,7 @@ export type ProjectListItem = {
     owner: number;
     created_at: number;
     updated_at: number;
+    tags: Array<string>;
     thumb?: (string | null);
 };
 
