@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue';
 import { useProjectStore } from '@/stores/projectStore';
 import { useModalStore } from '@/stores/modalStore';
 import { useUserStore } from '@/stores/userStore';
+import Tag from '@/components/Tag.vue';
 
 const projectStore = useProjectStore();
 const modalStore = useModalStore();
@@ -33,6 +34,7 @@ async function createNewTag() {
     if (success) {
       // 自动添加到当前临时标签
       addTagToTemp(tagName.trim());
+      await projectStore.getAllTags();
     }
   }
 }
@@ -77,33 +79,37 @@ async function onCancelUpdateProject() {
       <!-- 标签管理区域 -->
       <div class="tags-section">
         <div class="section-title">所有标签</div>
-        <div class="tags-list">
-          <div
-            v-for="tag in projectStore.allProjectTags"
-            :key="tag"
-            class="tag-item"
-            :style="{ backgroundColor: getRandomColor(tag) }"
-          >
-            {{ tag }}
-            <span class="tag-action add" @click.stop="addTagToTemp(tag)">+</span>
-          </div>
-          <div class="tag-item add-new" @click="createNewTag">
-            <span>+ 新建</span>
+        <div class="all-tags-wrapper">
+          <div class="tags-scroll-container three-rows">
+            <div class="tag-item add-new" @click="createNewTag">
+              <span>+ 新建</span>
+            </div>
+            <Tag
+              v-for="tag in projectStore.allProjectTags"
+              :key="tag"
+              :content="tag"
+            >
+              <template #action>
+                <span class="tag-action add" @click.stop="addTagToTemp(tag)">+</span>
+              </template>
+            </Tag>
           </div>
         </div>
 
         <div class="section-title">当前项目标签</div>
-        <div class="tags-list">
-          <div
-            v-for="tag in selectedTags"
-            :key="tag"
-            class="tag-item"
-            :style="{ backgroundColor: getRandomColor(tag) }"
-          >
-            {{ tag }}
-            <span class="tag-action remove" @click.stop="removeTagFromTemp(tag)">✕</span>
+        <div class="current-tags-wrapper">
+          <div class="tags-scroll-container one-row">
+            <Tag
+              v-for="tag in selectedTags"
+              :key="tag"
+              :content="tag"
+            >
+              <template #action>
+                <span class="tag-action remove" @click.stop="removeTagFromTemp(tag)">✕</span>
+              </template>
+            </Tag>
+            <div v-if="selectedTags.length === 0" class="empty-tips">暂无标签</div>
           </div>
-          <div v-if="selectedTags.length === 0" class="empty-tips">暂无标签</div>
         </div>
       </div>
     </el-form>
@@ -125,7 +131,6 @@ async function onCancelUpdateProject() {
   padding-bottom: 5px;
 }
 
-// 复用创建弹窗的标签样式
 .tags-section {
   margin-top: 16px;
   .section-title {
@@ -134,92 +139,78 @@ async function onCancelUpdateProject() {
     margin: 12px 0 8px;
     color: #606266;
   }
-  .tags-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
+}
+
+.all-tags-wrapper .tags-scroll-container.three-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 100px;
+  overflow-y: auto;
+  padding: 2px 0;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
-  .tag-item {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 8px;
-    border-radius: 16px;
-    font-size: 12px;
-    color: #2c3e50;
-    background-color: #f0f2f5;
-    cursor: default;
-    .tag-action {
-      margin-left: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: bold;
-      &.add {
-        color: #27ae60;
-      }
-      &.remove {
-        color: #e74c3c;
-      }
-    }
-  }
-  .add-new {
-    background-color: #ecf5ff;
-    color: #409eff;
-    cursor: pointer;
-    &:hover {
-      background-color: #d9ecff;
-    }
-  }
-  .empty-tips {
-    font-size: 12px;
-    color: #909399;
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
   }
 }
 
-.checkbox-container {
+.current-tags-wrapper .tags-scroll-container.one-row {
   display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 0;
+  
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+  }
+}
+
+.tag-item.add-new {
+  display: inline-flex;
   align-items: center;
+  padding: 4px 8px;
+  border-radius: 16px;
+  font-size: 12px;
+  background-color: #ecf5ff;
+  color: #409eff;
   cursor: pointer;
-  position: relative;
-  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  
+  &:hover {
+    background-color: #d9ecff;
+  }
 }
-.custom-checkbox {
-  position: absolute;
-  opacity: 0;
+
+.tag-action {
+  margin-left: 4px;
   cursor: pointer;
-  height: 0;
-  width: 0;
+  font-size: 14px;
+  font-weight: bold;
+  
+  &.add {
+    color: #27ae60;
+  }
+  &.remove {
+    color: #e74c3c;
+  }
 }
-.checkmark {
-  height: 20px;
-  width: 20px;
-  background-color: #fff;
-  border: 2px solid #dcdfe6;
-  border-radius: 4px;
-  transition: all 0.3s ease;
-  position: relative;
-}
-.checkbox-container:hover .checkmark {
-  border-color: $stress-color;
-}
-.custom-checkbox:checked ~ .checkmark {
-  background-color: $stress-color;
-  border-color: $stress-color;
-}
-.checkmark:after {
-  content: "";
-  position: absolute;
-  display: none;
-}
-.custom-checkbox:checked ~ .checkmark:after {
-  display: block;
-  left: 6px;
-  top: 3px;
-  width: 5px;
-  height: 9px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+
+.empty-tips {
+  font-size: 12px;
+  color: #909399;
+  padding: 4px 0;
+  white-space: nowrap;
 }
 
 .button-container {
