@@ -1,5 +1,6 @@
 <script lang='ts' setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 //@ts-ignore
 import SvgIcon from '@jamescoyle/vue-icon'
 import {
@@ -21,6 +22,8 @@ import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
 
+const router = useRouter()
+const route = useRoute()
 const pageStore = usePageStore()
 
 // 当前日期（YYYY-MM-DD）
@@ -52,6 +55,7 @@ const tutorialFiles = [
   '5_machine_learning.md'
 ]
 
+const hoverDoc = ref<number | null>(null)
 const docs = ref([
   {
     id: 1,
@@ -100,7 +104,7 @@ const docs = ref([
   }
 ])
 
-// 辅助函数：根据章节数生成阅读时间信息（pages 已包含概述+总结，因此减去2计算有效章节）
+// 辅助函数：根据章节数生成阅读时间信息
 const getDocInfo = (pages: number) => {
   if (pages === 0) return '加载中...'
   const minutesPerSection = 2
@@ -115,20 +119,19 @@ const getDocInfo = (pages: number) => {
   }
 }
 
-// 当前打开的教程ID
+// 内部状态（由路由同步）
 const currentDocId = ref<number | null>(null)
-const hoverDoc = ref<number | null>(null)
+const currentSectionIndex = ref(0)
 const isLoading = ref(false)
 const tutorialMarkdown = ref('')
 const tutorialSections = ref<Array<{ title: string; content: string; html: string }>>([])
-const currentSectionIndex = ref(0)
 
 // 布局相关
-const splitRatio = ref(50) // 初始 50%，范围 40% ~ 60%
+const splitRatio = ref(50)
 const isDragging = ref(false)
 const tutorialContentRef = ref<HTMLElement | null>(null)
 
-// 当前显示的 HTML 内容
+// 计算属性
 const currentHtml = computed(() => {
   if (tutorialSections.value.length > 0 && currentSectionIndex.value < tutorialSections.value.length) {
     return tutorialSections.value[currentSectionIndex.value]!.html
@@ -136,11 +139,9 @@ const currentHtml = computed(() => {
   return ''
 })
 
-// 当前章节标题
 const currentSectionTitle = computed(() => {
   if (tutorialSections.value.length > 0 && currentSectionIndex.value < tutorialSections.value.length) {
     const title = tutorialSections.value[currentSectionIndex.value]!.title
-    // 确保标题不为空，如果为空则返回默认值
     return title && title.trim() ? title.trim() : '小节'
   }
   return ''
@@ -151,10 +152,8 @@ const currentPlaygroundProjectId = computed(() => {
   return doc ? doc.playgroundProjectId : null
 })
 
-// 总章节数
 const totalSections = computed(() => tutorialSections.value.length)
 
-// 章节进度显示文本
 const chapterProgressText = computed(() => {
   if (totalSections.value > 0) {
     return `第 ${currentSectionIndex.value + 1} / ${totalSections.value} 节`
@@ -162,12 +161,12 @@ const chapterProgressText = computed(() => {
   return ''
 })
 
-// 获取当前文档标题
-const currentDocTitle = computed(() => {
-  return currentDoc.value?.title || ''
+const currentDoc = computed(() => {
+  return docs.value.find(doc => doc.id === currentDocId.value)
 })
 
-// 顶部栏显示：大标题 + 小节标题 (进度)
+const currentDocTitle = computed(() => currentDoc.value?.title || '')
+
 const headerTitle = computed(() => {
   if (!currentDoc.value) return ''
   const docTitle = currentDoc.value.title
@@ -176,16 +175,26 @@ const headerTitle = computed(() => {
   return `${docTitle} - ${sectionTitle}${progress}`
 })
 
-// 分页导航可用性
-const hasPrevSection = computed(() => {
-  return currentSectionIndex.value > 0
+const hasPrevSection = computed(() => currentSectionIndex.value > 0)
+const hasNextSection = computed(() => currentSectionIndex.value < totalSections.value - 1)
+const hasPrevious = computed(() => currentDoc.value ? currentDoc.value.id > 1 : false)
+const hasNext = computed(() => currentDoc.value ? currentDoc.value.id < docs.value.length : false)
+
+const prevDocTitle = computed(() => {
+  if (!hasPrevious.value) return ''
+  const prevId = currentDoc.value!.id - 1
+  const prevDoc = docs.value.find(d => d.id === prevId)
+  return prevDoc ? prevDoc.title : ''
 })
 
-const hasNextSection = computed(() => {
-  return currentSectionIndex.value < totalSections.value - 1
+const nextDocTitle = computed(() => {
+  if (!hasNext.value) return ''
+  const nextId = currentDoc.value!.id + 1
+  const nextDoc = docs.value.find(d => d.id === nextId)
+  return nextDoc ? nextDoc.title : ''
 })
 
-// 将 Markdown 按二级标题拆分为章节，首节为“概述”，末节自动处理总结，内容原样保留
+// 将 Markdown 按二级标题拆分为章节
 const splitIntoSections = (markdown: string) => {
   const lines = markdown.split('\n')
   const sections: Array<{ title: string; content: string; html: string }> = []
@@ -205,7 +214,6 @@ const splitIntoSections = (markdown: string) => {
     if (!inCodeBlock) {
       const h2Match = line.match(/^## (.*)$/)
       if (h2Match) {
-        // 遇到二级标题，结束当前节，开始新节
         if (currentContent.length > 0) {
           sections.push({
             title: currentTitle,
@@ -214,7 +222,7 @@ const splitIntoSections = (markdown: string) => {
           })
         }
         currentTitle = h2Match[1]!.trim()
-        currentContent = [line]  // 保留标题行
+        currentContent = [line]
         continue
       }
     }
@@ -222,7 +230,6 @@ const splitIntoSections = (markdown: string) => {
     currentContent.push(line)
   }
 
-  // 处理最后一个节
   if (currentContent.length > 0) {
     sections.push({
       title: currentTitle,
@@ -231,7 +238,6 @@ const splitIntoSections = (markdown: string) => {
     })
   }
 
-  // 如果没有任何节（比如空文档），添加一个默认节
   if (sections.length === 0 && markdown.trim()) {
     sections.push({
       title: '概述',
@@ -255,7 +261,6 @@ const loadTutorial = async (docId: number) => {
       const markdown = await response.text()
       tutorialMarkdown.value = markdown
       tutorialSections.value = splitIntoSections(markdown)
-      currentSectionIndex.value = 0
 
       const doc = docs.value.find(d => d.id === docId)
       if (doc) {
@@ -274,7 +279,117 @@ const loadTutorial = async (docId: number) => {
   }
 }
 
-// 开始拖拽分割线
+// 同步路由参数到内部状态
+watch(() => route.params.docId, (newDocId) => {
+  if (newDocId) {
+    const id = Number(newDocId)
+    if (!isNaN(id) && id !== currentDocId.value) {
+      currentDocId.value = id
+    }
+  } else {
+    currentDocId.value = null
+  }
+}, { immediate: true })
+
+watch(() => route.params.sectionIndex, (newIndex) => {
+  if (newIndex !== undefined && currentDocId.value !== null) {
+    const idx = Number(newIndex) - 1
+    if (!isNaN(idx) && idx !== currentSectionIndex.value) {
+      currentSectionIndex.value = idx
+    }
+  } else if (newIndex === undefined && currentDocId.value !== null) {
+    if (currentSectionIndex.value !== 0) {
+      currentSectionIndex.value = 0
+    }
+  }
+}, { immediate: true })
+
+// 当当前教程 ID 变化时加载内容，并修正章节索引
+watch(currentDocId, async (newId) => {
+  if (newId) {
+    await loadTutorial(newId)
+    const total = tutorialSections.value.length
+    if (total > 0) {
+      let targetIndex = currentSectionIndex.value
+      if (targetIndex < 0 || targetIndex >= total) {
+        targetIndex = 0
+        router.replace({
+          name: 'explore',
+          params: {
+            docId: newId,
+            sectionIndex: targetIndex + 1
+          }
+        })
+      }
+      currentSectionIndex.value = targetIndex
+    }
+  } else {
+    tutorialSections.value = []
+    currentSectionIndex.value = 0
+  }
+}, { immediate: true })
+
+// 章节变化时滚动到顶部
+watch(currentSectionIndex, () => {
+  const wrapper = document.querySelector('.markdown-wrapper') as HTMLElement
+  if (wrapper) wrapper.scrollTop = 0
+})
+
+// 导航函数（通过路由跳转）
+const openDoc = (doc: any) => {
+  router.push({
+    name: 'explore',
+    params: { docId: doc.id }
+  })
+}
+
+const backToList = () => {
+  router.push({ name: 'explore' })
+}
+
+const previousDoc = () => {
+  if (hasPrevious.value) {
+    router.push({
+      name: 'explore',
+      params: { docId: currentDoc.value!.id - 1 }
+    })
+  }
+}
+
+const nextDoc = () => {
+  if (hasNext.value) {
+    router.push({
+      name: 'explore',
+      params: { docId: currentDoc.value!.id + 1 }
+    })
+  }
+}
+
+const prevSection = () => {
+  if (hasPrevSection.value) {
+    router.push({
+      name: 'explore',
+      params: {
+        docId: currentDocId.value!,
+        sectionIndex: currentSectionIndex.value
+      }
+    })
+  }
+}
+
+const nextSection = () => {
+  if (hasNextSection.value) {
+    router.push({
+      name: 'explore',
+      params: {
+        docId: currentDocId.value!,
+        sectionIndex: currentSectionIndex.value + 2   // 0-based -> 1-based
+      }
+    })
+  }
+}
+
+// 分割线拖拽
 const startDragging = (e: MouseEvent) => {
   e.preventDefault()
   isDragging.value = true
@@ -284,7 +399,6 @@ const stopDragging = () => {
   isDragging.value = false
 }
 
-// 处理分割线拖动 (范围 40% ~ 60%)
 const handleMouseMove = (e: MouseEvent) => {
   if (!isDragging.value || !tutorialContentRef.value) return
 
@@ -299,212 +413,130 @@ onMounted(() => {
   window.addEventListener('mousemove', handleMouseMove)
   window.addEventListener('mouseup', stopDragging)
 })
-
-// 监听教程切换
-watch(currentDocId, async (newId) => {
-  if (newId) {
-    await loadTutorial(newId)
-  } else {
-    tutorialSections.value = []
-    currentSectionIndex.value = 0
-  }
-})
-
-const currentDoc = computed(() => {
-  return docs.value.find(doc => doc.id === currentDocId.value)
-})
-
-const hasPrevious = computed(() => {
-  if (!currentDoc.value) return false
-  return currentDoc.value.id > 1
-})
-
-const hasNext = computed(() => {
-  if (!currentDoc.value) return false
-  return currentDoc.value.id < docs.value.length
-})
-
-// 前后教程标题（用于鼠标悬浮提示）
-const prevDocTitle = computed(() => {
-  if (!hasPrevious.value) return ''
-  const prevId = currentDoc.value!.id - 1
-  const prevDoc = docs.value.find(d => d.id === prevId)
-  return prevDoc ? prevDoc.title : ''
-})
-
-const nextDocTitle = computed(() => {
-  if (!hasNext.value) return ''
-  const nextId = currentDoc.value!.id + 1
-  const nextDoc = docs.value.find(d => d.id === nextId)
-  return nextDoc ? nextDoc.title : ''
-})
-
-const openDoc = (doc: any) => {
-  currentDocId.value = doc.id
-}
-
-const backToList = () => {
-  currentDocId.value = null
-}
-
-const previousDoc = () => {
-  if (currentDoc.value && currentDoc.value.id > 1) {
-    currentDocId.value = currentDoc.value.id - 1
-  }
-}
-
-const nextDoc = () => {
-  if (currentDoc.value && currentDoc.value.id < docs.value.length) {
-    currentDocId.value = currentDoc.value.id + 1
-  }
-}
-
-// 章节导航（简化为直接加减索引）
-const prevSection = () => {
-  if (hasPrevSection.value) {
-    currentSectionIndex.value--
-    // 滚动到顶部
-    const wrapper = document.querySelector('.markdown-wrapper') as HTMLElement
-    if (wrapper) wrapper.scrollTop = 0
-  }
-}
-
-const nextSection = () => {
-  if (hasNextSection.value) {
-    currentSectionIndex.value++
-    // 滚动到顶部
-    const wrapper = document.querySelector('.markdown-wrapper') as HTMLElement
-    if (wrapper) wrapper.scrollTop = 0
-  }
-}
 </script>
 
 <template>
-    <div class="explore-container">
-      <!-- 背景装饰元素 -->
-      <div class="background-elements">
-        <div class="bg-circle circle-1"></div>
-        <div class="bg-circle circle-2"></div>
-        <div class="bg-circle circle-3"></div>
-      </div>
+  <div class="explore-container">
+    <!-- 背景装饰元素 -->
+    <div class="background-elements">
+      <div class="bg-circle circle-1"></div>
+      <div class="bg-circle circle-2"></div>
+      <div class="bg-circle circle-3"></div>
+    </div>
 
-      <!-- 主内容区 -->
-      <div class="explore-content">
-        <!-- 教程列表视图 -->
-        <div v-if="!currentDocId" class="section doc-section">
-          <div class="section-header">
-            <h2 class="section-title">
-              <svg-icon :path="mdiBookOpenPageVariant" :size="32" type="mdi" class="title-icon"></svg-icon>
-              教程
-            </h2>
-            <p class="section-subtitle">详细的参考文档，帮助您深入了解每个功能的细节</p>
-          </div>
+    <!-- 主内容区 -->
+    <div class="explore-content">
+      <!-- 教程列表视图 -->
+      <div v-if="!currentDocId" class="section doc-section">
+        <div class="section-header">
+          <h2 class="section-title">
+            <svg-icon :path="mdiBookOpenPageVariant" :size="32" type="mdi" class="title-icon"></svg-icon>
+            教程
+          </h2>
+          <p class="section-subtitle">详细的参考文档，帮助您深入了解每个功能的细节</p>
+        </div>
 
-          <div class="docs-grid">
-            <div
-              v-for="doc in docs"
-              :key="doc.id"
-              class="doc-card"
-              @click="openDoc(doc)"
-              @mouseenter="hoverDoc = doc.id"
-              @mouseleave="hoverDoc = null"
-              :class="{ 'doc-card-hover': hoverDoc === doc.id }"
-            >
-              <div class="doc-header">
-                <div class="doc-icon" :class="{ 'doc-icon-hover': hoverDoc === doc.id }">
-                  <svg-icon :path="doc.icon" :size="28" type="mdi"></svg-icon>
-                </div>
-                <div class="doc-info">
-                  <h3 class="doc-title">{{ doc.title }}</h3>
-                  <div class="doc-subtitle">{{ doc.category }}</div>
-                </div>
+        <div class="docs-grid">
+          <div
+            v-for="doc in docs"
+            :key="doc.id"
+            class="doc-card"
+            @click="openDoc(doc)"
+            @mouseenter="hoverDoc = doc.id"
+            @mouseleave="hoverDoc = null"
+            :class="{ 'doc-card-hover': hoverDoc === doc.id }"
+          >
+            <div class="doc-header">
+              <div class="doc-icon" :class="{ 'doc-icon-hover': hoverDoc === doc.id }">
+                <svg-icon :path="doc.icon" :size="28" type="mdi"></svg-icon>
               </div>
-              <p class="doc-description">{{ doc.description }}</p>
-              <div class="doc-footer">
-                <div class="footer-left">
-                  <span class="read-time">{{ getDocInfo(doc.pages) }}</span>
-                </div>
-                <span class="date">{{ today }}</span>
+              <div class="doc-info">
+                <h3 class="doc-title">{{ doc.title }}</h3>
+                <div class="doc-subtitle">{{ doc.category }}</div>
               </div>
+            </div>
+            <p class="doc-description">{{ doc.description }}</p>
+            <div class="doc-footer">
+              <div class="footer-left">
+                <span class="read-time">{{ getDocInfo(doc.pages) }}</span>
+              </div>
+              <span class="date">{{ today }}</span>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- 教程详情视图（全屏） -->
-        <div v-else class="tutorial-detail-section">
-          <!-- 主内容容器 -->
-          <div class="tutorial-content" ref="tutorialContentRef">
-            <!-- 左侧：顶部章节栏 + 文档内容 + 底部控制栏 -->
-            <div class="tutorial-left" :style="{ width: splitRatio + '%' }">
-              <!-- 顶部章节栏（大标题与小标题区分样式） -->
-              <div class="chapter-header">
-                <div class="chapter-info">
-                  <span class="doc-title-text">{{ currentDocTitle }}</span>
-                  <span class="section-title-text">
-                    {{ currentSectionTitle }}
-                    <span v-if="chapterProgressText" class="section-progress">({{ chapterProgressText }})</span>
-                  </span>
-                </div>
-              </div>
-
-              <!-- 滚动区域 -->
-              <div class="markdown-wrapper">
-                <div class="loading-state" v-if="isLoading">
-                  <p>加载教程内容中...</p>
-                </div>
-                <div class="markdown-content" v-else-if="currentHtml" v-html="currentHtml"></div>
-                <div class="empty-state" v-else>
-                  <p>暂无内容</p>
-                </div>
-              </div>
-
-              <!-- 底部控制栏 -->
-              <div class="bottom-control-bar">
-                <button class="control-btn" :disabled="!hasPrevious" @click="previousDoc" :title="prevDocTitle">
-                  <svg-icon :path="mdiChevronDoubleLeft" :size="18" type="mdi"></svg-icon>
-                  <span>上篇</span>
-                </button>
-                <button class="control-btn" :disabled="!hasPrevSection" @click="prevSection" title="上一章节">
-                  <svg-icon :path="mdiChevronLeft" :size="18" type="mdi"></svg-icon>
-                  <span>上一节</span>
-                </button>
-                <button class="control-btn" :disabled="!hasNextSection" @click="nextSection" title="下一章节">
-                  <span>下一节</span>
-                  <svg-icon :path="mdiChevronRight" :size="18" type="mdi"></svg-icon>
-                </button>
-                <button class="control-btn" :disabled="!hasNext" @click="nextDoc" :title="nextDocTitle">
-                  <span>下篇</span>
-                  <svg-icon :path="mdiChevronDoubleRight" :size="18" type="mdi"></svg-icon>
-                </button>
-                <button class="control-btn" @click="backToList" title="回到教程列表">
-                  <svg-icon :path="mdiHome" :size="18" type="mdi"></svg-icon>
-                  <span>目录</span>
-                </button>
+      <!-- 教程详情视图 -->
+      <div v-else class="tutorial-detail-section">
+        <div class="tutorial-content" ref="tutorialContentRef">
+          <!-- 左侧：文档内容区域 -->
+          <div class="tutorial-left" :style="{ width: splitRatio + '%' }">
+            <div class="chapter-header">
+              <div class="chapter-info">
+                <span class="doc-title-text">{{ currentDocTitle }}</span>
+                <span class="section-title-text">
+                  {{ currentSectionTitle }}
+                  <span v-if="chapterProgressText" class="section-progress">({{ chapterProgressText }})</span>
+                </span>
               </div>
             </div>
 
-            <!-- 分割线（仅手柄可拖拽，比例区间40%~60%） -->
-            <div class="divider" :class="{ 'divider-active': isDragging }">
-              <div class="drag-handle" @mousedown="startDragging">
-                <div class="drag-grip"></div>
-                <div class="drag-tooltip">拖动调整布局</div>
+            <div class="markdown-wrapper">
+              <div class="loading-state" v-if="isLoading">
+                <p>加载教程内容中...</p>
+              </div>
+              <div class="markdown-content" v-else-if="currentHtml" v-html="currentHtml"></div>
+              <div class="empty-state" v-else>
+                <p>暂无内容</p>
               </div>
             </div>
 
-            <!-- 右侧：图表组件区域 -->
-            <div class="tutorial-right" :style="{ width: (100 - splitRatio) + '%' }">
-              <div class="graph-placeholder">
-                <Graph
-                  :isPlaygroundProject="true"
-                  :playgroundProjectId="currentPlaygroundProjectId!"
-                  :key="currentPlaygroundProjectId||-1"
-                ></Graph>
-              </div>
+            <div class="bottom-control-bar">
+              <button class="control-btn" :disabled="!hasPrevious" @click="previousDoc" :title="prevDocTitle">
+                <svg-icon :path="mdiChevronDoubleLeft" :size="18" type="mdi"></svg-icon>
+                <span>上篇</span>
+              </button>
+              <button class="control-btn" :disabled="!hasPrevSection" @click="prevSection" title="上一章节">
+                <svg-icon :path="mdiChevronLeft" :size="18" type="mdi"></svg-icon>
+                <span>上一节</span>
+              </button>
+              <button class="control-btn" :disabled="!hasNextSection" @click="nextSection" title="下一章节">
+                <span>下一节</span>
+                <svg-icon :path="mdiChevronRight" :size="18" type="mdi"></svg-icon>
+              </button>
+              <button class="control-btn" :disabled="!hasNext" @click="nextDoc" :title="nextDocTitle">
+                <span>下篇</span>
+                <svg-icon :path="mdiChevronDoubleRight" :size="18" type="mdi"></svg-icon>
+              </button>
+              <button class="control-btn" @click="backToList" title="回到教程列表">
+                <svg-icon :path="mdiHome" :size="18" type="mdi"></svg-icon>
+                <span>目录</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 分割线 -->
+          <div class="divider" :class="{ 'divider-active': isDragging }">
+            <div class="drag-handle" @mousedown="startDragging">
+              <div class="drag-grip"></div>
+              <div class="drag-tooltip">拖动调整布局</div>
+            </div>
+          </div>
+
+          <!-- 右侧：图表组件区域 -->
+          <div class="tutorial-right" :style="{ width: (100 - splitRatio) + '%' }">
+            <div class="graph-placeholder">
+              <Graph
+                :isPlaygroundProject="true"
+                :playgroundProjectId="currentPlaygroundProjectId!"
+                :key="currentPlaygroundProjectId||-1"
+              ></Graph>
             </div>
           </div>
         </div>
       </div>
     </div>
+  </div>
 </template>
 
 <style lang='scss' scoped>
@@ -612,7 +644,6 @@ const nextSection = () => {
   }
 }
 
-// 文档教程部分
 .doc-section {
   background: transparent;
   min-height: auto;
@@ -724,7 +755,6 @@ const nextSection = () => {
   }
 }
 
-// 教程详情部分 - 全屏无边距
 .tutorial-detail-section {
   position: relative;
   width: 100%;
@@ -751,7 +781,6 @@ const nextSection = () => {
       background: white;
       border-right: 1px solid #eef2f8;
 
-      // 顶部章节栏（大标题与小标题区分样式）
       .chapter-header {
         flex-shrink: 0;
         padding: 12px 24px;
@@ -788,7 +817,6 @@ const nextSection = () => {
         }
       }
 
-      // 滚动区域
       .markdown-wrapper {
         flex: 1;
         overflow-y: auto;
@@ -822,7 +850,6 @@ const nextSection = () => {
         color: #999;
       }
 
-      // 内容样式优化
       .markdown-content {
         font-size: 16px;
         line-height: 1.9;
@@ -943,7 +970,6 @@ const nextSection = () => {
         }
       }
 
-      // 底部控制栏
       .bottom-control-bar {
         flex-shrink: 0;
         display: flex;
@@ -1004,7 +1030,6 @@ const nextSection = () => {
       }
     }
 
-    // 分割线
     .divider {
       width: 1px;
       background: #e2e8f0;
@@ -1086,7 +1111,6 @@ const nextSection = () => {
       }
     }
 
-    // 右侧图表区域
     .tutorial-right {
       display: flex;
       flex-direction: column;
