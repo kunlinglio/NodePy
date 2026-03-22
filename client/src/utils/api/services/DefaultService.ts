@@ -12,9 +12,10 @@ import type { ProjectList } from '../models/ProjectList';
 import type { ProjectListFilter } from '../models/ProjectListFilter';
 import type { ProjectSetting } from '../models/ProjectSetting';
 import type { ProjUIState } from '../models/ProjUIState';
+import type { server__api__playground__TaskResponse } from '../models/server__api__playground__TaskResponse';
+import type { server__api__project__TaskResponse } from '../models/server__api__project__TaskResponse';
 import type { SignupRequest } from '../models/SignupRequest';
 import type { Tag } from '../models/Tag';
-import type { TaskResponse } from '../models/TaskResponse';
 import type { TokenResponse } from '../models/TokenResponse';
 import type { UserFileList } from '../models/UserFileList';
 import type { CancelablePromise } from '../core/CancelablePromise';
@@ -219,12 +220,12 @@ export class DefaultService {
      * the returned `task_id` to subscribe to the websocket status endpoint
      * `/nodes/status/{task_id}`.
      * @param requestBody
-     * @returns TaskResponse Task accepted and running
+     * @returns server__api__project__TaskResponse Task accepted and running
      * @throws ApiError
      */
     public static syncProjectApiProjectSyncPost(
         requestBody: Project,
-    ): CancelablePromise<TaskResponse> {
+    ): CancelablePromise<server__api__project__TaskResponse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/project/sync',
@@ -450,7 +451,6 @@ export class DefaultService {
             },
         });
     }
-
     /**
      * List Tags
      * @returns Tag List of tags retrieved successfully
@@ -482,9 +482,9 @@ export class DefaultService {
             },
             errors: {
                 400: `Tag name duplicate`,
-            422: `Validation Error`,
-            500: `Internal server error`,
-          },
+                422: `Validation Error`,
+                500: `Internal server error`,
+            },
         });
     }
     /**
@@ -515,12 +515,12 @@ export class DefaultService {
      * Sync Playground Project
      * Execute a project in playground mode. Does not save changes to the database.
      * @param requestBody
-     * @returns TaskResponse Task accepted and running
+     * @returns server__api__playground__TaskResponse Task accepted and running
      * @throws ApiError
      */
     public static syncPlaygroundProjectApiPlaygroundSyncPost(
         requestBody: Project,
-    ): CancelablePromise<TaskResponse> {
+    ): CancelablePromise<server__api__playground__TaskResponse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/playground/sync',
