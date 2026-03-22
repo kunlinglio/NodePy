@@ -215,7 +215,7 @@ const nodes4 = ref([
     id: 'QuickPlotNode_1',
     type: 'QuickPlotNode',
     position: { x: 500, y: 600},
-    data: { param: {plot_type: ['line'],title: null,x_col: "Open Time",y_col: ['Open']}, dbclicked: false, runningtime: 435.82994200005487 },
+    data: { param: {plot_type: ['line'],title: null,x_col: "Open Time",y_col: ['Open'],y_axis: ['left']}, dbclicked: false, runningtime: 435.82994200005487 },
     class: 'nowheel'
   }
 ])
