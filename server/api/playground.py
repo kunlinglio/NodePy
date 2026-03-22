@@ -27,6 +27,7 @@ router = APIRouter()
 class TaskResponse(BaseModel):
     """Response returned when a task is submitted."""
     task_id: str
+    new_project_id: int # for redirect
 
 @router.get(
     "/{project_id}", 
@@ -119,7 +120,8 @@ async def sync_playground_project(
                 raise HTTPException(status_code=403, detail="Only public example projects can be run in playground")
 
         # 2. compare the topo model to decide whether to run
-        old_project = await db_client.get(ProjectRecord, project_id)
+        # get example user id
+        old_project = await get_project_by_id(db_client, project_id, user_id=None)
         if old_project is None:
             raise HTTPException(status_code=404, detail="Project not found")
         new_topo = project.to_topo()
@@ -158,7 +160,7 @@ async def sync_playground_project(
             user_id=exec_user_id,
         )
 
-        return TaskResponse(task_id=task.id)
+        return TaskResponse(task_id=task.id, new_project_id=temp_project_id) # type: ignore
 
     except HTTPException:
         raise
