@@ -421,11 +421,11 @@ export class DefaultService {
      * @returns ExploreList Successful Response
      * @throws ApiError
      */
-    public static getExploreProjectsApiExploreProjectsGet(
+    public static getExploreProjectsApiExploreProjectsPost(
         requestBody: ProjectListFilter,
     ): CancelablePromise<ExploreList> {
         return __request(OpenAPI, {
-            method: 'GET',
+            method: 'POST',
             url: '/api/explore/projects',
             body: requestBody,
             mediaType: 'application/json',

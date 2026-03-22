@@ -14,7 +14,7 @@ API router for explore-related endpoints.
 
 router = APIRouter()
 
-@router.get(
+@router.post(
     "/projects", 
     status_code=200,
 )
