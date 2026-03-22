@@ -49,6 +49,17 @@ export const useTableStore = defineStore('table', () => {
     const isEditingCell = ref<boolean>(false);
 
     /**
+     * 获取当前日期字符串（YYYY-MM-DD）
+     */
+    function getCurrentDateString(): string {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    /**
      * 初始化表格编辑
      * @param nodeId 节点ID
      * @param initialData 初始表格数据
@@ -144,8 +155,11 @@ export const useTableStore = defineStore('table', () => {
                 case 'bool':
                     newRow[colName] = false;
                     break;
-                case 'str':
                 case 'Datetime':
+                    // 修改：使用当前日期作为默认值
+                    newRow[colName] = getCurrentDateString();
+                    break;
+                case 'str':
                 default:
                     newRow[colName] = '';
                     break;
@@ -206,8 +220,11 @@ export const useTableStore = defineStore('table', () => {
                 case 'bool':
                     row[uniqueColName] = false;
                     break;
-                case 'str':
                 case 'Datetime':
+                    // 修改：使用当前日期作为默认值
+                    row[uniqueColName] = getCurrentDateString();
+                    break;
+                case 'str':
                 default:
                     row[uniqueColName] = '';
                     break;
@@ -299,29 +316,117 @@ export const useTableStore = defineStore('table', () => {
         // 根据新类型转换现有数据
         currentTableData.value.rows.forEach(row => {
             const value = row[colName];
-            if (value !== null) {
+            if (value !== null && value !== undefined) {
                 try {
                     switch (colType) {
-                        case 'int':
-                            row[colName] = parseInt(String(value), 10);
+                        case 'int': {
+                            let num: number;
+                            if (typeof value === 'string') {
+                                const trimmed = value.trim();
+                                if (trimmed === '') {
+                                    num = 0;
+                                } else {
+                                    num = parseInt(trimmed, 10);
+                                    if (isNaN(num)) num = 0;
+                                }
+                            } else if (typeof value === 'boolean') {
+                                num = value ? 1 : 0;
+                            } else if (typeof value === 'number') {
+                                num = Math.floor(value);
+                            } else {
+                                num = 0;
+                            }
+                            row[colName] = num;
                             break;
-                        case 'float':
-                            row[colName] = parseFloat(String(value));
+                        }
+                        case 'float': {
+                            let num: number;
+                            if (typeof value === 'string') {
+                                const trimmed = value.trim();
+                                if (trimmed === '') {
+                                    num = 0;
+                                } else {
+                                    num = parseFloat(trimmed);
+                                    if (isNaN(num)) num = 0;
+                                }
+                            } else if (typeof value === 'boolean') {
+                                num = value ? 1 : 0;
+                            } else if (typeof value === 'number') {
+                                num = value;
+                            } else {
+                                num = 0;
+                            }
+                            row[colName] = num;
                             break;
+                        }
                         case 'bool':
                             row[colName] = Boolean(value);
                             break;
                         case 'str':
                             row[colName] = String(value);
                             break;
-                        case 'Datetime':
-                            // 保持原样或尝试解析日期
-                            row[colName] = value!;
+                        case 'Datetime': {
+                            let formatted = '';
+                            if (value && typeof value === 'string') {
+                                const date = new Date(value);
+                                if (!isNaN(date.getTime())) {
+                                    const year = date.getFullYear();
+                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                    const day = String(date.getDate()).padStart(2, '0');
+                                    formatted = `${year}-${month}-${day}`;
+                                } else {
+                                    formatted = value;
+                                }
+                            } else if (value && typeof value === 'number') {
+                                const date = new Date(value);
+                                if (!isNaN(date.getTime())) {
+                                    const year = date.getFullYear();
+                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                    const day = String(date.getDate()).padStart(2, '0');
+                                    formatted = `${year}-${month}-${day}`;
+                                } else {
+                                    formatted = String(value);
+                                }
+                            } else {
+                                formatted = '';
+                            }
+                            row[colName] = formatted;
                             break;
+                        }
                     }
                 } catch (error) {
                     console.warn(`转换列 ${colName} 的值失败:`, error);
-                    row[colName] = '';
+                    // 设置安全的默认值
+                    switch (colType) {
+                        case 'int':
+                        case 'float':
+                            row[colName] = 0;
+                            break;
+                        case 'str':
+                            row[colName] = '';
+                            break;
+                        case 'bool':
+                            row[colName] = false;
+                            break;
+                        case 'Datetime':
+                            row[colName] = '';
+                            break;
+                    }
+                }
+            } else {
+                // 处理 null/undefined，设置默认值
+                switch (colType) {
+                    case 'int':
+                    case 'float':
+                        row[colName] = 0;
+                        break;
+                    case 'str':
+                    case 'Datetime':
+                        row[colName] = '';
+                        break;
+                    case 'bool':
+                        row[colName] = false;
+                        break;
                 }
             }
         });

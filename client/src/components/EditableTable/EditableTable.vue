@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUpdated } from 'vue';
+import { ref, computed, watch, nextTick, onMounted } from 'vue';
 import { useTableStore } from '@/stores/tableStore';
+import { useModalStore } from '@/stores/modalStore';
+import TableColumnEdit from './TableColumnEdit.vue';
 //@ts-ignore
 import SvgIcon from '@jamescoyle/vue-icon';
 import { mdiPlus, mdiClose } from '@mdi/js';
@@ -12,6 +14,7 @@ const props = defineProps<{
 }>();
 
 const tableStore = useTableStore();
+const modalStore = useModalStore();
 
 // 单元格引用
 const cellRefs = ref<HTMLDivElement[][]>([]);
@@ -24,42 +27,118 @@ const columnWidths = ref<number[]>([]);
 const editingCell = ref<{ row: number; col: number } | null>(null);
 const editValue = ref<string>('');
 
-// 类型选择相关
-const typeOptions = ['int', 'float', 'str', 'bool', 'Datetime'];
-const showTypeSelector = ref(false);
-const currentOperation = ref<'add' | 'modify' | null>(null);
-const pendingColumnName = ref('');
-const pendingColumnIndex = ref(-1);
-
 // 行号列宽
 const rowHeaderWidth = 80;
-// 列名行高
-const colHeaderHeight = 40;
+
+/**
+ * 格式化单元格显示值（Date 类型只显示 YYYY-MM-DD）
+ */
+function formatCellValue(value: any, colType: string): string {
+    if (colType !== 'Datetime') {
+        return value !== null && value !== undefined ? String(value) : '';
+    }
+    if (!value) return '';
+    try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0]!;
+        }
+    } catch (e) {
+        // 忽略解析错误
+    }
+    return String(value);
+}
+
+/**
+ * 格式化编辑框初始值（Date 类型显示 YYYY-MM-DD）
+ */
+function formatEditValue(value: any, colType: string): string {
+    if (colType !== 'Datetime') {
+        return value !== null && value !== undefined ? String(value) : '';
+    }
+    if (!value) return '';
+    try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0]!;
+        }
+    } catch (e) {}
+    return String(value);
+}
 
 // 计算列宽（根据列名长度）
 const calculateColumnWidths = () => {
     if (!tableStore.currentTableData.col_names?.length) return;
     
-    const baseWidth = 100; // 基础宽度
-    const charWidth = 8; // 每个字符的宽度
-    const minWidth = 80; // 最小宽度
-    const maxWidth = 300; // 最大宽度
+    const baseWidth = 100;
+    const charWidth = 8;
+    const minWidth = 80;
+    const maxWidth = 300;
     
     columnWidths.value = tableStore.currentTableData.col_names.map(colName => {
-        // 计算基于列名的宽度
         let width = baseWidth + (colName.length * charWidth);
-        
-        // 考虑列类型标签的宽度
         const colType = tableStore.currentTableData.col_types[colName] || 'str';
         width += colType.length * 6;
-        
-        // 添加删除按钮的宽度
-        width += 24;
-        
-        // 限制宽度范围
+        width += 24; // 删除按钮宽度
         return Math.min(Math.max(width, minWidth), maxWidth);
     });
 };
+
+/**
+ * 打开列编辑模态框（添加/修改列）
+ */
+function openColumnEditModal(
+    mode: 'add' | 'modify',
+    columnName: string,
+    columnType: string,
+    columnIndex?: number
+) {
+    const modalId = `column-edit-${Date.now()}`;
+    const editWidth = 300;
+    const editHeight = 350;
+    modalStore.createModal({
+        id: modalId,
+        component: TableColumnEdit,
+        title: mode === 'add' ? '添加列' : '修改列',
+        isActive: true,
+        isResizable: false,
+        isDraggable: true,
+        position:{
+            x: window.innerWidth / 2 - editWidth / 2,
+            y: window.innerHeight / 2 - editHeight / 2
+        },
+        size:{
+            width: editWidth,
+            height: editHeight
+        },
+        props: {
+            initialName: columnName,
+            initialType: columnType,
+            onConfirm: (newName: string, newType: string) => {
+                if (mode === 'add') {
+                    tableStore.addColumn(newName, newType as any);
+                    nextTick(() => calculateColumnWidths());
+                } else if (mode === 'modify' && columnIndex !== undefined) {
+                    const oldColName = tableStore.currentTableData.col_names[columnIndex]!;
+                    // 更新列名（如果变化）
+                    if (newName !== oldColName) {
+                        tableStore.updateColumnName(oldColName, newName);
+                    }
+                    // 更新列类型（如果变化）
+                    const currentType = tableStore.currentTableData.col_types[newName] || 'str';
+                    if (newType !== currentType) {
+                        tableStore.updateColumnType(newName, newType as any);
+                    }
+                    calculateColumnWidths();
+                }
+                modalStore.destroyModal(modalId);
+            },
+            onCancel: () => {
+                modalStore.destroyModal(modalId);
+            },
+        },
+    });
+}
 
 /**
  * 开始编辑单元格
@@ -67,11 +146,11 @@ const calculateColumnWidths = () => {
 function startEditCell(rowIndex: number, colIndex: number) {
     const colName = tableStore.currentTableData.col_names[colIndex];
     const cellValue = tableStore.currentTableData.rows[rowIndex]?.[colName!];
+    const colType = tableStore.currentTableData.col_types[colName!] || 'str';
     
     editingCell.value = { row: rowIndex, col: colIndex };
-    editValue.value = cellValue !== null && cellValue !== undefined ? String(cellValue) : '';
+    editValue.value = formatEditValue(cellValue, colType);
     
-    // 聚焦输入框
     nextTick(() => {
         if (inputRefs.value[rowIndex]?.[colIndex]) {
             inputRefs.value[rowIndex][colIndex].focus();
@@ -88,25 +167,23 @@ function finishEditCell() {
     
     const { row, col } = editingCell.value;
     const colName = tableStore.currentTableData.col_names[col]!;
-    
-    // 转换值类型
-    let finalValue: any = editValue.value.trim();
     const colType = tableStore.currentTableData.col_types[colName];
     
-    // 更严格的空值检测
+    let finalValue: any = editValue.value.trim();
+    
+    // 处理空值
     if (finalValue === '' || finalValue === null || finalValue === undefined) {
-        // 根据类型设置默认值
         switch (colType) {
             case 'int':
             case 'float':
                 finalValue = 0;
                 break;
+            case 'bool':
+                finalValue = false;
+                break;
             case 'str':
             case 'Datetime':
                 finalValue = '';
-                break;
-            case 'bool':
-                finalValue = false;
                 break;
             default:
                 finalValue = null;
@@ -116,26 +193,19 @@ function finishEditCell() {
             switch (colType) {
                 case 'int':
                     finalValue = parseInt(finalValue, 10);
-                    if (isNaN(finalValue)) finalValue = 0; // int类型无效时默认为0
+                    if (isNaN(finalValue)) finalValue = 0;
                     break;
                 case 'float':
                     finalValue = parseFloat(finalValue);
-                    if (isNaN(finalValue)) finalValue = 0; // float类型无效时默认为0
+                    if (isNaN(finalValue)) finalValue = 0;
                     break;
                 case 'bool':
                     finalValue = finalValue.toLowerCase() === 'true' || finalValue === '1';
                     break;
                 case 'str':
-                    // 保持字符串
                     break;
                 case 'Datetime':
-                    // 尝试解析日期
-                    const date = new Date(finalValue);
-                    if (isNaN(date.getTime())) {
-                        finalValue = ''; // Datetime类型无效时默认为空字符串
-                    } else {
-                        finalValue = date.toISOString();
-                    }
+                    // 直接存储用户输入的字符串，不做转换
                     break;
             }
         } catch (error) {
@@ -179,7 +249,6 @@ function handleKeyDown(event: KeyboardEvent, rowIndex: number, colIndex: number)
     switch (event.key) {
         case 'Enter':
             finishEditCell();
-            // 移动到下一行
             if (rowIndex < tableStore.numRows - 1) {
                 startEditCell(rowIndex + 1, colIndex);
             }
@@ -188,11 +257,9 @@ function handleKeyDown(event: KeyboardEvent, rowIndex: number, colIndex: number)
             
         case 'Tab':
             finishEditCell();
-            // 移动到下一列
             if (colIndex < tableStore.numCols - 1) {
                 startEditCell(rowIndex, colIndex + 1);
             } else if (rowIndex < tableStore.numRows - 1) {
-                // 换行到第一列
                 startEditCell(rowIndex + 1, 0);
             }
             event.preventDefault();
@@ -244,83 +311,20 @@ function selectCell(rowIndex: number, colIndex: number) {
 }
 
 /**
- * 打开类型选择器
- */
-function openTypeSelector(operation: 'add' | 'modify', columnName: string, columnIndex?: number) {
-    currentOperation.value = operation;
-    pendingColumnName.value = columnName;
-    pendingColumnIndex.value = columnIndex ?? -1;
-    showTypeSelector.value = true;
-}
-
-/**
- * 选择类型并执行操作
- */
-function selectType(type: string) {
-    showTypeSelector.value = false;
-    
-    if (currentOperation.value === 'add') {
-        tableStore.addColumn(pendingColumnName.value, type as any, -1);
-        nextTick(() => {
-            calculateColumnWidths();
-        });
-    } else if (currentOperation.value === 'modify') {
-        const colName = tableStore.currentTableData.col_names[pendingColumnIndex.value];
-        const currentType = tableStore.currentTableData.col_types[colName!] || 'str';
-        
-        // 更新列名和类型
-        if (pendingColumnName.value !== colName) {
-            tableStore.updateColumnName(colName!, pendingColumnName.value);
-        }
-        
-        if (type !== currentType) {
-            tableStore.updateColumnType(pendingColumnName.value, type as any);
-        }
-        
-        calculateColumnWidths();
-    }
-    
-    currentOperation.value = null;
-    pendingColumnName.value = '';
-    pendingColumnIndex.value = -1;
-}
-
-/**
- * 修改列（支持同时修改列名和类型）
+ * 修改列（双击或右键列名触发）
  */
 function modifyColumn(colIndex: number) {
     const colName = tableStore.currentTableData.col_names[colIndex]!;
-    
-    // 允许用户修改列名
-    const newName = prompt('输入新列名:', colName);
-    if (newName === null) return; // 用户取消
-    
-    if (newName === '') {
-        alert('列名不能为空');
-        return;
-    }
-    
-    if (newName !== colName) {
-        // 检查列名是否已存在
-        if (tableStore.currentTableData.col_names.includes(newName)) {
-            alert(`列名 "${newName}" 已存在`);
-            return;
-        }
-    }
-    
-    // 打开类型选择器
-    openTypeSelector('modify', newName, colIndex);
+    const colType = tableStore.currentTableData.col_types[colName] || 'str';
+    openColumnEditModal('modify', colName, colType, colIndex);
 }
 
 /**
- * 在指定位置添加新列
+ * 在末尾添加新列
  */
-function addColumnAtPosition(position: number) {
-    // 自动生成列名
+function addColumnAtPosition() {
     const defaultName = `Column_${tableStore.numCols + 1}`;
-    
-    // 打开类型选择器
-    openTypeSelector('add', defaultName);
+    openColumnEditModal('add', defaultName, 'str');
 }
 
 // 初始化单元格引用数组和列宽
@@ -331,8 +335,6 @@ watch(() => [tableStore.numRows, tableStore.numCols], () => {
     inputRefs.value = Array(tableStore.numRows).fill(null).map(() => 
         Array(tableStore.numCols).fill(null)
     );
-    
-    // 重新计算列宽
     calculateColumnWidths();
 }, { immediate: true });
 
@@ -341,7 +343,6 @@ watch(() => tableStore.currentTableData.col_names, () => {
     calculateColumnWidths();
 }, { deep: true });
 
-// 组件挂载时计算初始列宽
 onMounted(() => {
     calculateColumnWidths();
 });
@@ -349,19 +350,16 @@ onMounted(() => {
 
 <template>
     <div class="editable-table">
-        <!-- 表格容器 -->
         <div class="table-container">
             <div class="table-wrapper">
                 <!-- 列标题行 -->
                 <div class="table-row header-row">
-                    <!-- 左上角空白单元格 -->
                     <div class="table-cell corner-cell">
                         <div class="column-header">
                             <span class="column-name">行号</span>
                         </div>
                     </div>
                     
-                    <!-- 列标题 -->
                     <div 
                         v-for="(colName, colIndex) in tableStore.currentTableData.col_names" 
                         :key="`col-${colIndex}`"
@@ -387,9 +385,8 @@ onMounted(() => {
                         </div>
                     </div>
                     
-                    <!-- 添加列按钮 -->
                     <div class="table-cell add-column-cell">
-                        <button @click="addColumnAtPosition(-1)" title="添加列">
+                        <button @click="addColumnAtPosition" title="添加列">
                             <svg-icon :path="mdiPlus" :size="22" type="mdi"></svg-icon>
                         </button>
                     </div>
@@ -402,7 +399,6 @@ onMounted(() => {
                     class="table-row data-row"
                     :class="{ 'selected-row': tableStore.selectedCell?.row === rowIndex }"
                 >
-                    <!-- 行号单元格 -->
                     <div class="table-cell row-header" :style="{ width: `${rowHeaderWidth}px` }">
                         <span class="row-number">{{ rowIndex + 1 }}</span>
                         <button 
@@ -415,7 +411,6 @@ onMounted(() => {
                         </button>
                     </div>
                     
-                    <!-- 数据单元格 -->
                     <div 
                         v-for="(colName, colIndex) in tableStore.currentTableData.col_names" 
                         :key="`cell-${rowIndex}-${colIndex}`"
@@ -429,7 +424,6 @@ onMounted(() => {
                             if (cellRefs[rowIndex]) {
                                 cellRefs[rowIndex][colIndex] = el as HTMLDivElement;
                             } else {
-                                // 如果第一层不存在，则创建它
                                 cellRefs[rowIndex] = [];
                                 cellRefs[rowIndex][colIndex] = el as HTMLDivElement;
                             }
@@ -437,16 +431,13 @@ onMounted(() => {
                         @click="selectCell(rowIndex, colIndex)"
                         @dblclick="startEditCell(rowIndex, colIndex)"
                     >
-                        <!-- 显示模式 -->
                         <template v-if="!(editingCell?.row === rowIndex && editingCell?.col === colIndex)">
                             <span class="cell-content">
-                                {{ row[colName] !== null && row[colName] !== undefined ? String(row[colName]) : '' }}
+                                {{ formatCellValue(row[colName], tableStore.currentTableData.col_types[colName] || 'str') }}
                             </span>
                         </template>
                         
-                        <!-- 编辑模式 -->
                         <template v-else>
-                            <!-- 对于inputRefs的修改 -->
                             <input
                                 type="text"
                                 v-model="editValue"
@@ -476,37 +467,6 @@ onMounted(() => {
                 </div>
             </div>
         </div>
-        
-        <!-- 类型选择器对话框 -->
-        <div v-if="showTypeSelector" class="type-selector-overlay" @click="showTypeSelector = false">
-            <div class="type-selector-modal" @click.stop>
-                <div class="type-selector-header">
-                    <span>{{ currentOperation === 'add' ? '选择新列的类型' : '修改列的类型' }}</span>
-                    <button class="close-btn" @click="showTypeSelector = false">×</button>
-                </div>
-                <div class="type-selector-content">
-                    <button 
-                        v-for="type in typeOptions" 
-                        :key="type"
-                        class="type-option-btn"
-                        @click="selectType(type)"
-                    >
-                        {{ type }}
-                    </button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- 状态栏 -->
-        <!-- <div class="table-statusbar">
-            <div v-if="tableStore.selectedCell" class="status-selection">
-                选中: 行 {{ tableStore.selectedCell.row + 1 }}, 列 {{ tableStore.selectedCell.col + 1 }}
-                ({{ tableStore.currentTableData.col_names[tableStore.selectedCell.col] }})
-            </div>
-            <div v-else class="status-default">
-                双击单元格编辑，双击列名修改列名和类型，右键列名也可修改
-            </div>
-        </div> -->
     </div>
 </template>
 
@@ -522,7 +482,6 @@ onMounted(() => {
     overflow: auto;
     background: $background-color;
     border-radius: 10px;
-    // padding: 16px;
     box-sizing: border-box;
 }
 
@@ -532,7 +491,6 @@ onMounted(() => {
     border: 1px solid #ebeef5;
     border-radius: 4px;
     background: #fff;
-    // @include controller-style;
 }
 
 .table-wrapper {
@@ -547,7 +505,6 @@ onMounted(() => {
         position: sticky;
         top: 0;
         z-index: 10;
-        // background-color: rgb(235, 241, 245);
     }
     
     &.data-row {
@@ -575,8 +532,6 @@ onMounted(() => {
         width: 80px;
         min-width: 80px;
         background-color: rgb(233, 236, 240);
-        // border-right: 2px solid #dcdfe6;
-        // border-bottom: 2px solid #dcdfe6;
         font-weight: 500;
         justify-content: center;
         position: sticky;
@@ -600,12 +555,10 @@ onMounted(() => {
         font-weight: 600;
         text-align: center;
         background-color: rgb(235, 241, 245);
-        // border-bottom: 2px solid #dcdfe6;
         user-select: none;
         cursor: pointer;
         position: relative;
         
-        // ... existing code ...
         .column-header-content {
             display: flex;
             align-items: center;
@@ -638,7 +591,6 @@ onMounted(() => {
             }
             
             .delete-column-btn {
-                // opacity: 0;
                 padding: 0;
                 font-size: 16px;
                 border: none;
@@ -658,11 +610,6 @@ onMounted(() => {
                     height: 16px;
                 }
                 
-                // &:hover {
-                //     // color: #f56c6c;
-                //     // background: #fef0f0;
-                // }
-                
                 &:disabled {
                     opacity: 0.2;
                     cursor: not-allowed;
@@ -676,7 +623,6 @@ onMounted(() => {
         align-items: center;
         justify-content: space-between;
         background-color: rgb(233, 236, 240);
-        // border-right: 2px solid #dcdfe6;
         user-select: none;
         flex-shrink: 0;
         font-weight: 500;
@@ -691,7 +637,6 @@ onMounted(() => {
         }
         
         .delete-row-btn {
-            // opacity: 0;
             padding: 0;
             font-size: 16px;
             border: none;
@@ -711,11 +656,6 @@ onMounted(() => {
                 height: 16px;
             }
             
-            // &:hover {
-            //     color: #f56c6c;
-            //     background: #fef0f0;
-            // }
-            
             &:disabled {
                 opacity: 0.2;
                 cursor: not-allowed;
@@ -728,7 +668,6 @@ onMounted(() => {
     }
     
     &.data-cell {
-        // border-bottom: 1px solid #808080;
         position: relative;
         cursor: pointer;
         word-break: break-word;
@@ -780,8 +719,6 @@ onMounted(() => {
         button {
             width: 24px;
             height: 24px;
-            // border: 1px solid #dcdfe6;
-            // background: white;
             border-radius: 10px;
             font-size: 16px;
             cursor: pointer;
@@ -800,11 +737,7 @@ onMounted(() => {
             &:hover {
                 background: #ecf5ff;
                 border-color: #b3d8ff;
-                // color: #409eff;
             }
-            // &:hover{
-            //     @include confirm-button-hover-style;
-            // }
         }
     }
 }
@@ -812,94 +745,6 @@ onMounted(() => {
 .add-row {
     .add-row-cell {
         width: 80px;
-        // border-right: 2px solid #dcdfe6;
-    }
-}
-
-.table-statusbar {
-    padding: 6px 12px;
-    background: $stress-background-color;
-    border-radius: 4px;
-    margin-top: 12px;
-    font-size: 12px;
-    color: #666;
-    @include controller-style;
-}
-
-// 类型选择器样式
-.type-selector-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-.type-selector-modal {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-    max-width: 400px;
-    width: 90%;
-    overflow: hidden;
-}
-
-.type-selector-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid #ebeef5;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-weight: 600;
-    color: #303133;
-    
-    .close-btn {
-        background: none;
-        border: none;
-        font-size: 24px;
-        color: #909399;
-        cursor: pointer;
-        padding: 0;
-        width: 24px;
-        height: 24px;
-        line-height: 1;
-        
-        &:hover {
-            color: #606266;
-        }
-    }
-}
-
-.type-selector-content {
-    padding: 16px 20px;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-    gap: 8px;
-}
-
-.type-option-btn {
-    padding: 10px 16px;
-    border: 1px solid #dcdfe6;
-    background: white;
-    border-radius: 4px;
-    color: #303133;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-    
-    &:hover {
-        border-color: #409eff;
-        color: #409eff;
-        background: #ecf5ff;
-    }
-    
-    &:active {
-        background: #d9ecff;
     }
 }
 </style>
