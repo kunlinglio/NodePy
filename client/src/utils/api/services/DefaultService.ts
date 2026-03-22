@@ -490,6 +490,7 @@ export class DefaultService {
     /**
      * Get Playground Project
      * Get a project for playground. Only allows projects owned by NodePy-Learning that are public.
+     * Forks the project under the GUEST user automatically.
      * @param projectId
      * @returns Project Graph retrieved successfully
      * @throws ApiError
@@ -513,7 +514,9 @@ export class DefaultService {
     }
     /**
      * Sync Playground Project
-     * Execute a project in playground mode. Does not save changes to the database.
+     * Execute a project in playground mode.
+     * The project should already be a forked temporary project (owned by GUEST or the current user).
+     * Changes are saved to the temporary project before execution.
      * @param requestBody
      * @returns server__api__playground__TaskResponse Task accepted and running
      * @throws ApiError
