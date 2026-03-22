@@ -8,7 +8,6 @@ import Example from '@/views/ExampleView/Example.vue'
 import Editor from '@/views/Editor.vue'
 import Explore from '@/views/Explore.vue'
 
-// 定义路由类型
 const routes: Array<RouteRecordRaw> = [
     {
         path:'/',
@@ -55,7 +54,7 @@ const routes: Array<RouteRecordRaw> = [
         component: Editor
     },
     {
-        path: '/explore',
+        path: '/explore/:docId?/:sectionIndex?',
         name: 'explore',
         component: Explore
     }
