@@ -93,8 +93,8 @@ const nodes1 = ref([
   {
     id: 'DatetimeComputeNode_1',
     type: 'DatetimeComputeNode',
-    position: { x: 350, y: 100 },
-    data: { param: {}, dbclicked: false, runningtime: 0.15581699994982046 },
+    position: { x: 350, y: 30 },
+    data: { param: { op: 'ADD' , unit: 'DAYS', value: 0, data_type: 'int'}, dbclicked: false, runningtime: 0.15581699994982046 },
     class: 'nowheel'
   },
   {
