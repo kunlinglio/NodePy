@@ -15,7 +15,7 @@ from server.config import EXAMPLE_USER_USERNAME, GUEST_USER_USERNAME
 from server.interpreter.task import execute_project_task, revoke_project_task
 from server.lib.AuthUtils import get_optional_user
 from server.lib.StreamQueue import Status, StreamQueue
-from server.lib.utils import get_project_by_id
+from server.lib.utils import get_project_by_id, set_project_record
 from server.models.database import ProjectRecord, UserRecord, get_async_session
 from server.models.project import Project
 
@@ -46,9 +46,10 @@ async def get_playground_project(
 ) -> Project:
     """
     Get a project for playground. Only allows projects owned by NodePy-Learning that are public.
+    Forks the project under the GUEST user automatically.
     """
     try:
-        # We don't use get_project_by_id here because we want custom permission logic
+        # 1. Permission check
         stmt = (
             select(ProjectRecord, UserRecord.username)
             .join(UserRecord, ProjectRecord.owner_id == UserRecord.id)
@@ -63,21 +64,50 @@ async def get_playground_project(
         project_rec, owner_name = row
 
         # Security check: Must be owned by NodePy-Learning and be public
-        if owner_name != EXAMPLE_USER_USERNAME or not project_rec.show_in_explore:
-            # If the user is the owner, they can still view it (though they'd usually use the main API)
-            if user_record is None or project_rec.owner_id != user_record.id:
-                raise HTTPException(status_code=403, detail="Only public example projects can be accessed via playground")
+        is_example = owner_name == EXAMPLE_USER_USERNAME and project_rec.show_in_explore
 
-        # Convert to Project model (same as in utils.get_project_by_id but with our own record)
-        # For simplicity, we can call get_project_by_id now that we validated permission
+        if not is_example:
+            raise HTTPException(status_code=403, detail="Only public example projects can be accessed via playground")
+
+        # 2. Convert to Project model
         project = await get_project_by_id(db_client, project_id, int(project_rec.owner_id))
         if project is None:
              raise HTTPException(status_code=404, detail="Project not found")
 
-        return project
+        # 3. Auto-fork the project under the GUEST user if it's an example (and not already the owner viewing it)
+
+        guest_stmt = select(UserRecord.id).where(UserRecord.username == GUEST_USER_USERNAME)
+        guest_res = await db_client.execute(guest_stmt)
+        guest_user_id = guest_res.scalar_one()
+
+        # Create a new temporary project record
+        temp_project_name = f"temp-playground-{project.project_id}-{uuid4().hex}"
+        
+        temp_project = ProjectRecord(
+            name=temp_project_name,
+            owner_id=guest_user_id,
+            workflow=project.workflow.model_dump(),
+            ui_state=project.ui_state.model_dump(),
+            show_in_explore=False,
+            thumb=None
+        )
+        db_client.add(temp_project)
+            
+        await db_client.commit()
+        await db_client.refresh(temp_project)
+        
+        # Return the forked project with the new temp_project_id
+        fork_project_id = cast(int, temp_project.id)
+        forked_project = await get_project_by_id(db_client, fork_project_id, guest_user_id)
+        if forked_project is None:
+            raise HTTPException(status_code=500, detail="Failed to retrieve forked project")
+        return forked_project
 
     except HTTPException:
         raise
+    except Exception as e:
+        logger.exception(f"Error getting playground project {project_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.post(
     "/sync",
@@ -97,13 +127,15 @@ async def sync_playground_project(
     user_record: Optional[UserRecord] = Depends(get_optional_user),
 ) -> TaskResponse:
     """
-    Execute a project in playground mode. Does not save changes to the database.
+    Execute a project in playground mode.
+    The project should already be a forked temporary project (owned by GUEST or the current user).
+    Changes are saved to the temporary project before execution.
     """
     project_id = project.project_id
     try:
-        # 1. Permission check (same as GET)
+        # 1. Access Check: Must be the owner to sync/run (playground forked projects are owned by GUEST or user)
         stmt = (
-            select(UserRecord.username, ProjectRecord.show_in_explore)
+            select(ProjectRecord.owner_id, UserRecord.username)
             .join(UserRecord, ProjectRecord.owner_id == UserRecord.id)
             .where(ProjectRecord.id == project_id)
         )
@@ -113,54 +145,34 @@ async def sync_playground_project(
         if row is None:
             raise HTTPException(status_code=404, detail="Project not found")
 
-        owner_name, is_public = row
+        owner_id, owner_name = row
 
-        if owner_name != EXAMPLE_USER_USERNAME or is_public is not True:
-            if user_record is None or str(user_record.username) != str(owner_name):
-                raise HTTPException(status_code=403, detail="Only public example projects can be run in playground")
+        if owner_name != GUEST_USER_USERNAME:
+                raise HTTPException(status_code=403, detail="Only guest-owned temporary projects can be run without login")
 
-        # 2. compare the topo model to decide whether to run
-        # get example user id
+        # 2. Compare the topo model to decide whether to run
         old_project = await get_project_by_id(db_client, project_id, user_id=None)
         if old_project is None:
             raise HTTPException(status_code=404, detail="Project not found")
+
         new_topo = project.to_topo()
         old_topo = old_project.workflow.to_topo(project_id=project_id)
+
+        # 3. Always save the current state to the temporary project
+        await set_project_record(db_client, project, int(owner_id))
+        await db_client.commit()
+
         if old_topo == new_topo:
             raise HTTPException(status_code=204, detail="No changes to execute")
 
-        # 3. Auto-fork the project under the GUEST user with a UUID
-        guest_stmt = select(UserRecord.id).where(UserRecord.username == GUEST_USER_USERNAME)
-        guest_res = await db_client.execute(guest_stmt)
-        exec_user_id = guest_res.scalar_one()
-
-        # Create a new temporary project record inheriting the state from the playground
-        # We'll prefix the name with 'temp-playground-' to easily identify it later.
-        temp_project_name = f"temp-playground-{project.project_id}-{uuid4().hex}"
-        
-        # Every run is an isolated temp project
-        temp_project = ProjectRecord(
-            name=temp_project_name,
-            owner_id=exec_user_id,
-            workflow=project.workflow.model_dump(),
-            ui_state=project.ui_state.model_dump(),
-            show_in_explore=False,
-            thumb=None
-        )
-        db_client.add(temp_project)
-            
-        await db_client.commit()
-        await db_client.refresh(temp_project)
-        temp_project_id = temp_project.id # type: ignore
-
-        # 4. Run the task using the temporary project id
+        # 4. Run the task
         celery_task = cast(CeleryTask, execute_project_task)
         task = celery_task.delay(
-            project_id=temp_project_id,
-            user_id=exec_user_id,
+            project_id=project_id,
+            user_id=int(owner_id),
         )
 
-        return TaskResponse(task_id=task.id, new_project_id=temp_project_id) # type: ignore
+        return TaskResponse(task_id=task.id, new_project_id=project_id)
 
     except HTTPException:
         raise
