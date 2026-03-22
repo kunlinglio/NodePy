@@ -370,8 +370,8 @@ onMounted(async () => {
   pageStore.setCurrentPage('Home')
   try {
     const authService = AuthenticatedServiceFactory.getService()
-    const res = await authService.getExploreProjectsApiExploreExploreProjectsGet()
-    examples.value = res.projects
+    // const res = await authService.getExploreProjectsApiExploreExploreProjectsGet()
+    // examples.value = res.projects
   } catch (e) {
     console.error('Failed to fetch examples:', e)
   }
