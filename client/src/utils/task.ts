@@ -59,11 +59,11 @@ class TaskManager {
   private isOpen: Promise<void> | null = null
   private isClosed: Promise<void> | null = null
 
-  monitorTask(project: Project, task_id: string): Promise<any[]> {
-    return this.createCancellableTask(project, task_id)
+  monitorTask(project: Project, task_id: string, isPlaygroundProject: boolean): Promise<any[]> {
+    return this.createCancellableTask(project, task_id, isPlaygroundProject)
   }
 
-  private createCancellableTask(project: Project, task_id: string): Promise<any[]> {
+  private createCancellableTask(project: Project, task_id: string, isPlaygroundProject: boolean): Promise<any[]> {
     return new Promise((resolve, reject) => {
       const messages: any[] = []
       
@@ -81,7 +81,7 @@ class TaskManager {
       }
 
       this.currentTaskId = task_id
-      const ws = new WebSocket(`ws://localhost:8000/api/project/status/${task_id}`)
+      const ws = isPlaygroundProject ? new WebSocket(`ws://localhost:8000/api/playground/status/${task_id}`) : new WebSocket(`ws://localhost:8000/api/project/status/${task_id}`)
       this.currentWebSocket = ws
       this.timeoutId = window.setTimeout(() => {
         ws.close()

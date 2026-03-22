@@ -67,7 +67,7 @@ const syncProject = (p: Project, graphStore: any, isPlaygroundProject: boolean) 
             const {task_id} = taskResponse
             if(task_id) {
                 try {
-                    const messages = await taskManager.monitorTask(p, task_id)
+                    const messages = await taskManager.monitorTask(p, task_id, isPlaygroundProject)
                     console.log('WS:', messages)
                     resolve(p)
                 }catch(err) {
