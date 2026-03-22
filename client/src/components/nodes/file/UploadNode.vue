@@ -62,7 +62,7 @@
             if(!file) return
 
             try {
-                const f = await authService.uploadFileApiFilesUploadProjectIdPost(projectId, props.id, {file})
+                const f = await authService.uploadFileApiFilesUploadProjectIdPost(projectId, props.id, {file: file as any})
                 console.log('文件上传成功:', f)
                 props.data.param.file = f
             }catch(err) {
