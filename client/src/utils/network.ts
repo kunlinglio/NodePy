@@ -14,7 +14,7 @@ const {vueFlowRef} = useVueFlow('main')
 const authService = AuthenticatedServiceFactory.getService()
 
 
-const syncProject = (p: Project, graphStore: any) => {
+const syncProject = (p: Project, graphStore: any, isPlaygroundProject: boolean) => {
     return new Promise<Project>(async (resolve, reject) => {
         let taskResponse: TaskResponse | undefined
 
@@ -49,7 +49,11 @@ const syncProject = (p: Project, graphStore: any) => {
             if (taskManager.hasActiveTask()) {
                 await taskManager.cancel()
             }
-            taskResponse = await authService.syncProjectApiProjectSyncPost(p)
+            if(isPlaygroundProject) {
+                taskResponse = await authService.syncPlaygroundProjectApiPlaygroundSyncPost(p)
+            } else {
+                taskResponse = await authService.syncProjectApiProjectSyncPost(p)
+            }
         }catch(err) {
             const errMsg = handleNetworkError(err)
             graphStore.syncing_err_msg = errMsg
@@ -108,14 +112,14 @@ const syncProjectUiState = (p: Project, graphStore: any) => {
     })
 }
 
-export const sync = async(graphStore: any) => {
+export const sync = async(graphStore: any, isPlaygroundProject: boolean = false) => {
 
     try {
         const resultStore = useResultStore()
         resultStore.cacheGarbageRecycle()
         const p_temp = getProject(graphStore.project)
         const p = JSON.parse(JSON.stringify(p_temp))
-        const res = await syncProject(p, graphStore)
+        const res = await syncProject(p, graphStore, isPlaygroundProject)
         console.log('syncProject response:', res, res === p)
         writeBackVueFLowProject(res, graphStore.project)
     }catch(err) {
@@ -128,7 +132,8 @@ export const sync = async(graphStore: any) => {
 
 }
 
-export const syncUiState = async(graphStore: any) => {
+export const syncUiState = async(graphStore: any, isPlaygroundProject: boolean = false) => {
+    if(isPlaygroundProject) return
 
     try {
         const p_temp = getProject(graphStore.project)
@@ -141,6 +146,10 @@ export const syncUiState = async(graphStore: any) => {
 
 }
 
-export const getProjectFromServer = async (ProjectId: number) => {
-    return authService.getProjectApiProjectProjectIdGet(ProjectId)
+export const getProjectFromServer = async (ProjectId: number, isPlaygroundProject: boolean = false) => {
+    if(isPlaygroundProject) {
+        return authService.getPlaygroundProjectApiPlaygroundProjectIdGet(ProjectId)
+    } else {
+        return authService.getProjectApiProjectProjectIdGet(ProjectId)
+    }
 }

@@ -137,6 +137,16 @@ const intervalId = setInterval(() => {
 const nodes = computed(() => graphStore.project.workflow.nodes)
 const edges = computed(() => graphStore.project.workflow.edges)
 const mousePosition = ref({x: 0, y: 0})
+const props = defineProps({
+  isPlaygroundProject: {
+    type: Boolean,
+    default: false
+  },
+  playgroundProjectId: {
+    type: Number,
+    default: -1
+  }
+})
 
 
 onUnmounted(() => {
@@ -147,7 +157,7 @@ onUnmounted(() => {
 
 onMounted(async () => {
   try {
-    const p = await getProjectFromServer(Number(projectId))
+    const p = await getProjectFromServer(props.isPlaygroundProject ? props.playgroundProjectId : Number(projectId), props.isPlaygroundProject)
     initVueFlowProject(p, graphStore.project)
     await nextTick()  //  waiting for node initialization
     if(nodes.value.length === 0) {
@@ -175,7 +185,7 @@ onNodesInitialized(() => {
 
 const debounceSync = debounce(() => {
   if(graphStore.project) {
-    sync(graphStore)
+    sync(graphStore, props.isPlaygroundProject)
   }else {
     console.error('project is undefined')
   }  
@@ -194,7 +204,7 @@ onNodeDragStop((event: NodeDragEvent) => {
   listenNodePosition.value = false
 
   if(graphStore.project) {
-    syncUiState(graphStore)
+    syncUiState(graphStore, props.isPlaygroundProject)
   }else {
     console.error('project is undefined')
   }
