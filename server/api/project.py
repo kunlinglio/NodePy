@@ -351,12 +351,13 @@ async def update_project_setting(
                 raise HTTPException(status_code=400, detail="Project name already exists")
             # check if tags exists and update tags
             for tag in setting.tags:
-                tag_record = await db_client.execute(
+                tag_records= await db_client.execute(
                     select(TagRecord).where(TagRecord.name == tag)
                 )
-                if tag_record.first() is None:
+                tag_record = tag_records.scalar_one_or_none()
+                if tag_record is None:
                     raise HTTPException(status_code=400, detail=f"Tag not found: {tag}")
-                tag_id = tag_record.first().id # type: ignore
+                tag_id = tag_record.id # type: ignore
                 new_project_tag = ProjectTagRecord(
                     project_id=project_id,
                     tag_id=tag_id

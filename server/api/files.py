@@ -2,7 +2,7 @@ import io
 from typing import Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
-from fastapi import File as fastapiFile
+from fastapi import File as FastAPIFile
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
@@ -38,7 +38,7 @@ MIME_TYPES = {
 async def upload_file(
     project_id: int,
     node_id: str,
-    file: UploadFile = fastapiFile(),
+    file: UploadFile = FastAPIFile(),
     async_db_session=Depends(get_async_session),
     user_record: UserRecord = Depends(get_current_user),
 ) -> File:
