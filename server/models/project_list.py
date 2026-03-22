@@ -22,5 +22,5 @@ class ProjectList(BaseModel):
 class ProjectListFilter(BaseModel):
     tags: list[str] = []
     search_keyword: str | None = None
-    ordered_by: Literal["created_at", "updated_at", "project_name", "owner"] = "updated_at"
+    ordered_by: Literal["created_at", "updated_at", "name"] = "updated_at"
     ranging: tuple[int, int] = (0, 20)

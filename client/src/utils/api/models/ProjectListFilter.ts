@@ -12,8 +12,7 @@ export namespace ProjectListFilter {
     export enum ordered_by {
         CREATED_AT = 'created_at',
         UPDATED_AT = 'updated_at',
-        PROJECT_NAME = 'project_name',
-        OWNER = 'owner',
+        NAME = 'name',
     }
 }
 

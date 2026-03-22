@@ -41,8 +41,7 @@ async def get_explore_projects(
 
     # 4. ordered by
     sort_attr = getattr(ProjectRecord, filter.ordered_by)
-    stmt = stmt.order_by(desc(sort_attr))  # 默认降序，可根据需要调整
-
+    stmt = stmt.order_by(desc(sort_attr)) 
     # 5. ranging
     offset, limit = filter.ranging
     stmt = stmt.offset(offset).limit(limit - offset)
