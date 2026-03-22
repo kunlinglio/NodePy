@@ -64,7 +64,7 @@ const docs = ref([
     icon: mdiRocketLaunch,
     category: 'Quickstart',
     pages: 9,
-    playgroundProjectId: 1029
+    playgroundProjectId: 10
   },
   {
     id: 2,
@@ -73,7 +73,7 @@ const docs = ref([
     icon: mdiBrain,
     category: 'Concepts',
     pages: 5,
-    playgroundProjectId: 1031
+    playgroundProjectId: 12
   },
   {
     id: 3,
@@ -82,7 +82,7 @@ const docs = ref([
     icon: mdiChartTimeline,
     category: 'Workflow',
     pages: 7,
-    playgroundProjectId: 1028
+    playgroundProjectId: 9
   },
   {
     id: 4,
@@ -91,7 +91,7 @@ const docs = ref([
     icon: mdiPlaylistCheck,
     category: 'Automation',
     pages: 8,
-    playgroundProjectId: 1032
+    playgroundProjectId: 13
   },
   {
     id: 5,
@@ -100,7 +100,7 @@ const docs = ref([
     icon: mdiRobot,
     category: 'Machine Learning',
     pages: 8,
-    playgroundProjectId: 1030
+    playgroundProjectId: 11
   }
 ])
 
