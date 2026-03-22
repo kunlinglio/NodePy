@@ -5,10 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi import File as FastAPIFile
 from fastapi.responses import StreamingResponse
 from loguru import logger
+from sqlalchemy import select
 
+from server.config import GUEST_USER_USERNAME
 from server.lib.AuthUtils import get_current_user
 from server.lib.FileManager import FileManager
-from server.models.database import UserRecord, get_async_session
+from server.models.database import AsyncSession, UserRecord, get_async_session
 from server.models.exception import InsufficientStorageError
 from server.models.file import File, UserFileList
 
@@ -136,6 +138,61 @@ async def get_file_content(
         file_manager = FileManager(async_db_session=async_db_session)
         file = await file_manager.get_file_by_key_async(key=key)
         content = await file_manager.read_async(file=file, user_id=user_id)
+        media_type = MIME_TYPES.get(file.format, "application/octet-stream")
+        return StreamingResponse(
+            io.BytesIO(content),
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={key}.{file.format}"
+            },
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error retrieving file content for key {key}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get(
+    "/guest/{key}",
+    responses={
+        200: {
+            "description": "Binary file content",
+            "content": {
+                "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
+            },
+        },
+        403: {"description": "Forbidden - not allowed to access this file"},
+        404: {"description": "File not found"},
+        500: {"description": "Internal Server Error"},
+    },
+)
+async def get_file_content_guest(
+    key: str,
+    async_db_session: AsyncSession = Depends(get_async_session),
+) -> StreamingResponse:
+    """
+    Get the content of a file by its key and project id.
+    The project id is used to verify the access permission.
+    
+    **important: if user want to re upload a file, you need to delete the old file first,
+    otherwise the file space may not be released.**
+    """
+    try:
+        guest_rcd = await async_db_session.execute(
+            select(UserRecord)
+            .where(UserRecord.username == GUEST_USER_USERNAME)
+        )
+        guest_rcd = guest_rcd.scalar_one_or_none()
+        if guest_rcd is None:
+            raise HTTPException(status_code=404, detail="Project not found")
+        guest_id = int(guest_rcd.id) # type: ignore
+        file_manager = FileManager(async_db_session=async_db_session)
+        file = await file_manager.get_file_by_key_async(key=key)
+        content = await file_manager.read_async(file=file, user_id=guest_id)
         media_type = MIME_TYPES.get(file.format, "application/octet-stream")
         return StreamingResponse(
             io.BytesIO(content),

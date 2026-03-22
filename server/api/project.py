@@ -479,7 +479,7 @@ async def sync_project(
                 return None
 
             celery_task = cast(CeleryTask, execute_project_task)  # to suppress type checker error
-            task = celery_task.delay(  # the return message will be sent back via streamqueue
+            task = celery_task.delay(  # the return message will be sent back via stream queue
                 project_id=project.project_id,
                 user_id=user_id,
             )
@@ -532,7 +532,7 @@ async def project_status(task_id: str, websocket: WebSocket) -> None:
                             raise task_res.result
                         except ProjectLockError as e:
                             logger.exception(f"Project lock error for task {task_id}: {e}")
-                            await websocket.close(code=4409, reason=f"Project is locked, and waitting time out. This may be caused by running one project multiple times concurrently. Details: {str(e)}")
+                            await websocket.close(code=4409, reason=f"Project is locked, and waiting time out. This may be caused by running one project multiple times concurrently. Details: {str(e)}")
                             break # 4409 for conflict
                         except ProjLockIdentityError as e:
                             logger.exception(f"Project lock identity error for task {task_id}: {e}")
