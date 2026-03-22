@@ -4,9 +4,6 @@ import { ref, computed, onMounted, watch } from 'vue'
 import SvgIcon from '@jamescoyle/vue-icon'
 import {
   mdiBookOpenPageVariant,
-  mdiCloudDownloadOutline,
-  mdiCheckCircleOutline,
-  mdiLightbulb,
   mdiChevronLeft,
   mdiChevronRight,
   mdiChevronDoubleLeft,
@@ -19,6 +16,7 @@ import {
   mdiRobot,
 } from '@mdi/js'
 import { usePageStore } from '@/stores/pageStore'
+import Graph from '@/components/Graph/Graph.vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
@@ -61,7 +59,8 @@ const docs = ref([
     description: '搭建并运行第一个节点项目，体验节点式编程的核心流程。',
     icon: mdiRocketLaunch,
     category: 'Quickstart',
-    pages: 9, // ✅ 根据实际文档统计
+    pages: 9,
+    playgroundProjectId: 1029
   },
   {
     id: 2,
@@ -70,6 +69,7 @@ const docs = ref([
     icon: mdiBrain,
     category: 'Concepts',
     pages: 5,
+    playgroundProjectId: 1031
   },
   {
     id: 3,
@@ -78,6 +78,7 @@ const docs = ref([
     icon: mdiChartTimeline,
     category: 'Workflow',
     pages: 7,
+    playgroundProjectId: 1028
   },
   {
     id: 4,
@@ -86,6 +87,7 @@ const docs = ref([
     icon: mdiPlaylistCheck,
     category: 'Automation',
     pages: 8,
+    playgroundProjectId: 1032
   },
   {
     id: 5,
@@ -94,20 +96,22 @@ const docs = ref([
     icon: mdiRobot,
     category: 'Machine Learning',
     pages: 8,
+    playgroundProjectId: 1030
   }
 ])
 
-// 辅助函数：根据章节数生成阅读时间信息
+// 辅助函数：根据章节数生成阅读时间信息（pages 已包含概述+总结，因此减去2计算有效章节）
 const getDocInfo = (pages: number) => {
   if (pages === 0) return '加载中...'
-  const minutesPerSection = 2 // 每章节约3分钟
-  const totalMinutes = pages * minutesPerSection
+  const minutesPerSection = 2
+  const effectiveSections = Math.max(0, pages)
+  const totalMinutes = effectiveSections * minutesPerSection
   if (totalMinutes < 60) {
-    return `共 ${pages-2} 小节，阅读约需 ${totalMinutes} 分钟`
+    return `共 ${effectiveSections} 小节，阅读约需 ${totalMinutes} 分钟`
   } else {
     const hours = Math.floor(totalMinutes / 60)
     const mins = totalMinutes % 60
-    return `共 ${pages-2} 小节，阅读约需 ${hours} 小时 ${mins} 分钟`
+    return `共 ${effectiveSections} 小节，阅读约需 ${hours} 小时 ${mins} 分钟`
   }
 }
 
@@ -120,19 +124,9 @@ const tutorialSections = ref<Array<{ title: string; content: string; html: strin
 const currentSectionIndex = ref(0)
 
 // 布局相关
-const splitRatio = ref(35)
+const splitRatio = ref(50) // 初始 50%，范围 40% ~ 60%
 const isDragging = ref(false)
 const tutorialContentRef = ref<HTMLElement | null>(null)
-
-// 标签相关
-const labelPosition = ref(25)
-const isLabelDragging = ref(false)
-const labelShowTime = ref<NodeJS.Timeout | null>(null)
-const labelHideTime = ref<NodeJS.Timeout | null>(null)
-const isLabelVisible = ref(false)
-const isLabelPinned = ref(false)
-const labelLastInteractTime = ref(0)
-const tutorialLeftRef = ref<HTMLElement | null>(null)
 
 // 当前显示的 HTML 内容
 const currentHtml = computed(() => {
@@ -142,70 +136,111 @@ const currentHtml = computed(() => {
   return ''
 })
 
-// 分页信息
-const totalSections = computed(() => tutorialSections.value.length)
-const hasPrevSection = computed(() => currentSectionIndex.value > 0)
-const hasNextSection = computed(() => currentSectionIndex.value < totalSections.value - 1)
+// 当前章节标题
+const currentSectionTitle = computed(() => {
+  if (tutorialSections.value.length > 0 && currentSectionIndex.value < tutorialSections.value.length) {
+    const title = tutorialSections.value[currentSectionIndex.value]!.title
+    // 确保标题不为空，如果为空则返回默认值
+    return title && title.trim() ? title.trim() : '小节'
+  }
+  return ''
+})
 
-// 将 Markdown 按标题拆分为章节
+const currentPlaygroundProjectId = computed(() => {
+  const doc = docs.value.find(d => d.id === currentDocId.value)
+  return doc ? doc.playgroundProjectId : null
+})
+
+// 总章节数
+const totalSections = computed(() => tutorialSections.value.length)
+
+// 章节进度显示文本
+const chapterProgressText = computed(() => {
+  if (totalSections.value > 0) {
+    return `第 ${currentSectionIndex.value + 1} / ${totalSections.value} 节`
+  }
+  return ''
+})
+
+// 获取当前文档标题
+const currentDocTitle = computed(() => {
+  return currentDoc.value?.title || ''
+})
+
+// 顶部栏显示：大标题 + 小节标题 (进度)
+const headerTitle = computed(() => {
+  if (!currentDoc.value) return ''
+  const docTitle = currentDoc.value.title
+  const sectionTitle = currentSectionTitle.value
+  const progress = chapterProgressText.value ? ` (${chapterProgressText.value})` : ''
+  return `${docTitle} - ${sectionTitle}${progress}`
+})
+
+// 分页导航可用性
+const hasPrevSection = computed(() => {
+  return currentSectionIndex.value > 0
+})
+
+const hasNextSection = computed(() => {
+  return currentSectionIndex.value < totalSections.value - 1
+})
+
+// 将 Markdown 按二级标题拆分为章节，首节为“概述”，末节自动处理总结，内容原样保留
 const splitIntoSections = (markdown: string) => {
   const lines = markdown.split('\n')
-  const sections: Array<{ title: string; content: string }> = []
-  let currentContent: string[] = []
+  const sections: Array<{ title: string; content: string; html: string }> = []
   let currentTitle = '概述'
+  let currentContent: string[] = []
   let inCodeBlock = false
-  let hasContent = false
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
+    const line = lines[i]!
 
-    if (line!.trim().startsWith('```')) {
+    if (line.trim().startsWith('```')) {
       inCodeBlock = !inCodeBlock
-      currentContent.push(line!)
+      currentContent.push(line)
       continue
     }
 
     if (!inCodeBlock) {
-      const h1Match = line!.match(/^# (.*)$/)
-      const h2Match = line!.match(/^## (.*)$/)
-
-      if (h1Match || h2Match) {
-        if (hasContent || currentContent.length > 0) {
+      const h2Match = line.match(/^## (.*)$/)
+      if (h2Match) {
+        // 遇到二级标题，结束当前节，开始新节
+        if (currentContent.length > 0) {
           sections.push({
             title: currentTitle,
-            content: currentContent.join('\n')
+            content: currentContent.join('\n'),
+            html: md.render(currentContent.join('\n'))
           })
         }
-        currentTitle = h1Match ? h1Match[1]! : (h2Match ? h2Match[2] : '')!
-        currentContent = [line!]
-        hasContent = true
+        currentTitle = h2Match[1]!.trim()
+        currentContent = [line]  // 保留标题行
         continue
       }
     }
 
-    currentContent.push(line!)
-    if (line!.trim()) hasContent = true
+    currentContent.push(line)
   }
 
-  if (hasContent || currentContent.length > 0) {
+  // 处理最后一个节
+  if (currentContent.length > 0) {
     sections.push({
       title: currentTitle,
-      content: currentContent.join('\n')
+      content: currentContent.join('\n'),
+      html: md.render(currentContent.join('\n'))
     })
   }
 
+  // 如果没有任何节（比如空文档），添加一个默认节
   if (sections.length === 0 && markdown.trim()) {
     sections.push({
       title: '概述',
-      content: markdown
+      content: markdown,
+      html: md.render(markdown)
     })
   }
 
-  return sections.map(section => ({
-    title: section.title,
-    content: section.content,
-    html: md.render(section.content)
-  }))
+  return sections
 }
 
 // 加载教程内容
@@ -214,7 +249,6 @@ const loadTutorial = async (docId: number) => {
   try {
     const fileIndex = docId - 1
     if (fileIndex >= 0 && fileIndex < tutorialFiles.length) {
-      // 获取 Vite 配置的基准路径 (Vite 注入的常量)
       const baseUrl = import.meta.env.BASE_URL
       const response = await fetch(`${baseUrl}guides/${tutorialFiles[fileIndex]}`)
       if (!response.ok) throw new Error('加载失败')
@@ -240,8 +274,9 @@ const loadTutorial = async (docId: number) => {
   }
 }
 
-// 开始拖拽
-const startDragging = () => {
+// 开始拖拽分割线
+const startDragging = (e: MouseEvent) => {
+  e.preventDefault()
   isDragging.value = true
 }
 
@@ -249,97 +284,25 @@ const stopDragging = () => {
   isDragging.value = false
 }
 
-// 处理分割线拖动
+// 处理分割线拖动 (范围 40% ~ 60%)
 const handleMouseMove = (e: MouseEvent) => {
   if (!isDragging.value || !tutorialContentRef.value) return
 
   const container = tutorialContentRef.value
   const rect = container.getBoundingClientRect()
-  const newRatio = ((e.clientX - rect.left) / rect.width) * 100
-
-  if (newRatio >= 20 && newRatio <= 50) {
-    splitRatio.value = newRatio
-  }
-}
-
-// 处理标签拖动
-const handleLabelMouseMove = (e: MouseEvent) => {
-  if (!isLabelDragging.value || !tutorialLeftRef.value) return
-
-  const container = tutorialLeftRef.value
-  const rect = container.getBoundingClientRect()
-  const newPosition = ((e.clientY - rect.top) / rect.height) * 100
-
-  if (newPosition >= 10 && newPosition <= 75) {
-    labelPosition.value = newPosition
-  }
-}
-
-const startLabelDragging = () => {
-  isLabelDragging.value = true
-}
-
-const stopLabelDragging = () => {
-  isLabelDragging.value = false
-}
-
-// 显示标签
-const showLabel = () => {
-  isLabelVisible.value = true
-  labelLastInteractTime.value = Date.now()
-
-  if (labelHideTime.value) clearTimeout(labelHideTime.value)
-
-  if (!isLabelPinned.value) {
-    labelHideTime.value = setTimeout(() => {
-      isLabelVisible.value = false
-    }, 3000)
-  }
-}
-
-// 切换标签常驻状态
-const toggleLabelPin = () => {
-  isLabelPinned.value = !isLabelPinned.value
-  if (isLabelPinned.value) {
-    isLabelVisible.value = true
-    if (labelHideTime.value) clearTimeout(labelHideTime.value)
-  } else {
-    showLabel()
-  }
-}
-
-const handleMouseUp = () => {
-  stopDragging()
-}
-
-// 章节导航
-const prevSection = () => {
-  if (hasPrevSection.value) {
-    currentSectionIndex.value--
-    const wrapper = tutorialLeftRef.value?.querySelector('.markdown-wrapper') as HTMLElement
-    if (wrapper) wrapper.scrollTop = 0
-  }
-}
-
-const nextSection = () => {
-  if (hasNextSection.value) {
-    currentSectionIndex.value++
-    const wrapper = tutorialLeftRef.value?.querySelector('.markdown-wrapper') as HTMLElement
-    if (wrapper) wrapper.scrollTop = 0
-  }
+  let newRatio = ((e.clientX - rect.left) / rect.width) * 100
+  newRatio = Math.min(60, Math.max(40, newRatio))
+  splitRatio.value = newRatio
 }
 
 onMounted(() => {
   window.addEventListener('mousemove', handleMouseMove)
-  window.addEventListener('mousemove', handleLabelMouseMove)
-  window.addEventListener('mouseup', handleMouseUp)
-  window.addEventListener('mouseup', stopLabelDragging)
+  window.addEventListener('mouseup', stopDragging)
 })
 
 // 监听教程切换
 watch(currentDocId, async (newId) => {
   if (newId) {
-    showLabel()
     await loadTutorial(newId)
   } else {
     tutorialSections.value = []
@@ -361,6 +324,21 @@ const hasNext = computed(() => {
   return currentDoc.value.id < docs.value.length
 })
 
+// 前后教程标题（用于鼠标悬浮提示）
+const prevDocTitle = computed(() => {
+  if (!hasPrevious.value) return ''
+  const prevId = currentDoc.value!.id - 1
+  const prevDoc = docs.value.find(d => d.id === prevId)
+  return prevDoc ? prevDoc.title : ''
+})
+
+const nextDocTitle = computed(() => {
+  if (!hasNext.value) return ''
+  const nextId = currentDoc.value!.id + 1
+  const nextDoc = docs.value.find(d => d.id === nextId)
+  return nextDoc ? nextDoc.title : ''
+})
+
 const openDoc = (doc: any) => {
   currentDocId.value = doc.id
 }
@@ -378,6 +356,25 @@ const previousDoc = () => {
 const nextDoc = () => {
   if (currentDoc.value && currentDoc.value.id < docs.value.length) {
     currentDocId.value = currentDoc.value.id + 1
+  }
+}
+
+// 章节导航（简化为直接加减索引）
+const prevSection = () => {
+  if (hasPrevSection.value) {
+    currentSectionIndex.value--
+    // 滚动到顶部
+    const wrapper = document.querySelector('.markdown-wrapper') as HTMLElement
+    if (wrapper) wrapper.scrollTop = 0
+  }
+}
+
+const nextSection = () => {
+  if (hasNextSection.value) {
+    currentSectionIndex.value++
+    // 滚动到顶部
+    const wrapper = document.querySelector('.markdown-wrapper') as HTMLElement
+    if (wrapper) wrapper.scrollTop = 0
   }
 }
 </script>
@@ -435,25 +432,22 @@ const nextDoc = () => {
 
         <!-- 教程详情视图（全屏） -->
         <div v-else class="tutorial-detail-section">
-          <!-- 简约标签 + 静默模式蓝色提示 -->
-          <div
-            class="tutorial-label"
-            :style="{ top: labelPosition + '%' }"
-            :class="{ 'label-visible': isLabelVisible, 'label-dragging': isLabelDragging, 'label-pinned': isLabelPinned }"
-            @mouseenter="showLabel"
-            @dblclick="toggleLabelPin"
-            @mousedown="startLabelDragging"
-          >
-            <div class="label-content">
-              <div class="label-text">{{ currentDoc?.title }}</div>
-              <div class="label-hint" v-if="!isLabelVisible && !isLabelPinned">◀</div>
-            </div>
-          </div>
-
           <!-- 主内容容器 -->
-          <div class="tutorial-content" ref="tutorialContentRef" @mousemove="handleLabelMouseMove" @mouseleave="() => { stopDragging(); stopLabelDragging(); }">
-            <!-- 左侧：文档说明 + 底部固定控制栏 -->
-            <div class="tutorial-left" ref="tutorialLeftRef" :style="{ width: splitRatio + '%' }">
+          <div class="tutorial-content" ref="tutorialContentRef">
+            <!-- 左侧：顶部章节栏 + 文档内容 + 底部控制栏 -->
+            <div class="tutorial-left" :style="{ width: splitRatio + '%' }">
+              <!-- 顶部章节栏（大标题与小标题区分样式） -->
+              <div class="chapter-header">
+                <div class="chapter-info">
+                  <span class="doc-title-text">{{ currentDocTitle }}</span>
+                  <span class="section-title-text">
+                    {{ currentSectionTitle }}
+                    <span v-if="chapterProgressText" class="section-progress">({{ chapterProgressText }})</span>
+                  </span>
+                </div>
+              </div>
+
+              <!-- 滚动区域 -->
               <div class="markdown-wrapper">
                 <div class="loading-state" v-if="isLoading">
                   <p>加载教程内容中...</p>
@@ -464,39 +458,47 @@ const nextDoc = () => {
                 </div>
               </div>
 
-              <!-- 常驻底部控制栏（顺序：双左、单左、单右、双右、主页） -->
+              <!-- 底部控制栏 -->
               <div class="bottom-control-bar">
-                <button class="control-btn" :disabled="!hasPrevious" @click="previousDoc" title="上一个教程">
+                <button class="control-btn" :disabled="!hasPrevious" @click="previousDoc" :title="prevDocTitle">
                   <svg-icon :path="mdiChevronDoubleLeft" :size="18" type="mdi"></svg-icon>
+                  <span>上篇</span>
                 </button>
                 <button class="control-btn" :disabled="!hasPrevSection" @click="prevSection" title="上一章节">
                   <svg-icon :path="mdiChevronLeft" :size="18" type="mdi"></svg-icon>
+                  <span>上一节</span>
                 </button>
                 <button class="control-btn" :disabled="!hasNextSection" @click="nextSection" title="下一章节">
+                  <span>下一节</span>
                   <svg-icon :path="mdiChevronRight" :size="18" type="mdi"></svg-icon>
                 </button>
-                <button class="control-btn" :disabled="!hasNext" @click="nextDoc" title="下一个教程">
+                <button class="control-btn" :disabled="!hasNext" @click="nextDoc" :title="nextDocTitle">
+                  <span>下篇</span>
                   <svg-icon :path="mdiChevronDoubleRight" :size="18" type="mdi"></svg-icon>
                 </button>
                 <button class="control-btn" @click="backToList" title="回到教程列表">
                   <svg-icon :path="mdiHome" :size="18" type="mdi"></svg-icon>
+                  <span>目录</span>
                 </button>
               </div>
             </div>
 
-            <!-- 分割线 + 纯三角形指示器（无圆形背景） -->
-            <div
-              class="divider"
-              @mousedown="startDragging"
-              :class="{ 'divider-active': isDragging }"
-            >
-              <div class="drag-handle">▶</div>
+            <!-- 分割线（仅手柄可拖拽，比例区间40%~60%） -->
+            <div class="divider" :class="{ 'divider-active': isDragging }">
+              <div class="drag-handle" @mousedown="startDragging">
+                <div class="drag-grip"></div>
+                <div class="drag-tooltip">拖动调整布局</div>
+              </div>
             </div>
 
             <!-- 右侧：图表组件区域 -->
             <div class="tutorial-right" :style="{ width: (100 - splitRatio) + '%' }">
               <div class="graph-placeholder">
-                <p>图表组件区域（待接入定制的 Graph 组件）</p>
+                <Graph
+                  :isPlaygroundProject="true"
+                  :playgroundProjectId="currentPlaygroundProjectId!"
+                  :key="currentPlaygroundProjectId||-1"
+                ></Graph>
               </div>
             </div>
           </div>
@@ -640,7 +642,7 @@ const nextDoc = () => {
 
     .doc-header {
       display: flex;
-      align-items: center; // ✅ 垂直居中
+      align-items: center;
       gap: 16px;
       margin-bottom: 16px;
 
@@ -665,7 +667,7 @@ const nextDoc = () => {
           font-size: 16px;
           font-weight: 700;
           color: #333;
-          margin: 0 0 4px 0; // 可选：减少下边距
+          margin: 0 0 4px 0;
           line-height: 1.3;
           white-space: nowrap;
           overflow: hidden;
@@ -734,96 +736,6 @@ const nextDoc = () => {
   border-radius: 0;
   box-shadow: none;
 
-  // 简约标签 + 静默模式蓝色提示
-  .tutorial-label {
-    position: absolute;
-    left: -20px;
-    top: 25%;
-    transform: translateY(-50%);
-    z-index: 25;
-    transition: all 0.3s ease;
-    cursor: grab;
-    user-select: none;
-    padding: 8px 4px;
-    background: white;
-    border: 1px solid #d0e0f0;
-    border-left: none;
-    border-radius: 0 6px 6px 0;
-    box-shadow: -2px 2px 8px rgba(16, 142, 254, 0.12);
-
-    &.label-dragging {
-      cursor: grabbing;
-      z-index: 30;
-      box-shadow: -2px 2px 12px rgba(16, 142, 254, 0.2);
-    }
-
-    &:not(.label-visible):not(.label-pinned) {
-      left: -32px;
-      opacity: 0.5;
-
-      &:hover {
-        opacity: 1;
-        left: -20px;
-        box-shadow: -2px 2px 12px rgba(16, 142, 254, 0.2);
-      }
-
-      // 静默模式蓝色箭头提示
-      &::before {
-        content: "▶";
-        position: absolute;
-        right: -20px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #108efe;
-        font-size: 12px;
-        font-weight: bold;
-        opacity: 0.7;
-        animation: pulse-blue 1.5s ease-in-out infinite;
-      }
-    }
-
-    &.label-visible,
-    &.label-pinned {
-      opacity: 1;
-      left: 0;
-      box-shadow: 2px 2px 8px rgba(16, 142, 254, 0.15);
-    }
-
-    .label-content {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      min-height: 60px;
-      justify-content: center;
-
-      .label-text {
-        writing-mode: vertical-rl;
-        text-orientation: mixed;
-        font-size: 11px;
-        font-weight: 700;
-        color: #108efe;
-        letter-spacing: 1px;
-        text-align: center;
-        max-width: 20px;
-        word-break: break-all;
-        line-height: 1.2;
-      }
-
-      .label-hint {
-        color: #a0a0a0;
-        font-size: 8px;
-        animation: hintBlink 1.5s ease-in-out infinite;
-        margin-top: 2px;
-      }
-    }
-
-    &:hover .label-content {
-      color: #0066cc;
-    }
-  }
-
-  // 主内容容器
   .tutorial-content {
     display: flex;
     flex: 1;
@@ -837,28 +749,66 @@ const nextDoc = () => {
       overflow: hidden;
       position: relative;
       background: white;
-      border-right: 1px solid #e8f0f9;
+      border-right: 1px solid #eef2f8;
+
+      // 顶部章节栏（大标题与小标题区分样式）
+      .chapter-header {
+        flex-shrink: 0;
+        padding: 12px 24px;
+        background: #fafbfc;
+        border-bottom: 1px solid #eef2f8;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        z-index: 5;
+
+        .chapter-info {
+          display: flex;
+          align-items: baseline;
+          gap: 12px;
+          flex-wrap: wrap;
+
+          .doc-title-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1f2937;
+            letter-spacing: 0.2px;
+          }
+
+          .section-title-text {
+            font-size: 14px;
+            font-weight: 400;
+            color: #6b7280;
+            letter-spacing: 0.2px;
+
+            .section-progress {
+              font-size: 13px;
+              color: #9ca3af;
+              margin-left: 4px;
+            }
+          }
+        }
+      }
 
       // 滚动区域
       .markdown-wrapper {
         flex: 1;
         overflow-y: auto;
-        padding: 30px;
+        padding: 12px 40px 32px 40px;
 
         &::-webkit-scrollbar {
-          width: 6px;
+          width: 8px;
         }
 
         &::-webkit-scrollbar-track {
-          background: transparent;
+          background: #f1f1f1;
+          border-radius: 4px;
         }
 
         &::-webkit-scrollbar-thumb {
-          background: #d0e0f0;
-          border-radius: 3px;
+          background: #cbd5e1;
+          border-radius: 4px;
 
           &:hover {
-            background: #a0c0f0;
+            background: #94a3b8;
           }
         }
       }
@@ -872,92 +822,85 @@ const nextDoc = () => {
         color: #999;
       }
 
+      // 内容样式优化
       .markdown-content {
-        font-size: 14px;
-        line-height: 1.8;
-        color: #333;
+        font-size: 16px;
+        line-height: 1.9;
+        color: #2c3e50;
 
         :deep(h1), :deep(h2), :deep(h3) {
-          margin-top: 20px;
-          margin-bottom: 12px;
+          margin-top: 1.8em;
+          margin-bottom: 0.8em;
           font-weight: 700;
-          color: #1a1a1a;
+          color: #1e293b;
         }
 
         :deep(h1) {
-          font-size: 24px;
+          font-size: 28px;
           border-bottom: 2px solid #108efe;
-          padding-bottom: 10px;
+          padding-bottom: 12px;
         }
 
         :deep(h2) {
-          font-size: 20px;
-          color: #108efe;
+          font-size: 24px;
+          color: #1e293b;
         }
 
         :deep(h3) {
-          font-size: 16px;
-          color: #333;
+          font-size: 20px;
+          color: #334155;
         }
 
         :deep(p) {
-          margin-bottom: 10px;
+          margin-bottom: 1.2em;
           text-align: justify;
         }
 
         :deep(strong) {
-          color: #108efe;
+          color: #2c3e50;
           font-weight: 700;
         }
 
         :deep(em) {
           font-style: italic;
-          color: #666;
+          color: #5b6e8c;
         }
 
         :deep(ul), :deep(ol) {
-          margin: 15px 0;
-          padding-left: 20px;
+          margin: 1.2em 0;
+          padding-left: 1.8em;
 
           li {
-            margin-bottom: 8px;
+            margin-bottom: 0.5em;
           }
         }
 
-        :deep(ul li) {
-          list-style-type: disc;
-        }
-
-        :deep(ol li) {
-          list-style-type: decimal;
-        }
-
         :deep(pre) {
-          background: #f5f8fc;
-          border-left: 3px solid #108efe;
-          padding: 15px;
-          border-radius: 4px;
+          background: #f8fafc;
+          border-left: 4px solid #108efe;
+          padding: 1.2em;
+          border-radius: 8px;
           overflow-x: auto;
-          margin: 15px 0;
+          margin: 1.2em 0;
 
           code {
             font-family: 'Monaco', 'Courier New', monospace;
-            font-size: 13px;
-            color: #333;
+            font-size: 14px;
+            color: #1e293b;
           }
         }
 
         :deep(code) {
           background: #f0f7ff;
-          color: #108efe;
-          padding: 2px 6px;
-          border-radius: 3px;
+          color: #2c3e50;
+          padding: 0.2em 0.4em;
+          border-radius: 4px;
           font-family: 'Monaco', 'Courier New', monospace;
-          font-size: 13px;
+          font-size: 0.9em;
         }
 
         :deep(a) {
-          color: #108efe;
+          color: #2c3e50;
           text-decoration: none;
           border-bottom: 1px solid #108efe;
           transition: all 0.2s ease;
@@ -970,131 +913,175 @@ const nextDoc = () => {
 
         :deep(blockquote) {
           border-left: 4px solid #108efe;
-          padding-left: 16px;
-          margin: 16px 0;
-          color: #666;
+          padding-left: 1.2em;
+          margin: 1.2em 0;
+          color: #5b6e8c;
           font-style: italic;
         }
 
         :deep(table) {
           border-collapse: collapse;
           width: 100%;
-          margin: 16px 0;
+          margin: 1.2em 0;
 
           th, td {
-            border: 1px solid #e0e0e0;
-            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            padding: 10px 12px;
             text-align: left;
           }
 
           th {
-            background: #f5f8fc;
+            background: #f8fafc;
             font-weight: 600;
           }
         }
 
         :deep(hr) {
           border: none;
-          border-top: 1px solid #e8f0f9;
-          margin: 20px 0;
+          border-top: 1px solid #eef2f8;
+          margin: 1.5em 0;
         }
       }
 
-      // 常驻底部控制栏
+      // 底部控制栏
       .bottom-control-bar {
         flex-shrink: 0;
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 12px;
-        padding: 12px 16px;
-        background: white;
-        border-top: 1px solid #e8f0f9;
+        padding: 12px 24px;
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(4px);
+        border-top: 1px solid #eef2f8;
         z-index: 10;
+        flex-wrap: nowrap;
+        overflow-x: auto;
 
         .control-btn {
-          width: 32px;
-          height: 32px;
-          border-radius: 4px;
-          background: transparent;
-          border: 1px solid #d0e0f0;
-          cursor: pointer;
-          display: flex;
+          display: inline-flex;
           align-items: center;
-          justify-content: center;
+          gap: 8px;
+          padding: 8px 20px;
+          border-radius: 40px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 500;
+          color: #2c3e50;
           transition: all 0.2s ease;
-          color: #666;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+          white-space: nowrap;
+          flex-shrink: 0;
 
           &:hover:not(:disabled) {
+            background: #108efe;
             border-color: #108efe;
-            color: #108efe;
-            background: rgba(16, 142, 254, 0.05);
+            color: white;
+            box-shadow: 0 2px 8px rgba(16, 142, 254, 0.25);
+            transform: translateY(-1px);
+
+            svg {
+              color: white;
+            }
+          }
+
+          &:active:not(:disabled) {
+            transform: translateY(0);
           }
 
           &:disabled {
             opacity: 0.4;
             cursor: not-allowed;
+            background: #f1f5f9;
+          }
+
+          svg {
+            transition: color 0.2s;
           }
         }
       }
     }
 
-    // 分割线 + 纯三角形指示器（无圆形背景）
+    // 分割线
     .divider {
       width: 1px;
-      background: #e8f0f9;
-      cursor: col-resize;
+      background: #e2e8f0;
       transition: all 0.2s ease;
       position: relative;
-
-      // 热区：扩大可点击区域
-      &::after {
-        content: '';
-        position: absolute;
-        left: 50%;
-        top: 0;
-        transform: translateX(-50%);
-        width: 10px;
-        height: 100%;
-        background: transparent;
-        cursor: col-resize;
-        pointer-events: auto;
-      }
+      display: flex;
+      align-items: center;
+      justify-content: center;
 
       .drag-handle {
         position: absolute;
-        left: 100%;          // 三角形左侧与分割线右侧对齐
+        left: 50%;
         top: 50%;
-        transform: translateY(-50%);  // 垂直居中，不水平移动
-        margin-left: -2px;    // 可选，让三角形稍远离分割线，视觉更清晰
-        font-size: 14px;
-        color: #e8f0f9;
-        pointer-events: auto;
+        transform: translate(-50%, -50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         cursor: col-resize;
-        font-weight: bold;
-        transition: color 0.2s ease;
-        z-index: 5;
+        z-index: 10;
+        padding: 8px 4px;
         background: transparent;
-        text-shadow: 0 0 2px rgba(255,255,255,0.5);
-      }
+        transition: all 0.2s;
+        pointer-events: auto;
 
-      &:hover {
-        width: 2px;
-        background: #108efe;
-        box-shadow: 0 0 4px rgba(16, 142, 254, 0.3);
+        .drag-grip {
+          width: 4px;
+          height: 32px;
+          background: #cbd5e1;
+          border-radius: 4px;
+          transition: all 0.2s ease;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
 
-        .drag-handle {
-          color: #108efe; // hover 时与分割线颜色一致
+        .drag-tooltip {
+          position: absolute;
+          top: calc(100% + 12px);
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(0, 0, 0, 0.75);
+          backdrop-filter: blur(4px);
+          color: white;
+          font-size: 11px;
+          padding: 4px 10px;
+          border-radius: 20px;
+          white-space: nowrap;
+          opacity: 0;
+          transition: opacity 0.2s ease;
+          pointer-events: none;
+          font-weight: 500;
+          letter-spacing: 0.3px;
+        }
+
+        &:hover .drag-grip {
+          background: #108efe;
+          width: 5px;
+          height: 40px;
+          box-shadow: 0 0 6px rgba(16, 142, 254, 0.5);
+        }
+
+        &:hover .drag-tooltip {
+          opacity: 1;
         }
       }
 
-      &.divider-active {
-        width: 2px;
-        background: #108efe;
-        box-shadow: 0 0 4px rgba(16, 142, 254, 0.3);
+      &:hover {
+        background: #cbd5e1;
+      }
 
-        .drag-handle {
-          color: #108efe;
+      &.divider-active {
+        background: #108efe;
+        box-shadow: 0 0 8px rgba(16, 142, 254, 0.3);
+
+        .drag-handle .drag-grip {
+          background: #108efe;
+          width: 5px;
+          height: 40px;
         }
       }
     }
@@ -1111,39 +1098,11 @@ const nextDoc = () => {
 
       .graph-placeholder {
         display: flex;
-        align-items: center;
-        justify-content: center;
+        flex: 1;
         width: 100%;
         height: 100%;
-        text-align: center;
-
-        p {
-          font-size: 14px;
-          color: #999;
-          margin: 0;
-        }
       }
     }
-  }
-}
-
-@keyframes hintBlink {
-  0%, 100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes pulse-blue {
-  0%, 100% {
-    opacity: 0.5;
-    transform: translateY(-50%) translateX(0);
-  }
-  50% {
-    opacity: 1;
-    transform: translateY(-50%) translateX(2px);
   }
 }
 </style>
