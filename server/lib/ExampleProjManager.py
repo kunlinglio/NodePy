@@ -54,6 +54,7 @@ class ExampleProject(BaseModel):
     """
 
     project_name: str
+    project_id: int
     updated_at: int
     created_at: int
     thumb: str | None
@@ -117,9 +118,18 @@ def initialize_example_projects() -> None:
                 with open(file_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     example = ExampleProject(**data)
+                
+                # 3.5 check if project id exists, if exists, delete
+                if example.project_id:
+                    existing_project = db.query(ProjectRecord).filter_by(id=example.project_id).first()
+                    if existing_project:
+                        logger.info(f"Removing existing example project: {existing_project.name} (ID: {existing_project.id})")
+                        db.delete(existing_project)
+                        db.flush()
 
                 # 4. Create ProjectRecord (to get new project_id)
                 new_project = ProjectRecord(
+                    id=example.project_id,
                     name=example.project_name,
                     owner_id=user.id,
                     workflow=example.workflow.model_dump(),  # Will be updated later
@@ -307,6 +317,7 @@ def persist_projects(project_name: str, new_name: str | None = None) -> None:
     if new_name:
         new_project_name = new_name
     example_project = ExampleProject(
+        project_id=project_id, # type: ignore
         project_name=new_project_name,
         updated_at=project_data.updated_at,
         created_at=project_created_at,
