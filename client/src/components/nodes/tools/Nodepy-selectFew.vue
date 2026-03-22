@@ -2,6 +2,7 @@
     <div 
     class="NodePySelectFewLayout 
     nodes-innertool-border-radius" 
+    :class="{disabled: disabled}" 
     @click.stop
     :style="{width, height}"
     >
@@ -97,5 +98,15 @@
             color: white;
         }
     }
-
+    .disabled {
+        .item {
+            cursor: not-allowed !important;
+        }
+        .item.selected {
+            color: rgba(255,255,255,0.5) !important;
+        }
+        .item:not(.selected) {
+            color: rgba(0,0,0,0.3) !important;
+        }
+    }
 </style>
