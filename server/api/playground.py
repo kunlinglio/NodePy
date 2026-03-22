@@ -6,7 +6,6 @@ from celery.app.task import Task as CeleryTask
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from loguru import logger
-from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,15 +18,12 @@ from server.lib.utils import get_project_by_id, set_project_record
 from server.models.database import ProjectRecord, UserRecord, get_async_session
 from server.models.project import Project
 
+from .project import TaskResponse
+
 """
 The api for nodes running, reporting and so on,
 """
 router = APIRouter()
-
-class TaskResponse(BaseModel):
-    """Response returned when a task is submitted."""
-    task_id: str
-    new_project_id: int # for redirect
 
 @router.get(
     "/{project_id}", 
@@ -172,7 +168,7 @@ async def sync_playground_project(
             user_id=int(owner_id),
         )
 
-        return TaskResponse(task_id=task.id, new_project_id=project_id)
+        return TaskResponse(task_id=task.id)
 
     except HTTPException:
         raise

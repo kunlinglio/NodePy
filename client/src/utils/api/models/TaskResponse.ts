@@ -5,8 +5,7 @@
 /**
  * Response returned when a task is submitted.
  */
-export type server__api__playground__TaskResponse = {
+export type TaskResponse = {
     task_id: string;
-    new_project_id: number;
 };
 

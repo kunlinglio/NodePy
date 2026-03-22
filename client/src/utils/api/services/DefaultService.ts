@@ -12,10 +12,9 @@ import type { ProjectList } from '../models/ProjectList';
 import type { ProjectListFilter } from '../models/ProjectListFilter';
 import type { ProjectSetting } from '../models/ProjectSetting';
 import type { ProjUIState } from '../models/ProjUIState';
-import type { server__api__playground__TaskResponse } from '../models/server__api__playground__TaskResponse';
-import type { server__api__project__TaskResponse } from '../models/server__api__project__TaskResponse';
 import type { SignupRequest } from '../models/SignupRequest';
 import type { Tag } from '../models/Tag';
+import type { TaskResponse } from '../models/TaskResponse';
 import type { TokenResponse } from '../models/TokenResponse';
 import type { UserFileList } from '../models/UserFileList';
 import type { CancelablePromise } from '../core/CancelablePromise';
@@ -220,12 +219,12 @@ export class DefaultService {
      * the returned `task_id` to subscribe to the websocket status endpoint
      * `/nodes/status/{task_id}`.
      * @param requestBody
-     * @returns server__api__project__TaskResponse Task accepted and running
+     * @returns TaskResponse Task accepted and running
      * @throws ApiError
      */
     public static syncProjectApiProjectSyncPost(
         requestBody: Project,
-    ): CancelablePromise<server__api__project__TaskResponse> {
+    ): CancelablePromise<TaskResponse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/project/sync',
@@ -518,12 +517,12 @@ export class DefaultService {
      * The project should already be a forked temporary project (owned by GUEST or the current user).
      * Changes are saved to the temporary project before execution.
      * @param requestBody
-     * @returns server__api__playground__TaskResponse Task accepted and running
+     * @returns TaskResponse Task accepted and running
      * @throws ApiError
      */
     public static syncPlaygroundProjectApiPlaygroundSyncPost(
         requestBody: Project,
-    ): CancelablePromise<server__api__playground__TaskResponse> {
+    ): CancelablePromise<TaskResponse> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/playground/sync',
