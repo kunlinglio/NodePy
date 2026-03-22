@@ -1,57 +1,60 @@
+<!-- Tag.vue -->
 <script lang="ts" setup>
-    import type { TagInstance } from '@/types/tag';
-    const props = defineProps<{
-        tag: TagInstance
-    }>()
+import type { TagInstance } from '@/types/tag';
+import { computed } from 'vue';
 
-    // 生成随机颜色
-    function getRandomColor(): string {
-        const colors = [
-            '#FFE5B4', // 浅橙色
-            '#B4E0FF', // 浅蓝色
-            '#C2F2E8', // 浅青绿色
-            '#E6D3FF', // 浅紫色
-            '#FFD6E0', // 浅粉色
-            '#D4F7D4', // 浅绿色
-            '#FFFACD', // 柠檬 chiffon
-            '#F0FFF0', // 蜂蜜露白
-            '#F5F5DC', // 米白色
-            '#E6F3FF', // 淡天蓝色
-            '#FFF0F5', // 淡紫红色
-            '#FDFD96', // 浅黄色
-            '#E0FFFF', // 淡青色
-            '#DDF8D8', // 浅薄荷绿
-            '#FFE4E1', // 淡玫瑰红
-            '#F0E68C', // 卡其色
-            '#D8BFD8', // 蓟色
-            '#AFEEEE', // 淡青绿
-            '#F5DEB3', // 小麦色
-            '#DEB887'  // 沙棕色
-        ];
-        
-        const randomIndex = Math.floor(Math.random() * colors.length);
-        return colors[randomIndex]!;
-    }
-    
-    // 获取标签颜色
-    const tagColor = getRandomColor();
-    
+const props = defineProps<{
+    tag?: TagInstance;      // 原有的 tag 对象（兼容旧用法）
+    content?: string;       // 直接传入标签文本（优先使用）
+    color?: string;         // 可选固定颜色，若不传则根据文本计算
+}>();
+
+// 最终显示的文本
+const displayContent = computed(() => {
+    if (props.content) return props.content;
+    if (props.tag) return props.tag.content;
+    return '';
+});
+
+// 随机颜色（每个标签实例独立随机）
+const tagColor = computed(() => {
+    const colors = [
+        '#FFE5B4', '#B4E0FF', '#C2F2E8', '#E6D3FF', '#FFD6E0',
+        '#D4F7D4', '#FFFACD', '#F0FFF0', '#F5F5DC', '#E6F3FF',
+        '#FFF0F5', '#FDFD96', '#E0FFFF', '#DDF8D8', '#FFE4E1',
+        '#F0E68C', '#D8BFD8', '#AFEEEE', '#F5DEB3', '#DEB887'
+    ];
+    const randomIndex = Math.floor(Math.random() * colors.length);
+    return colors[randomIndex]!;
+});
 </script>
+
 <template>
-    <div class="tag" 
-        :style="{backgroundColor: tagColor}">
-        {{ props.tag.content }}
+    <div class="tag" :style="{ backgroundColor: tagColor }">
+        {{ displayContent }}
+        <span v-if="$slots.action" class="action-slot">
+            <slot name="action" />
+        </span>
     </div>
 </template>
+
 <style scoped lang="scss">
-.tag{
-    display: flex;
-    justify-content: center;
+.tag {
+    display: inline-flex;
     align-items: center;
-    padding: 2px 4px 2px 4px;
-    max-width: 80px;
-    color: grey;
-    border-radius: 4px;
-    // border: 1px solid black;
+    justify-content: center;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #2c3e50;
+    background-color: #f0f2f5;
+    white-space: nowrap;
+    flex-shrink: 0;
+
+    .action-slot {
+        margin-left: 6px;
+        display: inline-flex;
+        align-items: center;
+    }
 }
 </style>
