@@ -74,9 +74,9 @@
                     resultStore.currentResult = resultStore.default_dataview;
 
                     // 获取新结果
-                    const result = await resultStore.getResultCacheContent(dataId);
+                    const result = await resultStore.getResultCacheContent(dataId, graphStore.isPlaygroundProject);
                     resultStore.currentResult = result;
-
+                    
                     // 设置默认选中的标签页为第一个
                     activeTab.value = firstKey;
                     handleChooseResult(firstKey);
@@ -110,7 +110,7 @@
                 const id = newTypeDataID[k];
                 try {
                     if (typeof id === 'number' && !isNaN(id)) {
-                        const r = await resultStore.getResultCacheContent(id);
+                        const r = await resultStore.getResultCacheContent(id, graphStore.isPlaygroundProject);
                         const t = r?.type || '';
                         const label = typeLabelMap[t] || t || '';
                         const color = typeColorMap[t] || '#9b9b9b';
@@ -137,7 +137,7 @@
         // 点击切换时确保当前结果和当前info也被设置
         const id = resultStore.currentTypeDataID[key]!;
         if (typeof id === 'number') {
-            resultStore.currentResult = await resultStore.getResultCacheContent(id);
+            resultStore.currentResult = await resultStore.getResultCacheContent(id, graphStore.isPlaygroundProject);
         }
     }
 

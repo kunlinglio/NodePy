@@ -198,7 +198,7 @@
     }
 
     async function handleForcedSync(){
-        await sync(graphStore);
+        await sync(graphStore, graphStore.isPlaygroundProject);
     }
 
     function handleShowResult(){

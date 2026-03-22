@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { ApiError, FileItem, type UserFileList, type Body_upload_file_api_files_upload__project_id__post} from '@/utils/api';
 import { handleNetworkError } from '@/utils/networkError';
+import { useGraphStore } from '@/stores/graphStore';
 import AuthenticatedServiceFactory from '@/utils/AuthenticatedServiceFactory';
 import notify from '@/components/Notification/notify';
 
@@ -9,6 +10,8 @@ export const useFileStore = defineStore('file', () => {
 
     //authenticated service factory
     const authService = AuthenticatedServiceFactory.getService();
+
+    const graphStore= useGraphStore();
 
     const openCache = true
 
@@ -164,7 +167,7 @@ export const useFileStore = defineStore('file', () => {
             try {
                 const cacheItem = fileContentCache.value.get(key);
                 if (!cacheItem) {
-                    await getFileContent(key);
+                    await getFileContent(key, graphStore.isPlaygroundProject);
                     // 直接缓存原始数据，不进行转换
                     addCacheContent(key, currentContent.value)
                 }
@@ -180,7 +183,7 @@ export const useFileStore = defineStore('file', () => {
             }
         }
         else {
-            return await getFileContent(key);
+            return await getFileContent(key, graphStore.isPlaygroundProject);
         }
     }
 
@@ -365,7 +368,7 @@ export const useFileStore = defineStore('file', () => {
         }
     }
 
-    async function getFileContent(key: string) {
+    async function getFileContent(key: string, isGuest: boolean = false) {
         try {
             
             // 获取 token
@@ -374,17 +377,23 @@ export const useFileStore = defineStore('file', () => {
             // 使用原生 fetch 获取二进制文件内容
             // DefaultService 的 API 代码生成工具不支持 responseType: 'arraybuffer'
             // 所以必须使用 fetch 来正确处理二进制数据
-            const response = await fetch(`/api/files/${key}`, {
+
+            const response = isGuest ? await fetch(`/api/files/guest/${key}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                }
+            }) : await fetch(`/api/files/${key}`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 }
             });
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`)
             }
-            
+
             // 获取 ArrayBuffer
             const arrayBuffer = await response.arrayBuffer();
             

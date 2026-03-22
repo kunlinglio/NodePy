@@ -51,18 +51,20 @@ const showProjectName = computed(()=>{
   else return false
 })
 
-// 导航项
 const navItems = [
-  { name: 'Home', path: '/home', label: '首页', iconOutline: home_path_outline, iconFilled: home_path_filled },
-  { name: 'Explore', path: '/explore', label: '探索', iconOutline: explore_path_outline, iconFilled: explore_path_filled},
-  { name: 'Example', path: '/example', label: '广场', iconOutline: square_path_outline, iconFilled: square_path_filled },
-  { name: 'Project', path: '/project', label: '工作台', iconOutline: project_path_outline, iconFilled: project_path_filled },
-  { name: 'File', path: '/file', label: '文件库', iconOutline: file_path_outline, iconFilled: file_path_filled },
+  { name: 'Home', path: '/home', label: '首页', iconOutline: home_path_outline, iconFilled: home_path_filled, routeName: 'home' },
+  { name: 'Explore', path: '/explore', label: '探索', iconOutline: explore_path_outline, iconFilled: explore_path_filled, routeName: 'explore' },
+  { name: 'Example', path: '/example', label: '广场', iconOutline: square_path_outline, iconFilled: square_path_filled, routeName: 'example' },
+  { name: 'Project', path: '/project', label: '工作台', iconOutline: project_path_outline, iconFilled: project_path_filled, routeName: 'project' },
+  { name: 'File', path: '/file', label: '文件库', iconOutline: file_path_outline, iconFilled: file_path_filled, routeName: 'file' },
 ]
 
 // 判断当前页面是否激活
-const isActive = (path: string) => {
-  return route.path === path
+const isActive = (item: typeof navItems[0]) => {
+  if (item.routeName) {
+    return route.name === item.routeName
+  }
+  return route.path === item.path
 }
 
 // 判断项目是否为只读模式
@@ -84,22 +86,22 @@ const isReadOnly = computed(() => {
         </div>
         <nav class="nav-bar" v-if="!showProjectName">
           <RouterLink
-              v-for="item in navItems"
-              :key="item.path"
-              :to="item.path"
-              class="nav-link"
-              :class="{ active: isActive(item.path) }"
-            >
-              <span class="nav-inner">
-                <SvgIcon
-                  v-if="item.iconOutline"
-                  type="mdi"
-                  :path="isActive(item.path) ? item.iconFilled : item.iconOutline"
-                  class="nav-icon"
-                />
-                <span class="nav-label">{{ item.label }}</span>
-              </span>
-            </RouterLink>
+            v-for="item in navItems"
+            :key="item.path"
+            :to="item.path"
+            class="nav-link"
+            :class="{ active: isActive(item) }"
+          >
+            <span class="nav-inner">
+              <SvgIcon
+                v-if="item.iconOutline"
+                type="mdi"
+                :path="isActive(item) ? item.iconFilled : item.iconOutline"
+                class="nav-icon"
+              />
+              <span class="nav-label">{{ item.label }}</span>
+            </span>
+          </RouterLink>
         </nav>
 
         <div v-else class="project-name">

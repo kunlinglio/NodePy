@@ -157,6 +157,7 @@ onUnmounted(() => {
 
 onMounted(async () => {
   try {
+    graphStore.isPlaygroundProject = props.isPlaygroundProject
     const p = await getProjectFromServer(props.isPlaygroundProject ? props.playgroundProjectId : Number(projectId), props.isPlaygroundProject)
     initVueFlowProject(p, graphStore.project)
     await nextTick()  //  waiting for node initialization

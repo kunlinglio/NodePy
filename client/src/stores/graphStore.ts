@@ -10,6 +10,7 @@ export const useGraphStore = defineStore('graph', () => {
   const default_url_id: number = 12306
   const url_id = ref<number>(default_url_id)
   const vueFLowInstance = useVueFlow('main')
+  const isPlaygroundProject = ref<boolean>(false)
   const {addNodes, nodes, getSelectedNodes, getSelectedEdges, addEdges} = vueFLowInstance
   const project = ref<vueFlowProject>({
     project_id: -1,
@@ -1617,5 +1618,5 @@ export const useGraphStore = defineStore('graph', () => {
     }
   }
 
-  return {nodes, url_id, currentNode, addNode, project, is_syncing, syncing_err_msg, copySelectedNodes, pasteNodes}
+  return {nodes, url_id, currentNode, isPlaygroundProject, addNode, project, is_syncing, syncing_err_msg, copySelectedNodes, pasteNodes}
 })

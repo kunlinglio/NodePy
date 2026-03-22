@@ -189,14 +189,21 @@ export const useResultStore = defineStore('result',()=>{
         }
     }
 
-    async function getResultCacheContent(id: number){
+    async function getResultCacheContent(id: number, isGuest: boolean = false) {
         loading.value = true; // 开始请求时设置loading为true
         try {
             if(openCache){
                 const cacheItem = resultCache.value.get(id);
                 if(!cacheItem){
-                    const content = await authService.getNodeDataApiDataDataIdGet(id);
-                    addResultCacheContent(id,content);
+                    if(isGuest){
+                        const content = await authService.getNodeDataGuestApiDataGuestDataIdGet(id);
+                        addResultCacheContent(id,content);
+                    }
+                    else{
+                        const content = await authService.getNodeDataApiDataDataIdGet(id);
+                        addResultCacheContent(id,content);
+                    }
+
                 }
                 const cacheItem_after = resultCache.value.get(id) as ResultCacheItem;
                 cacheItem_after.hitCount++;
@@ -331,7 +338,7 @@ export const useResultStore = defineStore('result',()=>{
                 type: 'info'
             })
             const dataIdToUse = dataId || default_id;
-            const result = await getResultCacheContent(dataIdToUse);
+            const result = await getResultCacheContent(dataIdToUse, graphStore.isPlaygroundProject);
 
             if (!result) {
                 notify({
