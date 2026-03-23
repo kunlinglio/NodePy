@@ -8,6 +8,16 @@ from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.config import (
+    ADMIN_USER_USERNAME,
+    PASSWORD_ALLOWED_CHARS,
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+    USERNAME_ALLOWED_CHARS,
+    USERNAME_ALLOWED_UTF8,
+    USERNAME_MAX_LENGTH,
+    USERNAME_MIN_LENGTH,
+)
+from server.config import (
     AUTH_ACCESS_TOKEN_EXPIRE_MINUTES as ACCESS_TOKEN_EXPIRE_MINUTES,
 )
 from server.config import (
@@ -18,15 +28,6 @@ from server.config import (
 )
 from server.config import (
     AUTH_SECRET_KEY as SECRET_KEY,
-)
-from server.config import (
-    PASSWORD_ALLOWED_CHARS,
-    PASSWORD_MAX_LENGTH,
-    PASSWORD_MIN_LENGTH,
-    USERNAME_ALLOWED_CHARS,
-    USERNAME_ALLOWED_UTF8,
-    USERNAME_MAX_LENGTH,
-    USERNAME_MIN_LENGTH,
 )
 from server.models.database import UserRecord, get_async_session
 
@@ -181,3 +182,43 @@ async def get_optional_user(
         return user
     except Exception:
         return None
+
+async def get_admin_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db_client: AsyncSession = Depends(get_async_session),
+) -> UserRecord:
+    """
+    Extract the current authenticated admin user from the JWT token.
+    This may raise a HTTPException with code 401 or 403
+    """
+    token = credentials.credentials
+    try:
+        payload = AuthUtils.verify_token(token)
+    except ValueError:
+        raise HTTPException(
+            status_code=401, detail="Invalid token"
+        )
+
+    user_id_str = payload.get("sub")
+    
+    # convert user_id from string to integer
+    try:
+        user_id = int(user_id_str) # type: ignore
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid user ID in token"
+        )
+
+    user = await db_client.get(UserRecord, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=401, detail="User not found"
+        )
+
+    if user.username != ADMIN_USER_USERNAME: # type: ignore
+        raise HTTPException(
+            status_code=403, detail="Admin access required"
+        )
+
+    return user

@@ -20,7 +20,7 @@ from server.config import (
     MINIO_SECRET_KEY,
     MINIO_URL,
 )
-from server.lib.AuthUtils import AuthUtils
+from server.lib.AuthUtils import AuthUtils, get_admin_user
 from server.models.database import (
     FileRecord,
     NodeOutputRecord,
@@ -107,30 +107,6 @@ class SystemHealthResponse(BaseModel):
     redis: RedisMetrics
     celery: CeleryMetrics
     minio: MinioMetrics
-
-async def verify_admin(
-    request: Request,
-    db_client: AsyncSession = Depends(get_async_session)
-) -> UserRecord:
-    """Helper to verify that the current user is an admin"""
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid token")
-    
-    token = auth_header.split(" ")[1]
-    try:
-        payload = AuthUtils.verify_token(token)
-        if payload.get("type") != "access":
-            raise HTTPException(status_code=401, detail="Invalid token type")
-        
-        user_id = int(payload.get("sub")) # type: ignore
-        user = await db_client.get(UserRecord, user_id)
-        if user is None or user.username != ADMIN_USER_USERNAME: # type: ignore
-            raise HTTPException(status_code=403, detail="Admin access required")
-        return user
-    except Exception:
-        raise HTTPException(status_code=401, detail="Authentication failed")
-
 
 @router.post(
     "/login",
@@ -288,7 +264,7 @@ async def logout(response: Response) -> dict[str, str]:
     }
 )
 async def get_system_stats(
-    admin: UserRecord = Depends(verify_admin),
+    admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session)
 ) -> SystemStatsResponse:
     """
@@ -329,7 +305,7 @@ async def get_system_stats(
 )
 async def get_top_storage_users(
     limit: int = 10,
-    admin: UserRecord = Depends(verify_admin),
+    admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session)
 ) -> StorageStats:
     """Get storage stats of whole server."""
@@ -400,7 +376,7 @@ async def get_top_storage_users(
     }
 )
 async def get_financial_stats(
-    admin: UserRecord = Depends(verify_admin),
+    admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session)
 ) -> list[FinancialSymbolStats]:
     """Monitor financial data health and coverage."""
@@ -438,7 +414,7 @@ async def get_financial_stats(
     }
 )
 async def get_project_stats(
-    admin: UserRecord = Depends(verify_admin),
+    admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session)
 ) -> ProjectStats:
     """Get project-specific statistics. For detailed project list, use `/projects/list` api"""
@@ -478,7 +454,7 @@ async def get_project_stats(
 async def toggle_project_explore(
     project_id: int,
     show: bool,
-    admin: UserRecord = Depends(verify_admin),
+    admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session)
 ):
     """Toggle whether a project is shown in the explore/case library."""
@@ -498,7 +474,7 @@ async def toggle_project_explore(
 
 @router.get("/health", response_model=SystemHealthResponse)
 async def get_system_health(
-    admin: UserRecord = Depends(verify_admin),
+    admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session)
 ) -> SystemHealthResponse:
     """

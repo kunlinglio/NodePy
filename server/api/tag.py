@@ -3,7 +3,8 @@ from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.models.database import TagRecord, get_async_session
+from server.lib.AuthUtils import get_current_user
+from server.models.database import TagRecord, UserRecord, get_async_session
 from server.models.tag import Tag
 
 router = APIRouter()
@@ -20,7 +21,10 @@ API router for tag-related endpoints.
         500: {"description": "Internal server error"}
     }
 )
-async def list_tags(db_client: AsyncSession = Depends(get_async_session)) -> list[Tag]:
+async def list_tags(
+    db_client: AsyncSession = Depends(get_async_session),
+    user_record: UserRecord = Depends(get_current_user),
+) -> list[Tag]:
     try:
         tag_records = await db_client.execute(select(TagRecord))
         return [Tag(id=tag.id, name=tag.name) for tag in tag_records.scalars()] # type: ignore
@@ -37,7 +41,11 @@ async def list_tags(db_client: AsyncSession = Depends(get_async_session)) -> lis
         500: {"description": "Internal server error"}
     }
 )
-async def create_tags(tag_name: str, db_client: AsyncSession = Depends(get_async_session)) -> None:
+async def create_tags(
+    tag_name: str,
+    db_client: AsyncSession = Depends(get_async_session),
+    user_record: UserRecord = Depends(get_current_user),
+) -> None:
     try:
         # Check if tag already exists
         existing_tag = await db_client.execute(select(TagRecord).where(TagRecord.name == tag_name))
