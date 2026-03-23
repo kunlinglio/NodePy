@@ -112,7 +112,7 @@ const syncProjectUiState = (p: Project, graphStore: any) => {
     })
 }
 
-export const sync = async(graphStore: any, isPlaygroundProject: boolean = false) => {
+export const sync = async(graphStore: any, isPlaygroundProject: boolean) => {
 
     try {
         const resultStore = useResultStore()
@@ -132,7 +132,7 @@ export const sync = async(graphStore: any, isPlaygroundProject: boolean = false)
 
 }
 
-export const syncUiState = async(graphStore: any, isPlaygroundProject: boolean = false) => {
+export const syncUiState = async(graphStore: any, isPlaygroundProject: boolean) => {
     if(isPlaygroundProject) return
 
     try {
@@ -146,7 +146,7 @@ export const syncUiState = async(graphStore: any, isPlaygroundProject: boolean =
 
 }
 
-export const getProjectFromServer = async (ProjectId: number, isPlaygroundProject: boolean = false) => {
+export const getProjectFromServer = async (ProjectId: number, isPlaygroundProject: boolean) => {
     if(isPlaygroundProject) {
         return authService.getPlaygroundProjectApiPlaygroundProjectIdGet(ProjectId)
     } else {
