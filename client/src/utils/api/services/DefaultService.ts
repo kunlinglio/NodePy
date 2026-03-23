@@ -590,6 +590,56 @@ export class DefaultService {
         });
     }
     /**
+     * Login
+     * Login user and return JWT tokens
+     * @param requestBody
+     * @returns TokenResponse Login successful
+     * @throws ApiError
+     */
+    public static loginApiAdminLoginPost(
+        requestBody: LoginRequest,
+    ): CancelablePromise<TokenResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/admin/login',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                401: `Invalid username or password`,
+                422: `Validation Error`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Refresh Access Token
+     * Use Refresh Token to get a new Access Token if access token expired
+     * @returns TokenResponse Access token refreshed successfully
+     * @throws ApiError
+     */
+    public static refreshAccessTokenApiAdminRefreshPost(): CancelablePromise<TokenResponse> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/admin/refresh',
+            errors: {
+                401: `Invalid refresh token`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Logout
+     * Logout user by clearing the Refresh Token
+     * @returns string Logged out successfully
+     * @throws ApiError
+     */
+    public static logoutApiAdminLogoutPost(): CancelablePromise<Record<string, string>> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/admin/logout',
+        });
+    }
+    /**
      * Spa Fallback
      * @param fullPath
      * @returns any Successful Response

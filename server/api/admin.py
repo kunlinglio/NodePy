@@ -1,8 +1,6 @@
-from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from loguru import logger
-from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,90 +8,9 @@ from server.config import ADMIN_USER_USERNAME
 from server.lib.AuthUtils import AuthUtils
 from server.models.database import UserRecord, get_async_session
 
+from .auth import LoginRequest, TokenResponse
+
 router = APIRouter()
-
-class LoginRequest(BaseModel):
-    type: Literal["username", "email"]
-    identifier: str # username or email
-    password: str
-
-class SignupRequest(BaseModel):
-    username: str
-    email: EmailStr
-    password: str
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-
-@router.post(
-    "/signup",
-    responses={
-        201: {"description": "User created successfully"},
-        400: {"description": "Username or email already registered"},
-        422: {"description": "Invalid username or password"},
-        500: {"description": "Internal server error"},
-    }
-)
-async def signup(
-    req: SignupRequest,
-    response: Response,
-    db_client: AsyncSession = Depends(get_async_session)
-) -> TokenResponse:
-    """sign up a new user, return a JWT token (no need to login again)"""
-    try:
-        # check if username or email already exists
-        existing = await db_client.execute(
-            select(UserRecord).where(
-                (UserRecord.username == req.username) | (UserRecord.email == req.email)
-            )
-        )
-        if existing.first() is not None:
-            raise HTTPException(
-                status_code=400,
-                detail="Username or email already registered",
-            )
-
-        # check if username and password fit the requirements
-        if not AuthUtils.is_valid_username(req.username):
-            raise HTTPException(422, detail="Invalid username")
-        if not AuthUtils.is_valid_password(req.password):
-            raise HTTPException(422, detail="Invalid password")
-
-        # create a new user
-        hashed_pwd = AuthUtils.hash_password(req.password)
-        new_user = UserRecord(
-            username=req.username, email=req.email, hashed_password=hashed_pwd
-        )
-        db_client.add(new_user)
-        await db_client.commit()
-        await db_client.refresh(new_user)
-
-        # generate tokens
-        access_token = AuthUtils.create_access_token({"sub": new_user.id})
-        refresh_token = AuthUtils.create_refresh_token({"sub": new_user.id})
-
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            secure=False,
-            samesite="lax",
-            max_age=7 * 24 * 60 * 60,
-            path="/api/auth"
-        )
-
-        return TokenResponse(access_token=access_token)
-
-    except HTTPException:
-        await db_client.rollback()
-        raise
-    except Exception as e:
-        await db_client.rollback()
-        logger.exception(f"Error signing up user: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post(
@@ -133,10 +50,10 @@ async def login(
                 detail="Invalid username or password",
             )
 
-        if user[0].username == ADMIN_USER_USERNAME:
+        if user[0].username != ADMIN_USER_USERNAME:
             raise HTTPException(
                 status_code=401,
-                detail="Admin user cannot login as normal user"
+                detail="Only admin user can login"
             )
 
         # generate tokens
@@ -209,10 +126,10 @@ async def refresh_access_token(
                 status_code=401,
                 detail="User not found",
             )
-        elif user.username == ADMIN_USER_USERNAME: # type: ignore
+        elif user.username != ADMIN_USER_USERNAME: # type: ignore
             raise HTTPException(
                 status_code=401,
-                detail="Admin user cannot refresh access token by this method"
+                detail="Only admin user can refresh access token by this method"
             )
 
         # create Access Token

@@ -67,9 +67,16 @@ CORE_SYMBOLS = {
 # Example projects configuration
 EXAMPLE_USER_USERNAME = "NodePy-Learning"
 EXAMPLE_USER_EMAIL = "learning@nodepy.com"
+EXAMPLES_DIR = Path("/nodepy/server/assets/examples")
+
+# Guest user configuration
 GUEST_USER_USERNAME = "NodePy-Guest"
 GUEST_USER_EMAIL = "guest@nodepy.com"
-EXAMPLES_DIR = Path("/nodepy/server/assets/examples")
+
+# Admin user configuration
+ADMIN_USER_USERNAME = "admin"
+ADMIN_USER_EMAIL = "admin@nodepy.com"
+ADMIN_USER_PASSWORD = "password"
 
 # Interpreter configuration
 TASK_MAX_RUNNING_TIME_SEC = 30 * 60  # 30 minutes
