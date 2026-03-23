@@ -6,13 +6,18 @@ import type { Body_upload_file_api_files_upload__project_id__post } from '../mod
 import type { DataView } from '../models/DataView';
 import type { ExploreList } from '../models/ExploreList';
 import type { File } from '../models/File';
+import type { FinancialSymbolStats } from '../models/FinancialSymbolStats';
 import type { LoginRequest } from '../models/LoginRequest';
 import type { Project } from '../models/Project';
 import type { ProjectList } from '../models/ProjectList';
 import type { ProjectListFilter } from '../models/ProjectListFilter';
 import type { ProjectSetting } from '../models/ProjectSetting';
+import type { ProjectStats } from '../models/ProjectStats';
 import type { ProjUIState } from '../models/ProjUIState';
 import type { SignupRequest } from '../models/SignupRequest';
+import type { StorageStats } from '../models/StorageStats';
+import type { SystemHealthResponse } from '../models/SystemHealthResponse';
+import type { SystemStatsResponse } from '../models/SystemStatsResponse';
 import type { Tag } from '../models/Tag';
 import type { TaskResponse } from '../models/TaskResponse';
 import type { TokenResponse } from '../models/TokenResponse';
@@ -637,6 +642,128 @@ export class DefaultService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/admin/logout',
+        });
+    }
+    /**
+     * Get System Stats
+     * Get system-wide overview statistics.
+     * Includes: total users, total projects, total storage, total nodes output.
+     * @returns SystemStatsResponse System stats retrieved successfully
+     * @throws ApiError
+     */
+    public static getSystemStatsApiAdminStatsOverviewGet(): CancelablePromise<SystemStatsResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/stats/overview',
+            errors: {
+                401: `Unauthorized`,
+                403: `Access denied`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Get Top Storage Users
+     * Get storage stats of whole server.
+     * @param limit
+     * @returns StorageStats Storage stats retrieved successfully
+     * @throws ApiError
+     */
+    public static getTopStorageUsersApiAdminStatsStorageGet(
+        limit: number = 10,
+    ): CancelablePromise<StorageStats> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/stats/storage',
+            query: {
+                'limit': limit,
+            },
+            errors: {
+                401: `Unauthorized`,
+                403: `Access denied`,
+                404: `User not found`,
+                422: `Validation Error`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Get Financial Stats
+     * Monitor financial data health and coverage.
+     * @returns FinancialSymbolStats Financial stats retrieved successfully
+     * @throws ApiError
+     */
+    public static getFinancialStatsApiAdminStatsFinancialGet(): CancelablePromise<Array<FinancialSymbolStats>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/stats/financial',
+            errors: {
+                401: `Unauthorized`,
+                403: `Access denied`,
+                404: `User not found`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Get Project Stats
+     * Get project-specific statistics. For detailed project list, use `/projects/list` api
+     * @returns ProjectStats Project stats retrieved successfully
+     * @throws ApiError
+     */
+    public static getProjectStatsApiAdminStatsProjectsGet(): CancelablePromise<ProjectStats> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/stats/projects',
+            errors: {
+                401: `Unauthorized`,
+                403: `Access denied`,
+                404: `User not found`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Toggle Project Explore
+     * Toggle whether a project is shown in the explore/case library.
+     * @param projectId
+     * @param show
+     * @returns any Project explore status toggled successfully
+     * @throws ApiError
+     */
+    public static toggleProjectExploreApiAdminProjectsProjectIdToggleExplorePost(
+        projectId: number,
+        show: boolean,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/admin/projects/{project_id}/toggle-explore',
+            path: {
+                'project_id': projectId,
+            },
+            query: {
+                'show': show,
+            },
+            errors: {
+                401: `Unauthorized`,
+                403: `Access denied`,
+                404: `Project not found`,
+                422: `Validation Error`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Get System Health
+     * Combined health check and detailed performance stats.
+     * Returns comprehensive metrics for FastAPI, Postgres, Redis, MinIO, and Celery.
+     * @returns SystemHealthResponse Successful Response
+     * @throws ApiError
+     */
+    public static getSystemHealthApiAdminHealthGet(): CancelablePromise<SystemHealthResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/health',
         });
     }
     /**
