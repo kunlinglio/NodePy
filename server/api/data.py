@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from sqlalchemy import select
 
-from server.config import GUEST_USER_USERNAME
+from server.config import EXAMPLE_USER_USERNAME, GUEST_USER_USERNAME
 from server.lib.AuthUtils import get_current_user
 from server.lib.DataManager import DataManager
 from server.models.data_view import DataRef, DataView
@@ -93,7 +93,14 @@ async def get_node_data_guest(
         quest_rcd = guest_rcd.scalar_one_or_none()
         if quest_rcd is None:
             raise HTTPException(status_code=404, detail="Guest user not found")
-        if db_project.owner_id != quest_rcd.id:  # type: ignore
+        example_rcd = await db_client.execute(
+            select(UserRecord)
+            .where(UserRecord.username == EXAMPLE_USER_USERNAME)
+        )
+        example_rcd = example_rcd.scalar_one_or_none()
+        if example_rcd is None:
+            raise HTTPException(status_code=404, detail="Example user not found")
+        if db_project.owner_id != quest_rcd.id and db_project.owner_id != example_rcd.id:  # type: ignore
             raise HTTPException(status_code=403, detail="User has no access to this data")
         # 3. get data view and return
         data = await data_manager.read_async(data_ref=DataRef(data_id=data_id))

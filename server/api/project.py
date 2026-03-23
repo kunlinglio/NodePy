@@ -110,6 +110,8 @@ async def copy_project(
             if existing_project.first() is None:
                 break
             new_project_name = f"{project.project_name}_copy{i}"
+        else:
+            raise HTTPException(status_code=400, detail="Failed to create project copy")
         # 3. create new project
         new_project = ProjectRecord(
             name=new_project_name,

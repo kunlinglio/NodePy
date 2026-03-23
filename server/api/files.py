@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 from sqlalchemy import select
 
-from server.config import GUEST_USER_USERNAME
+from server.config import EXAMPLE_USER_USERNAME, GUEST_USER_USERNAME
 from server.lib.AuthUtils import get_current_user
 from server.lib.FileManager import FileManager
 from server.models.database import AsyncSession, UserRecord, get_async_session
@@ -190,9 +190,20 @@ async def get_file_content_guest(
         if guest_rcd is None:
             raise HTTPException(status_code=404, detail="Project not found")
         guest_id = int(guest_rcd.id) # type: ignore
+        example_rcd = await async_db_session.execute(
+            select(UserRecord)
+            .where(UserRecord.username == EXAMPLE_USER_USERNAME)
+        )
+        example_rcd = example_rcd.scalar_one_or_none()
+        if example_rcd is None:
+            raise HTTPException(status_code=404, detail="Example user not found")
+        example_id = int(example_rcd.id) # type: ignore
         file_manager = FileManager(async_db_session=async_db_session)
         file = await file_manager.get_file_by_key_async(key=key)
-        content = await file_manager.read_async(file=file, user_id=guest_id)
+        try:
+            content = await file_manager.read_async(file=file, user_id=guest_id)
+        except PermissionError:
+            content = await file_manager.read_async(file=file, user_id=example_id)
         media_type = MIME_TYPES.get(file.format, "application/octet-stream")
         return StreamingResponse(
             io.BytesIO(content),

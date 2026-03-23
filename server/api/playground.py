@@ -70,7 +70,7 @@ async def get_playground_project(
         # 2. Convert to Project model
         project = await get_project_by_id(db_client, project_id, int(project_rec.owner_id))
         if project is None:
-             raise HTTPException(status_code=404, detail="Project not found")
+            raise HTTPException(status_code=404, detail="Project not found")
 
         # 3. Auto-fork the project under the GUEST user if it's an example (and not already the owner viewing it)
 
@@ -80,7 +80,6 @@ async def get_playground_project(
 
         # Create a new temporary project record
         temp_project_name = f"temp-playground-{project.project_id}-{uuid4().hex}"
-        
         temp_project = ProjectRecord(
             name=temp_project_name,
             owner_id=guest_user_id,
