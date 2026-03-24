@@ -104,6 +104,10 @@ PASSWORD_ALLOWED_CHARS = set(ascii_letters + digits + punctuation)
 # Limitations for generated tables
 MAX_GENERATED_TABLE_ROWS = 1000000  # Maximum rows allowed for generated tables
 
+# Guest project (playground project) expired time
+GUEST_PROJECT_EXPIRED_TIME_SEC = 3600  # 1 hour
+GUEST_PROJECT_CLEANUP_INTERVAL = 3600  # 1 hour
+
 """
 Debugging and logging settings
 """

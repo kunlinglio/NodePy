@@ -5,6 +5,7 @@ from server.config import (
     CLEAN_ORPHAN_FILE_INTERVAL_SEC,
     FETCH_BACKWARD_INTERVAL_SEC,
     FETCH_FORWARD_INTERVAL_SEC,
+    GUEST_PROJECT_CLEANUP_INTERVAL,
     TASK_MAX_RUNNING_TIME_SEC,
 )
 
@@ -33,6 +34,7 @@ celery_app.conf.update(
     include=[
         "server.interpreter.task",
         "server.lib.FinancialDataManager",
+        "server.lib.default_user"
     ],  # Explicitly include task modules
 )
 
@@ -52,8 +54,8 @@ celery_app.conf.beat_schedule = {
         "schedule": FETCH_BACKWARD_INTERVAL_SEC,
         # "schedule": 120.0,  # Every 2 minutes (for testing purposes)
     },
-    "cleanup-guest-data-every-hour": {
-        "task": "server.lib.FileManager.cleanup_guest_data_task",
-        "schedule": 4 * 3600.0, # Every 4 hour
+    "cleanup-guest-projects-every-hour": {
+        "task": "server.lib.default_user.cleanup_guest_temp_project",
+        "schedule": GUEST_PROJECT_CLEANUP_INTERVAL,
     },
 }
