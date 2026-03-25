@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 from typing import Literal
 
 import redis.asyncio as redis
@@ -55,7 +56,7 @@ class FinancialSymbolStats(BaseModel):
     symbol: str
     type: Literal["crypto", "stock"]
     completed: bool
-    oldest_data: str
+    oldest_data: int | None
 
 class ProjectStats(BaseModel):
     total_projects: int
@@ -388,15 +389,16 @@ async def get_financial_stats(
             TrackedSymbolRecord.oldest_data_time
         )
         result = await db_client.execute(stmt)
-        financial_stats = [
-            FinancialSymbolStats(
-                symbol=row.symbol,
-                type=row.data_type,
-                completed=row.is_history_complete,
-                oldest_data=row.oldest_data_time
+        financial_stats = []
+        for row in result.all():
+            financial_stats.append(
+                FinancialSymbolStats(
+                    symbol=row.symbol,
+                    type=row.data_type,
+                    completed=row.is_history_complete,
+                    oldest_data=datetime.timestamp(row.oldest_data_time) if row.oldest_data_time else None # type: ignore
+                )
             )
-            for row in result
-        ]
         return financial_stats
     except Exception as e:
         logger.exception(f"Error getting financial stats: {e}")

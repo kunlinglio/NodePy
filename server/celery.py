@@ -10,7 +10,7 @@ from server.config import (
 )
 
 """
-Shared configuration across deferrent container.
+Shared configuration across different container.
 """
 
 celery_app = Celery(
