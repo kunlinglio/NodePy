@@ -7,6 +7,8 @@ import Login from '@/views/Login.vue'
 import Example from '@/views/ExampleView/Example.vue'
 import Editor from '@/views/Editor.vue'
 import Explore from '@/views/Explore.vue'
+import AdminLogin from '@/views/AdminLogin.vue'
+import Admin from '@/views/Admin.vue'
 
 const routes: Array<RouteRecordRaw> = [
     {
@@ -57,6 +59,16 @@ const routes: Array<RouteRecordRaw> = [
         path: '/explore/:docId?/:sectionIndex?',
         name: 'explore',
         component: Explore
+    },
+    {
+        path: '/adminlogin',
+        name: 'adminlogin',
+        component: AdminLogin
+    },
+    {
+        path: '/admin',
+        name: 'admin',
+        component: Admin
     }
 ]
 

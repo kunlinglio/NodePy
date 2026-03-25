@@ -422,6 +422,12 @@ const isLoggedIn = computed(() => loginStore.loggedIn)
 function jumpToGithub() {
   window.open('https://github.com/LKLLLLLLLLLL/NodePy', '_blank')
 }
+
+function jumpToAdmin(){
+  router.push({
+    name: 'adminlogin'
+  })
+}
 </script>
 
 <template>
@@ -566,6 +572,9 @@ function jumpToGithub() {
           <div class="footer-bottom">
             <div class="footer-logo">
               <h3>NodePy</h3>
+              <div class="admin-entrance-container" @click="jumpToAdmin">
+                管理员入口
+              </div>
             </div>
             <div class="footer-copyright">
               <p>© 2025 NodePy Team. All rights reserved.</p>
@@ -1099,6 +1108,15 @@ function jumpToGithub() {
     // border-top: 1px solid #eee;
 
     .footer-logo {
+      display: flex;
+      align-items: center;
+      .admin-entrance-container{
+          font-size: 10px;
+          padding: 6px 12px;
+          padding-top: 10px;
+          color: grey;
+          cursor: pointer;
+      }
       h3 {
         font-size: 20px;
         font-weight: 700;
