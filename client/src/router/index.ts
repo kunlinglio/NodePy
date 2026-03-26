@@ -8,7 +8,7 @@ import Example from '@/views/ExampleView/Example.vue'
 import Editor from '@/views/Editor.vue'
 import Explore from '@/views/Explore.vue'
 import AdminLogin from '@/views/AdminLogin.vue'
-import Admin from '@/views/Admin.vue'
+import Admin from '@/views/AdminView/Admin.vue'
 
 const routes: Array<RouteRecordRaw> = [
     {

@@ -50,6 +50,7 @@ export const useAdminStore = defineStore('admin', () => {
                     type: 'error'
                 });
             }
+            throw error
         }
     }
     async function getServerStorageStatus(limit: number = 10){
@@ -109,6 +110,7 @@ export const useAdminStore = defineStore('admin', () => {
                     type: 'error'
                 });
             }
+            throw error
         }
     }
     async function getFinancialStatus(){
@@ -162,6 +164,7 @@ export const useAdminStore = defineStore('admin', () => {
                     type: 'error'
                 });
             }
+            throw error
         }
     }
     async function getProjectStatus(){
@@ -215,6 +218,7 @@ export const useAdminStore = defineStore('admin', () => {
                     type: 'error'
                 });
             }
+            throw error
         }
     }
     async function toggleProjectAccessible(id: number, show: boolean){
@@ -274,6 +278,7 @@ export const useAdminStore = defineStore('admin', () => {
                     type: 'error'
                 });
             }
+            throw error;
         }
     }
     async function getSystemHealthStatus(){
@@ -309,6 +314,7 @@ export const useAdminStore = defineStore('admin', () => {
                     type: 'error'
                 });
             }
+            throw error
         }
     }
     return{
