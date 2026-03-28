@@ -1055,4 +1055,8 @@ const editableStyle = computed(() => graphStore.project.editable ? 'auto' : 'non
   user-select: none;
 }
 
+:deep(.vue-flow__panel.bottom.center) {
+    width: 100%;
+}
+
 </style>

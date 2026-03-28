@@ -313,10 +313,9 @@
     .graph-controls-container{
         display: flex;
         flex-direction: row;
-        width: 100vw;
+        width: 100%;        // 原来是 100vw
         padding-left: 235px;
         padding-right: 10px;
-        // gap: 8px;
         align-items: center;
         background-color: transparent;
     }
