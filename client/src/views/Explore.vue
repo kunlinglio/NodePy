@@ -522,8 +522,34 @@ const nextButtonLabel = computed(() => {
   return '下一节'
 })
 
+// ========== 强制刷新页面跳转到指定文档（可选章节） ==========
+const navigateToDoc = (docId: number, sectionIndex: number = 1) => {
+  // 如果目标文档与当前相同，且当前在详情页，则使用 SPA 内导航（不刷新）
+  if (currentDocId.value === docId && currentDocId.value !== null) {
+    // 如果章节索引相同则无需操作
+    if (currentSectionIndex.value + 1 === sectionIndex) return
+    router.push({
+      name: 'explore',
+      params: { docId, sectionIndex }
+    })
+    return
+  }
+  // 不同文档或从列表页进入，强制刷新页面
+  const routeLocation = router.resolve({
+    name: 'explore',
+    params: { docId, sectionIndex }
+  })
+  window.location.href = routeLocation.href
+}
+
+// ========== 跳转逻辑修改 ==========
+const openDoc = (doc: any) => {
+  navigateToDoc(doc.id, 1)   // 打开文档，默认显示第一节
+}
+
 const goPrevSection = () => {
   if (hasPrevSection.value) {
+    // 同一文档内切换章节，使用 router.push（不刷新）
     const newIndex = currentSectionIndex.value - 1
     router.push({
       name: 'explore',
@@ -533,27 +559,17 @@ const goPrevSection = () => {
       }
     })
   } else if (hasPreviousDoc.value) {
+    // 切换到上一篇文档，强制刷新页面
     const prevDocId = currentDoc.value!.id - 1
     const totalSectionsPrev = getDocTotalSections(prevDocId)
-    if (totalSectionsPrev > 0) {
-      router.push({
-        name: 'explore',
-        params: {
-          docId: prevDocId,
-          sectionIndex: totalSectionsPrev
-        }
-      })
-    } else {
-      router.push({
-        name: 'explore',
-        params: { docId: prevDocId }
-      })
-    }
+    const targetSection = totalSectionsPrev > 0 ? totalSectionsPrev : 1
+    navigateToDoc(prevDocId, targetSection)
   }
 }
 
 const goNextSection = () => {
   if (hasNextSection.value) {
+    // 同一文档内切换章节，使用 router.push（不刷新）
     const newIndex = currentSectionIndex.value + 1
     router.push({
       name: 'explore',
@@ -563,18 +579,30 @@ const goNextSection = () => {
       }
     })
   } else if (hasNextDoc.value) {
+    // 切换到下一篇文档，强制刷新页面（默认第一节）
     const nextDocId = currentDoc.value!.id + 1
-    router.push({
-      name: 'explore',
-      params: {
-        docId: nextDocId,
-        sectionIndex: 1
-      }
-    })
+    navigateToDoc(nextDocId, 1)
   }
 }
 
-// ==================== 顶部菜单（悬浮弹窗）相关逻辑 ====================
+// 返回列表页（SPA 内跳转）
+const backToList = () => {
+  router.push({ name: 'explore' })
+}
+
+const previousDoc = () => {
+  if (hasPreviousDoc.value) {
+    navigateToDoc(currentDoc.value!.id - 1, 1)
+  }
+}
+
+const nextDoc = () => {
+  if (hasNextDoc.value) {
+    navigateToDoc(currentDoc.value!.id + 1, 1)
+  }
+}
+
+// ========== 顶部菜单（悬浮弹窗）逻辑 ==========
 const menuVisible = ref(false)
 const menuButtonRef = ref<HTMLElement | null>(null)
 const menuRootRef = ref<HTMLElement | null>(null)
@@ -598,7 +626,6 @@ const onMenuItemMouseEnter = (docId: number, event: MouseEvent) => {
   }
 }
 
-// 主菜单项离开时不做隐藏，由子菜单的离开定时器负责
 const onMenuItemMouseLeave = () => {
   // 留空，避免过早隐藏子菜单
 }
@@ -618,15 +645,19 @@ const onSubMenuMouseLeave = () => {
 const handleSubMenuSelect = (value: string) => {
   const [docIdStr, sectionIdxStr] = value.split(':')
   const docId = Number(docIdStr)
-  const sectionIndex = Number(sectionIdxStr)
+  const sectionIndex = Number(sectionIdxStr) + 1   // 转为 1-based
+
   if (!isNaN(docId) && !isNaN(sectionIndex)) {
-    router.push({
-      name: 'explore',
-      params: {
-        docId: docId,
-        sectionIndex: sectionIndex + 1
-      }
-    })
+    if (currentDocId.value === docId) {
+      // 同一文档内切换章节，不刷新
+      router.push({
+        name: 'explore',
+        params: { docId, sectionIndex }
+      })
+    } else {
+      // 切换到不同文档，强制刷新页面
+      navigateToDoc(docId, sectionIndex)
+    }
   }
   menuVisible.value = false
   menuHoverDocId.value = null
@@ -706,35 +737,7 @@ const submenuDirection = computed(() => {
   return 'right'
 })
 
-const openDoc = (doc: any) => {
-  router.push({
-    name: 'explore',
-    params: { docId: doc.id }
-  })
-}
-
-const backToList = () => {
-  router.push({ name: 'explore' })
-}
-
-const previousDoc = () => {
-  if (hasPreviousDoc.value) {
-    router.push({
-      name: 'explore',
-      params: { docId: currentDoc.value!.id - 1 }
-    })
-  }
-}
-
-const nextDoc = () => {
-  if (hasNextDoc.value) {
-    router.push({
-      name: 'explore',
-      params: { docId: currentDoc.value!.id + 1 }
-    })
-  }
-}
-
+// ========== 路由监听（调整当前状态）==========
 watch(() => route.params.docId, (newDocId) => {
   if (newDocId) {
     const id = Number(newDocId)
@@ -788,13 +791,7 @@ watch(currentSectionIndex, () => {
   if (wrapper) wrapper.scrollTop = 0
 })
 
-onMounted(async () => {
-  await preloadAllTutorials()
-  window.addEventListener('click', onGlobalClick)
-  window.addEventListener('mousemove', handleMouseMove)
-  window.addEventListener('mouseup', stopDragging)
-})
-
+// ========== 拖拽分割（保留原逻辑）==========
 const startDragging = (e: MouseEvent) => {
   e.preventDefault()
   isDragging.value = true
@@ -812,6 +809,13 @@ const handleMouseMove = (e: MouseEvent) => {
   newRatio = Math.min(60, Math.max(40, newRatio))
   splitRatio.value = newRatio
 }
+
+onMounted(async () => {
+  await preloadAllTutorials()
+  window.addEventListener('click', onGlobalClick)
+  window.addEventListener('mousemove', handleMouseMove)
+  window.addEventListener('mouseup', stopDragging)
+})
 </script>
 
 <style lang='scss' scoped>
