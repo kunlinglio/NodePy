@@ -1,3 +1,165 @@
+<template>
+  <div class="explore-container">
+    <!-- 背景装饰元素 -->
+    <div class="background-elements">
+      <div class="bg-circle circle-1"></div>
+      <div class="bg-circle circle-2"></div>
+      <div class="bg-circle circle-3"></div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="explore-content">
+      <!-- 教程列表视图 -->
+      <div v-if="!currentDocId" class="section doc-section">
+        <div class="section-header">
+          <h2 class="section-title">
+            <svg-icon :path="mdiBookOpenPageVariant" :size="32" type="mdi" class="title-icon"></svg-icon>
+            教程
+          </h2>
+          <p class="section-subtitle">详细的参考文档，帮助您深入了解每个功能的细节</p>
+        </div>
+
+        <div class="docs-grid">
+          <div
+            v-for="doc in docs"
+            :key="doc.id"
+            class="doc-card"
+            @click="openDoc(doc)"
+            @mouseenter="hoverDoc = doc.id"
+            @mouseleave="hoverDoc = null"
+            :class="{ 'doc-card-hover': hoverDoc === doc.id }"
+          >
+            <div class="doc-header">
+              <div class="doc-icon" :class="{ 'doc-icon-hover': hoverDoc === doc.id }">
+                <svg-icon :path="doc.icon" :size="28" type="mdi"></svg-icon>
+              </div>
+              <div class="doc-info">
+                <h3 class="doc-title">{{ doc.title }}</h3>
+                <div class="doc-subtitle">{{ doc.category }}</div>
+              </div>
+            </div>
+            <p class="doc-description">{{ doc.description }}</p>
+            <div class="doc-footer">
+              <div class="footer-left">
+                <span class="read-time">{{ getDocInfo(doc.pages) }}</span>
+              </div>
+              <span class="date">{{ today }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 教程详情视图 -->
+      <div v-else class="tutorial-detail-section">
+        <div class="tutorial-content" ref="tutorialContentRef">
+          <!-- 左侧：文档内容区域 -->
+          <div class="tutorial-left">
+            <div class="chapter-header">
+              <!-- 菜单按钮，带悬浮菜单 -->
+              <button 
+                ref="menuButtonRef"
+                class="menu-button" 
+                @click.stop="toggleMenu"
+              >
+                <svg-icon :path="mdiMenu" :size="20" type="mdi"></svg-icon>
+              </button>
+              <div class="chapter-info">
+                <span class="doc-title-text">{{ currentDocTitle }}</span>
+                <div class="section-info">
+                  <span class="section-title">{{ currentSectionTitle }}</span>
+                  <span v-if="chapterProgressText" class="section-progress">({{ chapterProgressText }})</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="markdown-wrapper">
+              <div class="loading-state" v-if="isLoading">
+                <p>加载教程内容中...</p>
+              </div>
+              <div class="markdown-content" v-else-if="currentHtml" v-html="currentHtml"></div>
+              <div class="empty-state" v-else>
+                <p>暂无内容</p>
+              </div>
+            </div>
+
+            <!-- 底部控制栏：纯文字点击切换，支持跨文档 -->
+            <div class="bottom-control-bar-text">
+              <div class="nav-text prev-text" :class="{ disabled: !hasPrevSection && !hasPreviousDoc }" @click="goPrevSection">
+                <span class="nav-label">{{ prevButtonLabel }}</span>
+                <span class="nav-section-title">{{ prevSectionDisplayText }}</span>
+              </div>
+              <div class="nav-text next-text" :class="{ disabled: !hasNextSection && !hasNextDoc }" @click="goNextSection">
+                <span class="nav-label">{{ nextButtonLabel }}</span>
+                <span class="nav-section-title">{{ nextSectionDisplayText }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右侧：图表组件区域 -->
+          <div class="tutorial-right">
+            <div class="graph-placeholder">
+              <Graph
+                :isPlaygroundProject="true"
+                :playgroundProjectId="currentPlaygroundProjectId!"
+                :key="currentPlaygroundProjectId||-1"
+              ></Graph>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 顶部悬浮菜单（仿右键菜单风格） -->
+    <Teleport to="body">
+      <div
+        v-if="menuVisible"
+        ref="menuRootRef"
+        class="floating-menu"
+        :style="{
+          position: 'fixed',
+          left: menuPositionStyle.left,
+          top: menuPositionStyle.top,
+          zIndex: 9999,
+          minWidth: '180px'
+        }"
+      >
+        <ul class="menu-list">
+          <li
+            v-for="item in mainMenuItems"
+            :key="item.id"
+            class="menu-item"
+            @mouseenter="onMenuItemMouseEnter(item.id, $event)"
+            @mouseleave="onMenuItemMouseLeave"
+          >
+            <div class="menu-item-content">
+              <span class="menu-label">{{ item.label }}</span>
+              <span v-if="item.children.length" class="submenu-arrow">
+                <svg width="10" height="10" viewBox="0 0 8 8">
+                  <path d="M2 1 L6 4 L2 7" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- 子菜单（悬浮时显示） -->
+      <div
+        v-if="menuHoverDocId !== null && currentSubmenuItems.length"
+        @mouseenter="onSubMenuMouseEnter"
+        @mouseleave="onSubMenuMouseLeave"
+      >
+        <SubMenu
+          :items="currentSubmenuItems"
+          :direction="submenuDirection"
+          :on-select="handleSubMenuSelect"
+          :anchor-rect="submenuAnchorRect"
+        />
+      </div>
+    </Teleport>
+  </div>
+</template>
+
 <script lang='ts' setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -15,21 +177,21 @@ import {
   mdiChartTimeline,
   mdiPlaylistCheck,
   mdiRobot,
+  mdiMenu,
 } from '@mdi/js'
 import { usePageStore } from '@/stores/pageStore'
 import Graph from '@/components/Graph/Graph.vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
+import SubMenu from '@/components/RightClickMenu/SubMenu.vue'
 
 const router = useRouter()
 const route = useRoute()
 const pageStore = usePageStore()
 
-// 当前日期（YYYY-MM-DD）
 const today = new Date().toISOString().slice(0, 10)
 
-// 初始化 markdown-it
 const md = new MarkdownIt({
   html: true,
   linkify: true,
@@ -46,7 +208,6 @@ const md = new MarkdownIt({
   }
 })
 
-// 教程文件映射
 const tutorialFiles = [
   '1_quick_start.md',
   '2_core_concept.md',
@@ -104,7 +265,6 @@ const docs = ref([
   }
 ])
 
-// 辅助函数：根据章节数生成阅读时间信息
 const getDocInfo = (pages: number) => {
   if (pages === 0) return '加载中...'
   const minutesPerSection = 2
@@ -119,82 +279,57 @@ const getDocInfo = (pages: number) => {
   }
 }
 
-// 内部状态（由路由同步）
-const currentDocId = ref<number | null>(null)
-const currentSectionIndex = ref(0)
-const isLoading = ref(false)
-const tutorialMarkdown = ref('')
-const tutorialSections = ref<Array<{ title: string; content: string; html: string }>>([])
+const tutorialsChaptersMeta = ref<Map<number, Array<{ title: string; index: number }>>>(new Map())
+const cachedMarkdowns = ref<Map<number, string>>(new Map())
+const isPreloading = ref(false)
 
-// 布局相关
-const splitRatio = ref(50)
-const isDragging = ref(false)
-const tutorialContentRef = ref<HTMLElement | null>(null)
-
-// 计算属性
-const currentHtml = computed(() => {
-  if (tutorialSections.value.length > 0 && currentSectionIndex.value < tutorialSections.value.length) {
-    return tutorialSections.value[currentSectionIndex.value]!.html
+const extractSectionTitles = (markdown: string): string[] => {
+  const lines = markdown.split('\n')
+  const titles: string[] = []
+  let inCodeBlock = false
+  for (const line of lines) {
+    if (line.trim().startsWith('```')) {
+      inCodeBlock = !inCodeBlock
+      continue
+    }
+    if (!inCodeBlock) {
+      const h2Match = line.match(/^## (.*)$/)
+      if (h2Match) {
+        titles.push(h2Match[1]!.trim())
+      }
+    }
   }
-  return ''
-})
-
-const currentSectionTitle = computed(() => {
-  if (tutorialSections.value.length > 0 && currentSectionIndex.value < tutorialSections.value.length) {
-    const title = tutorialSections.value[currentSectionIndex.value]!.title
-    return title && title.trim() ? title.trim() : '小节'
+  if (titles.length === 0 && markdown.trim()) {
+    titles.push('概述')
   }
-  return ''
-})
+  return titles
+}
 
-const currentPlaygroundProjectId = computed(() => {
-  const doc = docs.value.find(d => d.id === currentDocId.value)
-  return doc ? doc.playgroundProjectId : null
-})
-
-const totalSections = computed(() => tutorialSections.value.length)
-
-const chapterProgressText = computed(() => {
-  if (totalSections.value > 0) {
-    return `第 ${currentSectionIndex.value + 1} / ${totalSections.value} 节`
+const preloadAllTutorials = async () => {
+  if (isPreloading.value) return
+  isPreloading.value = true
+  try {
+    const baseUrl = import.meta.env.BASE_URL
+    const fetchPromises = tutorialFiles.map(async (file, idx) => {
+      const docId = idx + 1
+      const response = await fetch(`${baseUrl}guides/${file}`)
+      if (!response.ok) throw new Error(`加载 ${file} 失败`)
+      const markdown = await response.text()
+      cachedMarkdowns.value.set(docId, markdown)
+      const titles = extractSectionTitles(markdown)
+      const sections = titles.map((title, index) => ({ title, index }))
+      tutorialsChaptersMeta.value.set(docId, sections)
+      const doc = docs.value.find(d => d.id === docId)
+      if (doc) doc.pages = sections.length
+    })
+    await Promise.all(fetchPromises)
+  } catch (error) {
+    console.error('预加载教程失败:', error)
+  } finally {
+    isPreloading.value = false
   }
-  return ''
-})
+}
 
-const currentDoc = computed(() => {
-  return docs.value.find(doc => doc.id === currentDocId.value)
-})
-
-const currentDocTitle = computed(() => currentDoc.value?.title || '')
-
-const headerTitle = computed(() => {
-  if (!currentDoc.value) return ''
-  const docTitle = currentDoc.value.title
-  const sectionTitle = currentSectionTitle.value
-  const progress = chapterProgressText.value ? ` (${chapterProgressText.value})` : ''
-  return `${docTitle} - ${sectionTitle}${progress}`
-})
-
-const hasPrevSection = computed(() => currentSectionIndex.value > 0)
-const hasNextSection = computed(() => currentSectionIndex.value < totalSections.value - 1)
-const hasPrevious = computed(() => currentDoc.value ? currentDoc.value.id > 1 : false)
-const hasNext = computed(() => currentDoc.value ? currentDoc.value.id < docs.value.length : false)
-
-const prevDocTitle = computed(() => {
-  if (!hasPrevious.value) return ''
-  const prevId = currentDoc.value!.id - 1
-  const prevDoc = docs.value.find(d => d.id === prevId)
-  return prevDoc ? prevDoc.title : ''
-})
-
-const nextDocTitle = computed(() => {
-  if (!hasNext.value) return ''
-  const nextId = currentDoc.value!.id + 1
-  const nextDoc = docs.value.find(d => d.id === nextId)
-  return nextDoc ? nextDoc.title : ''
-})
-
-// 将 Markdown 按二级标题拆分为章节
 const splitIntoSections = (markdown: string) => {
   const lines = markdown.split('\n')
   const sections: Array<{ title: string; content: string; html: string }> = []
@@ -249,23 +384,32 @@ const splitIntoSections = (markdown: string) => {
   return sections
 }
 
-// 加载教程内容
 const loadTutorial = async (docId: number) => {
   isLoading.value = true
   try {
-    const fileIndex = docId - 1
-    if (fileIndex >= 0 && fileIndex < tutorialFiles.length) {
-      const baseUrl = import.meta.env.BASE_URL
-      const response = await fetch(`${baseUrl}guides/${tutorialFiles[fileIndex]}`)
-      if (!response.ok) throw new Error('加载失败')
-      const markdown = await response.text()
+    let markdown = cachedMarkdowns.value.get(docId)
+    if (!markdown) {
+      const fileIndex = docId - 1
+      if (fileIndex >= 0 && fileIndex < tutorialFiles.length) {
+        const baseUrl = import.meta.env.BASE_URL
+        const response = await fetch(`${baseUrl}guides/${tutorialFiles[fileIndex]}`)
+        if (!response.ok) throw new Error('加载失败')
+        markdown = await response.text()
+        cachedMarkdowns.value.set(docId, markdown)
+        if (!tutorialsChaptersMeta.value.has(docId)) {
+          const titles = extractSectionTitles(markdown)
+          const sections = titles.map((title, idx) => ({ title, index: idx }))
+          tutorialsChaptersMeta.value.set(docId, sections)
+        }
+      }
+    }
+    if (markdown) {
       tutorialMarkdown.value = markdown
       tutorialSections.value = splitIntoSections(markdown)
-
       const doc = docs.value.find(d => d.id === docId)
-      if (doc) {
-        doc.pages = tutorialSections.value.length
-      }
+      if (doc) doc.pages = tutorialSections.value.length
+    } else {
+      throw new Error('无法获取教程内容')
     }
   } catch (error) {
     console.error('加载教程失败:', error)
@@ -279,7 +423,318 @@ const loadTutorial = async (docId: number) => {
   }
 }
 
-// 同步路由参数到内部状态
+const currentDocId = ref<number | null>(null)
+const currentSectionIndex = ref(0)
+const isLoading = ref(false)
+const tutorialMarkdown = ref('')
+const tutorialSections = ref<Array<{ title: string; content: string; html: string }>>([])
+
+const splitRatio = ref(50)
+const isDragging = ref(false)
+const tutorialContentRef = ref<HTMLElement | null>(null)
+
+const currentHtml = computed(() => {
+  if (tutorialSections.value.length > 0 && currentSectionIndex.value < tutorialSections.value.length) {
+    return tutorialSections.value[currentSectionIndex.value]!.html
+  }
+  return ''
+})
+
+const currentSectionTitle = computed(() => {
+  if (tutorialSections.value.length > 0 && currentSectionIndex.value < tutorialSections.value.length) {
+    const title = tutorialSections.value[currentSectionIndex.value]!.title
+    return title && title.trim() ? title.trim() : '小节'
+  }
+  return ''
+})
+
+const currentPlaygroundProjectId = computed(() => {
+  const doc = docs.value.find(d => d.id === currentDocId.value)
+  return doc ? doc.playgroundProjectId : null
+})
+
+const totalSections = computed(() => tutorialSections.value.length)
+
+const chapterProgressText = computed(() => {
+  if (totalSections.value > 0) {
+    return `第 ${currentSectionIndex.value + 1} / ${totalSections.value} 节`
+  }
+  return ''
+})
+
+const currentDoc = computed(() => {
+  return docs.value.find(doc => doc.id === currentDocId.value)
+})
+
+const currentDocTitle = computed(() => currentDoc.value?.title || '')
+
+const headerTitle = computed(() => {
+  if (!currentDoc.value) return ''
+  const docTitle = currentDoc.value.title
+  const sectionTitle = currentSectionTitle.value
+  const progress = chapterProgressText.value ? ` (${chapterProgressText.value})` : ''
+  return `${docTitle} - ${sectionTitle}${progress}`
+})
+
+const getDocTotalSections = (docId: number): number => {
+  const sections = tutorialsChaptersMeta.value.get(docId)
+  return sections ? sections.length : 0
+}
+
+const hasPreviousDoc = computed(() => currentDoc.value ? currentDoc.value.id > 1 : false)
+const hasNextDoc = computed(() => currentDoc.value ? currentDoc.value.id < docs.value.length : false)
+
+const prevSectionDisplayText = computed(() => {
+  if (hasPrevSection.value) {
+    const title = tutorialSections.value[currentSectionIndex.value - 1]!.title
+    return title && title.trim() ? title.trim() : '概述'
+  } else if (hasPreviousDoc.value) {
+    const prevDocId = currentDoc.value!.id - 1
+    const prevDoc = docs.value.find(d => d.id === prevDocId)
+    return prevDoc ? prevDoc.title : ''
+  }
+  return '无上一节'
+})
+
+const nextSectionDisplayText = computed(() => {
+  if (hasNextSection.value) {
+    const title = tutorialSections.value[currentSectionIndex.value + 1]!.title
+    return title && title.trim() ? title.trim() : '概述'
+  } else if (hasNextDoc.value) {
+    const nextDocId = currentDoc.value!.id + 1
+    const nextDoc = docs.value.find(d => d.id === nextDocId)
+    return nextDoc ? nextDoc.title : ''
+  }
+  return '无下一节'
+})
+
+const hasPrevSection = computed(() => currentSectionIndex.value > 0)
+const hasNextSection = computed(() => currentSectionIndex.value < totalSections.value - 1)
+
+const prevButtonLabel = computed(() => {
+  if (hasPrevSection.value) return '上一节'
+  if (hasPreviousDoc.value) return '上一篇'
+  return '上一节'
+})
+const nextButtonLabel = computed(() => {
+  if (hasNextSection.value) return '下一节'
+  if (hasNextDoc.value) return '下一篇'
+  return '下一节'
+})
+
+const goPrevSection = () => {
+  if (hasPrevSection.value) {
+    const newIndex = currentSectionIndex.value - 1
+    router.push({
+      name: 'explore',
+      params: {
+        docId: currentDocId.value!,
+        sectionIndex: newIndex + 1
+      }
+    })
+  } else if (hasPreviousDoc.value) {
+    const prevDocId = currentDoc.value!.id - 1
+    const totalSectionsPrev = getDocTotalSections(prevDocId)
+    if (totalSectionsPrev > 0) {
+      router.push({
+        name: 'explore',
+        params: {
+          docId: prevDocId,
+          sectionIndex: totalSectionsPrev
+        }
+      })
+    } else {
+      router.push({
+        name: 'explore',
+        params: { docId: prevDocId }
+      })
+    }
+  }
+}
+
+const goNextSection = () => {
+  if (hasNextSection.value) {
+    const newIndex = currentSectionIndex.value + 1
+    router.push({
+      name: 'explore',
+      params: {
+        docId: currentDocId.value!,
+        sectionIndex: newIndex + 1
+      }
+    })
+  } else if (hasNextDoc.value) {
+    const nextDocId = currentDoc.value!.id + 1
+    router.push({
+      name: 'explore',
+      params: {
+        docId: nextDocId,
+        sectionIndex: 1
+      }
+    })
+  }
+}
+
+// ==================== 顶部菜单（悬浮弹窗）相关逻辑 ====================
+const menuVisible = ref(false)
+const menuButtonRef = ref<HTMLElement | null>(null)
+const menuRootRef = ref<HTMLElement | null>(null)
+const menuHoverDocId = ref<number | null>(null)
+const submenuAnchorRect = ref<DOMRect | null>(null)
+let hideSubmenuTimer: ReturnType<typeof setTimeout> | null = null
+
+const clearHideTimer = () => {
+  if (hideSubmenuTimer) {
+    clearTimeout(hideSubmenuTimer)
+    hideSubmenuTimer = null
+  }
+}
+
+const onMenuItemMouseEnter = (docId: number, event: MouseEvent) => {
+  clearHideTimer()
+  const target = event.currentTarget as HTMLElement
+  if (target) {
+    submenuAnchorRect.value = target.getBoundingClientRect()
+    menuHoverDocId.value = docId
+  }
+}
+
+// 主菜单项离开时不做隐藏，由子菜单的离开定时器负责
+const onMenuItemMouseLeave = () => {
+  // 留空，避免过早隐藏子菜单
+}
+
+const onSubMenuMouseEnter = () => {
+  clearHideTimer()
+}
+
+const onSubMenuMouseLeave = () => {
+  clearHideTimer()
+  hideSubmenuTimer = setTimeout(() => {
+    menuHoverDocId.value = null
+    submenuAnchorRect.value = null
+  }, 300)
+}
+
+const handleSubMenuSelect = (value: string) => {
+  const [docIdStr, sectionIdxStr] = value.split(':')
+  const docId = Number(docIdStr)
+  const sectionIndex = Number(sectionIdxStr)
+  if (!isNaN(docId) && !isNaN(sectionIndex)) {
+    router.push({
+      name: 'explore',
+      params: {
+        docId: docId,
+        sectionIndex: sectionIndex + 1
+      }
+    })
+  }
+  menuVisible.value = false
+  menuHoverDocId.value = null
+  submenuAnchorRect.value = null
+  clearHideTimer()
+}
+
+const toggleMenu = (event: Event) => {
+  event.stopPropagation()
+  menuVisible.value = !menuVisible.value
+  if (!menuVisible.value) {
+    menuHoverDocId.value = null
+    submenuAnchorRect.value = null
+    clearHideTimer()
+  }
+}
+
+const onGlobalClick = (e: MouseEvent) => {
+  if (!menuVisible.value) return
+  const target = e.target as HTMLElement
+  if (menuButtonRef.value && menuButtonRef.value.contains(target)) return
+  if (menuRootRef.value && menuRootRef.value.contains(target)) return
+  const submenuPortal = document.querySelector('.submenu-portal')
+  if (submenuPortal && submenuPortal.contains(target)) return
+  menuVisible.value = false
+  menuHoverDocId.value = null
+  submenuAnchorRect.value = null
+  clearHideTimer()
+}
+
+const menuPositionStyle = computed(() => {
+  if (!menuButtonRef.value) return { left: '0px', top: '0px' }
+  const rect = menuButtonRef.value.getBoundingClientRect()
+  const left = rect.right + 4
+  const top = rect.top
+  const winWidth = window.innerWidth
+  const estimatedWidth = 200
+  let finalLeft = left
+  if (left + estimatedWidth > winWidth - 8) {
+    finalLeft = rect.left - estimatedWidth - 4
+  }
+  return {
+    left: `${finalLeft}px`,
+    top: `${top}px`
+  }
+})
+
+const mainMenuItems = computed(() => {
+  return docs.value.map(doc => ({
+    id: doc.id,
+    label: doc.title,
+    children: (tutorialsChaptersMeta.value.get(doc.id) || []).map(section => ({
+      label: section.title,
+      value: `${doc.id}:${section.index}`
+    }))
+  }))
+})
+
+const currentSubmenuItems = computed(() => {
+  if (menuHoverDocId.value === null) return []
+  const doc = docs.value.find(d => d.id === menuHoverDocId.value)
+  if (!doc) return []
+  const sections = tutorialsChaptersMeta.value.get(menuHoverDocId.value) || []
+  if (sections.length === 0 && !isPreloading.value) {
+    return [{ label: '章节加载中...', value: '', disabled: true }]
+  }
+  return sections.map(section => ({
+    label: section.title,
+    value: `${menuHoverDocId.value}:${section.index}`
+  }))
+})
+
+const submenuDirection = computed(() => {
+  if (!submenuAnchorRect.value) return 'right'
+  const winWidth = window.innerWidth
+  if (submenuAnchorRect.value.right + 200 > winWidth) return 'left'
+  return 'right'
+})
+
+const openDoc = (doc: any) => {
+  router.push({
+    name: 'explore',
+    params: { docId: doc.id }
+  })
+}
+
+const backToList = () => {
+  router.push({ name: 'explore' })
+}
+
+const previousDoc = () => {
+  if (hasPreviousDoc.value) {
+    router.push({
+      name: 'explore',
+      params: { docId: currentDoc.value!.id - 1 }
+    })
+  }
+}
+
+const nextDoc = () => {
+  if (hasNextDoc.value) {
+    router.push({
+      name: 'explore',
+      params: { docId: currentDoc.value!.id + 1 }
+    })
+  }
+}
+
 watch(() => route.params.docId, (newDocId) => {
   if (newDocId) {
     const id = Number(newDocId)
@@ -304,7 +759,6 @@ watch(() => route.params.sectionIndex, (newIndex) => {
   }
 }, { immediate: true })
 
-// 当当前教程 ID 变化时加载内容，并修正章节索引
 watch(currentDocId, async (newId) => {
   if (newId) {
     await loadTutorial(newId)
@@ -329,67 +783,18 @@ watch(currentDocId, async (newId) => {
   }
 }, { immediate: true })
 
-// 章节变化时滚动到顶部
 watch(currentSectionIndex, () => {
   const wrapper = document.querySelector('.markdown-wrapper') as HTMLElement
   if (wrapper) wrapper.scrollTop = 0
 })
 
-// 导航函数（通过路由跳转）
-const openDoc = (doc: any) => {
-  router.push({
-    name: 'explore',
-    params: { docId: doc.id }
-  })
-}
+onMounted(async () => {
+  await preloadAllTutorials()
+  window.addEventListener('click', onGlobalClick)
+  window.addEventListener('mousemove', handleMouseMove)
+  window.addEventListener('mouseup', stopDragging)
+})
 
-const backToList = () => {
-  router.push({ name: 'explore' })
-}
-
-const previousDoc = () => {
-  if (hasPrevious.value) {
-    router.push({
-      name: 'explore',
-      params: { docId: currentDoc.value!.id - 1 }
-    })
-  }
-}
-
-const nextDoc = () => {
-  if (hasNext.value) {
-    router.push({
-      name: 'explore',
-      params: { docId: currentDoc.value!.id + 1 }
-    })
-  }
-}
-
-const prevSection = () => {
-  if (hasPrevSection.value) {
-    router.push({
-      name: 'explore',
-      params: {
-        docId: currentDocId.value!,
-        sectionIndex: currentSectionIndex.value
-      }
-    })
-  }
-}
-
-const nextSection = () => {
-  if (hasNextSection.value) {
-    router.push({
-      name: 'explore',
-      params: {
-        docId: currentDocId.value!,
-        sectionIndex: currentSectionIndex.value + 2   // 0-based -> 1-based
-      }
-    })
-  }
-}
-
-// 分割线拖拽
 const startDragging = (e: MouseEvent) => {
   e.preventDefault()
   isDragging.value = true
@@ -401,143 +806,13 @@ const stopDragging = () => {
 
 const handleMouseMove = (e: MouseEvent) => {
   if (!isDragging.value || !tutorialContentRef.value) return
-
   const container = tutorialContentRef.value
   const rect = container.getBoundingClientRect()
   let newRatio = ((e.clientX - rect.left) / rect.width) * 100
   newRatio = Math.min(60, Math.max(40, newRatio))
   splitRatio.value = newRatio
 }
-
-onMounted(() => {
-  window.addEventListener('mousemove', handleMouseMove)
-  window.addEventListener('mouseup', stopDragging)
-})
 </script>
-
-<template>
-  <div class="explore-container">
-    <!-- 背景装饰元素 -->
-    <div class="background-elements">
-      <div class="bg-circle circle-1"></div>
-      <div class="bg-circle circle-2"></div>
-      <div class="bg-circle circle-3"></div>
-    </div>
-
-    <!-- 主内容区 -->
-    <div class="explore-content">
-      <!-- 教程列表视图 -->
-      <div v-if="!currentDocId" class="section doc-section">
-        <div class="section-header">
-          <h2 class="section-title">
-            <svg-icon :path="mdiBookOpenPageVariant" :size="32" type="mdi" class="title-icon"></svg-icon>
-            教程
-          </h2>
-          <p class="section-subtitle">详细的参考文档，帮助您深入了解每个功能的细节</p>
-        </div>
-
-        <div class="docs-grid">
-          <div
-            v-for="doc in docs"
-            :key="doc.id"
-            class="doc-card"
-            @click="openDoc(doc)"
-            @mouseenter="hoverDoc = doc.id"
-            @mouseleave="hoverDoc = null"
-            :class="{ 'doc-card-hover': hoverDoc === doc.id }"
-          >
-            <div class="doc-header">
-              <div class="doc-icon" :class="{ 'doc-icon-hover': hoverDoc === doc.id }">
-                <svg-icon :path="doc.icon" :size="28" type="mdi"></svg-icon>
-              </div>
-              <div class="doc-info">
-                <h3 class="doc-title">{{ doc.title }}</h3>
-                <div class="doc-subtitle">{{ doc.category }}</div>
-              </div>
-            </div>
-            <p class="doc-description">{{ doc.description }}</p>
-            <div class="doc-footer">
-              <div class="footer-left">
-                <span class="read-time">{{ getDocInfo(doc.pages) }}</span>
-              </div>
-              <span class="date">{{ today }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 教程详情视图 -->
-      <div v-else class="tutorial-detail-section">
-        <div class="tutorial-content" ref="tutorialContentRef">
-          <!-- 左侧：文档内容区域 -->
-          <div class="tutorial-left" :style="{ width: splitRatio + '%' }">
-            <div class="chapter-header">
-              <div class="chapter-info">
-                <span class="doc-title-text">{{ currentDocTitle }}</span>
-                <span class="section-title-text">
-                  {{ currentSectionTitle }}
-                  <span v-if="chapterProgressText" class="section-progress">({{ chapterProgressText }})</span>
-                </span>
-              </div>
-            </div>
-
-            <div class="markdown-wrapper">
-              <div class="loading-state" v-if="isLoading">
-                <p>加载教程内容中...</p>
-              </div>
-              <div class="markdown-content" v-else-if="currentHtml" v-html="currentHtml"></div>
-              <div class="empty-state" v-else>
-                <p>暂无内容</p>
-              </div>
-            </div>
-
-            <div class="bottom-control-bar">
-              <button class="control-btn" :disabled="!hasPrevious" @click="previousDoc" :title="prevDocTitle">
-                <svg-icon :path="mdiChevronDoubleLeft" :size="18" type="mdi"></svg-icon>
-                <span>上篇</span>
-              </button>
-              <button class="control-btn" :disabled="!hasPrevSection" @click="prevSection" title="上一章节">
-                <svg-icon :path="mdiChevronLeft" :size="18" type="mdi"></svg-icon>
-                <span>上一节</span>
-              </button>
-              <button class="control-btn" :disabled="!hasNextSection" @click="nextSection" title="下一章节">
-                <span>下一节</span>
-                <svg-icon :path="mdiChevronRight" :size="18" type="mdi"></svg-icon>
-              </button>
-              <button class="control-btn" :disabled="!hasNext" @click="nextDoc" :title="nextDocTitle">
-                <span>下篇</span>
-                <svg-icon :path="mdiChevronDoubleRight" :size="18" type="mdi"></svg-icon>
-              </button>
-              <button class="control-btn" @click="backToList" title="回到教程列表">
-                <svg-icon :path="mdiHome" :size="18" type="mdi"></svg-icon>
-                <span>目录</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- 分割线 -->
-          <div class="divider" :class="{ 'divider-active': isDragging }">
-            <div class="drag-handle" @mousedown="startDragging">
-              <div class="drag-grip"></div>
-              <div class="drag-tooltip">拖动调整布局</div>
-            </div>
-          </div>
-
-          <!-- 右侧：图表组件区域 -->
-          <div class="tutorial-right" :style="{ width: (100 - splitRatio) + '%' }">
-            <div class="graph-placeholder">
-              <Graph
-                :isPlaygroundProject="true"
-                :playgroundProjectId="currentPlaygroundProjectId!"
-                :key="currentPlaygroundProjectId||-1"
-              ></Graph>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
 
 <style lang='scss' scoped>
 @use '@/common/global.scss' as *;
@@ -776,6 +1051,7 @@ onMounted(() => {
     .tutorial-left {
       display: flex;
       flex-direction: column;
+      width: 500px;
       overflow: hidden;
       position: relative;
       background: white;
@@ -783,35 +1059,73 @@ onMounted(() => {
 
       .chapter-header {
         flex-shrink: 0;
+        display: flex;
+        align-items: center;
         padding: 12px 24px;
         background: #fafbfc;
         border-bottom: 1px solid #eef2f8;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
         z-index: 5;
 
+        .menu-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          margin-left: 12px;
+          margin-right: 4px;
+          background: transparent;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          color: #5b6e8c;
+          transition: all 0.2s;
+          flex-shrink: 0;
+
+          &:hover {
+            background: #f0f2f5;
+            color: #108efe;
+          }
+        }
+
         .chapter-info {
           display: flex;
           align-items: baseline;
           gap: 12px;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
+          flex: 1;
+          min-width: 0;
 
           .doc-title-text {
             font-size: 18px;
             font-weight: 700;
             color: #1f2937;
-            letter-spacing: 0.2px;
+            white-space: nowrap;
           }
 
-          .section-title-text {
-            font-size: 14px;
-            font-weight: 400;
-            color: #6b7280;
-            letter-spacing: 0.2px;
+          .section-info {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            min-width: 0;
+            flex: 1;
+
+            .section-title {
+              font-size: 14px;
+              font-weight: 400;
+              color: #6b7280;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              flex-shrink: 1;
+            }
 
             .section-progress {
               font-size: 13px;
               color: #9ca3af;
-              margin-left: 4px;
+              white-space: nowrap;
+              flex-shrink: 0;
             }
           }
         }
@@ -851,21 +1165,49 @@ onMounted(() => {
       }
 
       .markdown-content {
-        font-size: 16px;
-        line-height: 1.9;
+        font-size: 15px;
+        line-height: 1.75;
         color: #2c3e50;
-
-        :deep(h1), :deep(h2), :deep(h3) {
-          margin-top: 1.8em;
-          margin-bottom: 0.8em;
-          font-weight: 700;
-          color: #1e293b;
-        }
 
         :deep(h1) {
           font-size: 28px;
-          border-bottom: 2px solid #108efe;
+          border-bottom: 2px solid #6c757d;
           padding-bottom: 12px;
+        }
+
+        :deep(blockquote) {
+          border-left: 4px solid #6c757d;
+          padding-left: 1.2em;
+          margin: 1.2em 0;
+          color: #5b6e8c;
+          font-style: italic;
+        }
+
+        :deep(pre) {
+          background: #f8fafc;
+          border-left: 4px solid #6c757d;
+          padding: 1.2em;
+          border-radius: 8px;
+          overflow-x: auto;
+          margin: 1.2em 0;
+
+          code {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            color: #1e293b;
+          }
+        }
+
+        :deep(a) {
+          color: #2c3e50;
+          text-decoration: none;
+          border-bottom: 1px solid #6c757d;
+          transition: all 0.2s ease;
+
+          &:hover {
+            background: #f0f7ff;
+            padding: 0 2px;
+          }
         }
 
         :deep(h2) {
@@ -902,21 +1244,6 @@ onMounted(() => {
           }
         }
 
-        :deep(pre) {
-          background: #f8fafc;
-          border-left: 4px solid #108efe;
-          padding: 1.2em;
-          border-radius: 8px;
-          overflow-x: auto;
-          margin: 1.2em 0;
-
-          code {
-            font-family: 'Monaco', 'Courier New', monospace;
-            font-size: 14px;
-            color: #1e293b;
-          }
-        }
-
         :deep(code) {
           background: #f0f7ff;
           color: #2c3e50;
@@ -924,26 +1251,6 @@ onMounted(() => {
           border-radius: 4px;
           font-family: 'Monaco', 'Courier New', monospace;
           font-size: 0.9em;
-        }
-
-        :deep(a) {
-          color: #2c3e50;
-          text-decoration: none;
-          border-bottom: 1px solid #108efe;
-          transition: all 0.2s ease;
-
-          &:hover {
-            background: #f0f7ff;
-            padding: 0 2px;
-          }
-        }
-
-        :deep(blockquote) {
-          border-left: 4px solid #108efe;
-          padding-left: 1.2em;
-          margin: 1.2em 0;
-          color: #5b6e8c;
-          font-style: italic;
         }
 
         :deep(table) {
@@ -970,149 +1277,76 @@ onMounted(() => {
         }
       }
 
-      .bottom-control-bar {
+      .bottom-control-bar-text {
         flex-shrink: 0;
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 12px;
-        padding: 12px 24px;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 20px 24px;
         background: rgba(255, 255, 255, 0.96);
         backdrop-filter: blur(4px);
         border-top: 1px solid #eef2f8;
         z-index: 10;
-        flex-wrap: nowrap;
-        overflow-x: auto;
 
-        .control-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 20px;
-          border-radius: 40px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
+        .nav-text {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
           cursor: pointer;
-          font-size: 13px;
-          font-weight: 500;
-          color: #2c3e50;
           transition: all 0.2s ease;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-          white-space: nowrap;
-          flex-shrink: 0;
+          text-align: left;
+          padding: 4px 0;
 
-          &:hover:not(:disabled) {
-            background: #108efe;
-            border-color: #108efe;
-            color: white;
-            box-shadow: 0 2px 8px rgba(16, 142, 254, 0.25);
-            transform: translateY(-1px);
+          &.prev-text {
+            text-align: left;
+          }
+          &.next-text {
+            text-align: right;
+            align-items: flex-end;
+          }
 
-            svg {
-              color: white;
+          &:not(.disabled):hover {
+            .nav-label {
+              color: #108efe;
+            }
+            .nav-section-title {
+              color: #108efe;
             }
           }
 
-          &:active:not(:disabled) {
-            transform: translateY(0);
-          }
-
-          &:disabled {
+          &.disabled {
             opacity: 0.4;
             cursor: not-allowed;
-            background: #f1f5f9;
           }
 
-          svg {
+          .nav-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #9ca3af;
             transition: color 0.2s;
           }
-        }
-      }
-    }
 
-    .divider {
-      width: 1px;
-      background: #e2e8f0;
-      transition: all 0.2s ease;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      .drag-handle {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        cursor: col-resize;
-        z-index: 10;
-        padding: 8px 4px;
-        background: transparent;
-        transition: all 0.2s;
-        pointer-events: auto;
-
-        .drag-grip {
-          width: 4px;
-          height: 32px;
-          background: #cbd5e1;
-          border-radius: 4px;
-          transition: all 0.2s ease;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-        }
-
-        .drag-tooltip {
-          position: absolute;
-          top: calc(100% + 12px);
-          left: 50%;
-          transform: translateX(-50%);
-          background: rgba(0, 0, 0, 0.75);
-          backdrop-filter: blur(4px);
-          color: white;
-          font-size: 11px;
-          padding: 4px 10px;
-          border-radius: 20px;
-          white-space: nowrap;
-          opacity: 0;
-          transition: opacity 0.2s ease;
-          pointer-events: none;
-          font-weight: 500;
-          letter-spacing: 0.3px;
-        }
-
-        &:hover .drag-grip {
-          background: #108efe;
-          width: 5px;
-          height: 40px;
-          box-shadow: 0 0 6px rgba(16, 142, 254, 0.5);
-        }
-
-        &:hover .drag-tooltip {
-          opacity: 1;
-        }
-      }
-
-      &:hover {
-        background: #cbd5e1;
-      }
-
-      &.divider-active {
-        background: #108efe;
-        box-shadow: 0 0 8px rgba(16, 142, 254, 0.3);
-
-        .drag-handle .drag-grip {
-          background: #108efe;
-          width: 5px;
-          height: 40px;
+          .nav-section-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: #2c3e50;
+            transition: color 0.2s;
+            line-height: 1.4;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
         }
       }
     }
 
     .tutorial-right {
       display: flex;
+      width: auto;
+      flex: 1;
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -1127,6 +1361,74 @@ onMounted(() => {
         height: 100%;
       }
     }
+  }
+}
+
+.floating-menu {
+  @include controller-style;
+  padding: 4px 4px;
+  box-sizing: border-box;
+  animation: menu-fade-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+
+  .menu-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .menu-item {
+    position: relative;
+
+    .menu-item-content {
+      padding: 6px 12px;
+      margin: 0;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      border-radius: 8px;
+      transition: background-color 0.15s ease;
+
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+      }
+
+      .menu-label {
+        font-size: 14px;
+        font-weight: 400;
+        flex: 1;
+      }
+
+      .submenu-arrow {
+        display: inline-flex;
+        align-items: center;
+        color: inherit;
+        width: 9px;
+        height: 9px;
+
+        svg {
+          display: block;
+          width: 100%;
+          height: 100%;
+          path {
+            stroke: currentColor;
+            opacity: 0.6;
+          }
+        }
+      }
+    }
+  }
+}
+
+@keyframes menu-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>

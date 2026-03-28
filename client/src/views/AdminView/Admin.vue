@@ -1,6 +1,7 @@
 <script setup lang="ts">
     import { useAdminStore } from "@/stores/adminStore";
     import { useAdminLoginStore } from "@/stores/adminLoginStore";
+    import { useUserStore } from "@/stores/userStore";
     import { useRouter } from "vue-router";
     import { type SystemStatsResponse, type StorageStats, type FinancialSymbolStats, type ProjectStats, type SystemHealthResponse } from "@/utils/api";
     import { PostgresMetrics } from "@/utils/api";
@@ -13,9 +14,10 @@
     import SystemHealthStatus from "./SystemHealthStatus.vue";
     import ProjectStatus from "./ProjectStatus.vue";
     import Loading from "@/components/Loading.vue";
-    import { ref } from "vue";
+    import { ref, onMounted } from "vue";
     const adminStore = useAdminStore();
     const adminLoginStore = useAdminLoginStore();
+    const userStore = useUserStore();
     const router = useRouter();
 
     const defaultSystemStatsResponse: SystemStatsResponse = {
@@ -63,12 +65,17 @@
     };
 
     const currentDemo = ref<string>("");
+    const currentAdmin = ref<string>(userStore.currentUserInfo.username || "DefaultAdmin");
     const systemStatus = ref<SystemStatsResponse>(defaultSystemStatsResponse);
     const serverStorageStatus = ref<StorageStats>(defaultStorageStats);
     const financialStatus = ref<Array<FinancialSymbolStats>>([]);
     const projectStatus = ref<ProjectStats>(defaultProjectStats);
     const systemHealthStatus = ref<SystemHealthResponse>(defaultSystemHealthResponse);
     
+    onMounted(async ()=>{
+        await userStore.getUserInfo()
+        currentAdmin.value = userStore.currentUserInfo.username || "DefaultAdmin";
+    })
     
     async function handleGetSystemStatus(){
         currentDemo.value = "loading";
@@ -125,6 +132,7 @@
                 <button @click="handleGetSystemHealthStatus">SystemHealthStatus</button>
             </div>
             <div class="bottombar-container">
+                <div>{{ currentAdmin }}</div>
                 <button @click="handleLogout">
                     Logout
                 </button>
