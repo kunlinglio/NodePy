@@ -279,57 +279,14 @@ const getDocInfo = (pages: number) => {
   }
 }
 
+// 存储每个文档的章节元数据：包含标题和索引（0‑based），索引与 splitIntoSections 返回的章节顺序一致
 const tutorialsChaptersMeta = ref<Map<number, Array<{ title: string; index: number }>>>(new Map())
 const cachedMarkdowns = ref<Map<number, string>>(new Map())
 const isPreloading = ref(false)
+// 存储每个文档的实际章节总数（与 tutorialsChaptersMeta 的长度一致）
+const docActualSections = ref<Map<number, number>>(new Map())
 
-const extractSectionTitles = (markdown: string): string[] => {
-  const lines = markdown.split('\n')
-  const titles: string[] = []
-  let inCodeBlock = false
-  for (const line of lines) {
-    if (line.trim().startsWith('```')) {
-      inCodeBlock = !inCodeBlock
-      continue
-    }
-    if (!inCodeBlock) {
-      const h2Match = line.match(/^## (.*)$/)
-      if (h2Match) {
-        titles.push(h2Match[1]!.trim())
-      }
-    }
-  }
-  if (titles.length === 0 && markdown.trim()) {
-    titles.push('概述')
-  }
-  return titles
-}
-
-const preloadAllTutorials = async () => {
-  if (isPreloading.value) return
-  isPreloading.value = true
-  try {
-    const baseUrl = import.meta.env.BASE_URL
-    const fetchPromises = tutorialFiles.map(async (file, idx) => {
-      const docId = idx + 1
-      const response = await fetch(`${baseUrl}guides/${file}`)
-      if (!response.ok) throw new Error(`加载 ${file} 失败`)
-      const markdown = await response.text()
-      cachedMarkdowns.value.set(docId, markdown)
-      const titles = extractSectionTitles(markdown)
-      const sections = titles.map((title, index) => ({ title, index }))
-      tutorialsChaptersMeta.value.set(docId, sections)
-      const doc = docs.value.find(d => d.id === docId)
-      if (doc) doc.pages = sections.length
-    })
-    await Promise.all(fetchPromises)
-  } catch (error) {
-    console.error('预加载教程失败:', error)
-  } finally {
-    isPreloading.value = false
-  }
-}
-
+// 将 markdown 切分成带标题的章节（包含概述）
 const splitIntoSections = (markdown: string) => {
   const lines = markdown.split('\n')
   const sections: Array<{ title: string; content: string; html: string }> = []
@@ -384,6 +341,40 @@ const splitIntoSections = (markdown: string) => {
   return sections
 }
 
+const preloadAllTutorials = async () => {
+  if (isPreloading.value) return
+  isPreloading.value = true
+  try {
+    const baseUrl = import.meta.env.BASE_URL
+    const fetchPromises = tutorialFiles.map(async (file, idx) => {
+      const docId = idx + 1
+      const response = await fetch(`${baseUrl}guides/${file}`)
+      if (!response.ok) throw new Error(`加载 ${file} 失败`)
+      const markdown = await response.text()
+      cachedMarkdowns.value.set(docId, markdown)
+
+      // 使用 splitIntoSections 得到实际章节列表（包含概述）
+      const actualSections = splitIntoSections(markdown)
+      // 存储章节元数据（标题 + 索引）
+      const meta = actualSections.map((section, idx) => ({
+        title: section.title,
+        index: idx
+      }))
+      tutorialsChaptersMeta.value.set(docId, meta)
+      docActualSections.value.set(docId, actualSections.length)
+
+      // 更新卡片显示的页数
+      const doc = docs.value.find(d => d.id === docId)
+      if (doc) doc.pages = actualSections.length
+    })
+    await Promise.all(fetchPromises)
+  } catch (error) {
+    console.error('预加载教程失败:', error)
+  } finally {
+    isPreloading.value = false
+  }
+}
+
 const loadTutorial = async (docId: number) => {
   isLoading.value = true
   try {
@@ -396,10 +387,16 @@ const loadTutorial = async (docId: number) => {
         if (!response.ok) throw new Error('加载失败')
         markdown = await response.text()
         cachedMarkdowns.value.set(docId, markdown)
+
+        // 若元数据缺失，则重新生成
         if (!tutorialsChaptersMeta.value.has(docId)) {
-          const titles = extractSectionTitles(markdown)
-          const sections = titles.map((title, idx) => ({ title, index: idx }))
-          tutorialsChaptersMeta.value.set(docId, sections)
+          const actualSections = splitIntoSections(markdown)
+          const meta = actualSections.map((section, idx) => ({
+            title: section.title,
+            index: idx
+          }))
+          tutorialsChaptersMeta.value.set(docId, meta)
+          docActualSections.value.set(docId, actualSections.length)
         }
       }
     }
@@ -476,9 +473,9 @@ const headerTitle = computed(() => {
   return `${docTitle} - ${sectionTitle}${progress}`
 })
 
+// 获取文档实际章节总数（用于跨文档跳转）
 const getDocTotalSections = (docId: number): number => {
-  const sections = tutorialsChaptersMeta.value.get(docId)
-  return sections ? sections.length : 0
+  return docActualSections.value.get(docId) || 0
 }
 
 const hasPreviousDoc = computed(() => currentDoc.value ? currentDoc.value.id > 1 : false)
@@ -559,7 +556,7 @@ const goPrevSection = () => {
       }
     })
   } else if (hasPreviousDoc.value) {
-    // 切换到上一篇文档，强制刷新页面
+    // 切换到上一篇文档，强制刷新页面，跳转到其最后一节
     const prevDocId = currentDoc.value!.id - 1
     const totalSectionsPrev = getDocTotalSections(prevDocId)
     const targetSection = totalSectionsPrev > 0 ? totalSectionsPrev : 1
@@ -705,6 +702,7 @@ const menuPositionStyle = computed(() => {
   }
 })
 
+// 主菜单项：使用包含概述的章节列表
 const mainMenuItems = computed(() => {
   return docs.value.map(doc => ({
     id: doc.id,
