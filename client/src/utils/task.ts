@@ -2,6 +2,15 @@ import type { Project } from '@/utils/api'
 import { useGraphStore } from '@/stores/graphStore'
 import { writeBackVueFLowProject } from './projectConvert'
 
+// 获取 WebSocket 基础 URL
+const getWsBaseUrl = () => {
+  // 开发环境：直接连接本地后端
+  if (import.meta.env.DEV) {
+    return 'ws://localhost:8000'
+  }
+  // 生产环境：使用相对路径，浏览器自动补全
+  return ''
+}
 
 // apply patch
 function setDeep<O extends Record<string, any>>(
@@ -81,7 +90,7 @@ class TaskManager {
       }
 
       this.currentTaskId = task_id
-      const ws = isPlaygroundProject ? new WebSocket(`ws://localhost:8000/api/playground/status/${task_id}`) : new WebSocket(`ws://localhost:8000/api/project/status/${task_id}`)
+      const ws = isPlaygroundProject ? new WebSocket(`${getWsBaseUrl()}/api/playground/status/${task_id}`) : new WebSocket(`${getWsBaseUrl()}/api/project/status/${task_id}`)
       this.currentWebSocket = ws
       this.timeoutId = window.setTimeout(() => {
         ws.close()
