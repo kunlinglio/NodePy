@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from loguru import logger
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from server.config import (
     EXAMPLE_USER_EMAIL,
@@ -225,6 +226,8 @@ def initialize_example_projects() -> None:
             except Exception as e:
                 logger.error(f"Failed to load example project from {file_path.name}: {e}")
                 raise e
+
+        db.execute(text("SELECT setval(pg_get_serial_sequence('projects', 'id'), COALESCE(MAX(id), 1)) FROM projects;"))
 
         db.commit()
 
