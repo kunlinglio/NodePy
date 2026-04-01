@@ -44,9 +44,12 @@ import UploadNode from '@/components/nodes/file/UploadNode.vue'
 import TableFromFileNode from '@/components/nodes/file/TableFromFileNode.vue'
 import DualAxisPlotNode from '@/components/nodes/visualize/DualAxisPlotNode.vue'
 import MergeNode from '@/components/nodes/tableProcess/MergeNode.vue'
+import { useModalStore } from '@/stores/modalStore';
+import AdminAccountInfo from '@/components/AdminAccountInfo.vue';
 
 const pageStore = usePageStore()
 const loginStore = useLoginStore()
+const modalStore = useModalStore()
 const router = useRouter()
 
 const nodeTypes = {
@@ -424,9 +427,29 @@ function jumpToGithub() {
 }
 
 function jumpToAdmin(){
-  router.push({
-    name: 'adminlogin'
-  })
+  if (loginStore.loggedIn) {
+      const UserAccessWidth = 300
+      const UserAccessHeight = 240
+      modalStore.createModal({
+        component: AdminAccountInfo,
+        title: '用户权限',
+        isActive: true,
+        isResizable: false,
+        isDraggable: true,
+        isModal: true,
+        position: {
+          x: window.innerWidth / 2 - UserAccessWidth / 2,
+          y: window.innerHeight / 2 - UserAccessHeight / 2
+        },
+        size: {
+          width: UserAccessWidth,
+          height: UserAccessHeight
+        },
+        id: 'user-access',
+    })
+    return;
+  }
+  router.push({ name: 'adminlogin' });
 }
 </script>
 
