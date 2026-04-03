@@ -44,7 +44,7 @@ const tagColor = computed(() => {
     align-items: center;
     justify-content: center;
     padding: 4px 8px;
-    border-radius: 6px;
+    border-radius: 12px;
     font-size: 12px;
     color: #2c3e50;
     background-color: #f0f2f5;

@@ -2,7 +2,7 @@
     import { useUserStore } from '@/stores/userStore';
     import type { ExploreListItem } from '@/utils/api';
     import Tag from '@/components/Tag.vue';
-    import { computed } from 'vue';
+    import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
     import { useRouter } from 'vue-router';
 
     const props = defineProps<{
@@ -10,19 +10,20 @@
     }>()
 
     const router = useRouter()
-
     const userStore = useUserStore()
 
-    // 计算属性：将 Base64 转换为完整的 Data URL
+    // 标签滚动容器引用
+    const tagsScrollRef = ref<HTMLElement | null>(null);
+    // 拖拽状态
+    let isDragging = false;
+    let startX = 0;
+    let scrollLeft = 0;
+
     const thumbSrc = computed(() => {
         if (!props.item.thumb) return null
-
-        // 如果已经是 Data URL，直接返回
         if (props.item.thumb.startsWith('data:image')) {
             return props.item.thumb
         }
-
-        // 如果是纯 Base64，添加前缀
         return `data:image/png;base64,${props.item.thumb}`
     })
 
@@ -55,10 +56,59 @@
         // TODO: 实现复制功能
     }
 
+    // 鼠标拖拽滚动逻辑
+    function onMouseDown(e: MouseEvent) {
+        if (!tagsScrollRef.value) return;
+        isDragging = true;
+        startX = e.pageX - tagsScrollRef.value.offsetLeft;
+        scrollLeft = tagsScrollRef.value.scrollLeft;
+        tagsScrollRef.value.style.cursor = 'grabbing';
+        e.preventDefault();
+    }
+
+    function onMouseMove(e: MouseEvent) {
+        if (!isDragging || !tagsScrollRef.value) return;
+        const x = e.pageX - tagsScrollRef.value.offsetLeft;
+        const walk = (x - startX) * 1.5;
+        tagsScrollRef.value.scrollLeft = scrollLeft - walk;
+        e.preventDefault();
+    }
+
+    function onMouseUp(e: MouseEvent) {
+        if (!tagsScrollRef.value) return;
+        isDragging = false;
+        tagsScrollRef.value.style.cursor = 'grab';
+    }
+
+    function onWheel(e: WheelEvent) {
+        if (!tagsScrollRef.value) return;
+        if (e.deltaY !== 0) {
+            e.preventDefault();
+            tagsScrollRef.value.scrollLeft += e.deltaY;
+        }
+    }
+
+    onMounted(() => {
+        if (tagsScrollRef.value) {
+            tagsScrollRef.value.addEventListener('mousedown', onMouseDown);
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+            tagsScrollRef.value.addEventListener('wheel', onWheel, { passive: false });
+            tagsScrollRef.value.style.cursor = 'grab';
+        }
+    });
+
+    onBeforeUnmount(() => {
+        if (tagsScrollRef.value) {
+            tagsScrollRef.value.removeEventListener('mousedown', onMouseDown);
+            tagsScrollRef.value.removeEventListener('wheel', onWheel);
+        }
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+    });
 </script>
 <template>
     <div class="project-card" @click="handleOpenExample">
-        <!-- 缩略图区域 -->
         <div class="project-thumb">
             <div class="thumb-content">
                 <template v-if="thumbSrc">
@@ -70,22 +120,29 @@
             </div>
         </div>
 
-        <!-- 项目信息区域 -->
         <div class="project-info">
             <div class="project-title">{{ item.project_name }}</div>
+
+            <!-- 标签区域：横向滚动 + 隐藏滚动条 + 鼠标拖拽滚动 -->
             <div class="project-tags">
-                <div v-if="!props" class="tags-container">
-                    <!-- <Tag
-                        v-for="tag in props.tags" 
-                        :key="tag.content" 
-                        :tag="tag"
-                        >
-                    </Tag> -->
-                </div>
-                <div v-else class="tags-container">
-                    暂无标签
+                <div
+                    ref="tagsScrollRef"
+                    class="tags-scroll"
+                >
+                    <div class="tags-wrapper">
+                        <template v-if="item.tags && item.tags.length">
+                            <Tag
+                                v-for="tag in item.tags"
+                                :key="tag"
+                                :tag="{ content: tag }"
+                                class="tag-item"
+                            />
+                        </template>
+                        <span v-else class="tag-placeholder">暂无标签</span>
+                    </div>
                 </div>
             </div>
+
             <div class="project-meta">
                 <div class="meta-item-row">
                     <span class="meta-item">修改: {{ formatDate(item.updated_at) }}</span>
@@ -123,7 +180,7 @@
 .project-thumb{
     position: relative;
     width: 100%;
-    padding-top: 56.25%; /* 16:9 */
+    padding-top: 56.25%;
     display: block;
     background: #f6f9fb;
 }
@@ -164,9 +221,7 @@
     padding: 14px 16px;
     display:flex;
     flex-direction:column;
-    gap:6px;
-    min-height: 75px; /* ensure new-card height matches cards with meta */
-    // height: 100px;
+    // gap:6px;
 }
 .project-title{
     font-weight:700;
@@ -183,15 +238,44 @@
     font-size:12px;
     color:#6b7f8f;
 }
-.project-tags{
-    font-size:12px;
+.project-tags {
+    margin: 4px 0;
+    height: 32px;
+    overflow: visible;
 }
-.tags-container{
-    display: flex;
-    gap: 10px;
+.tags-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    height: 100%;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    &::-webkit-scrollbar {
+        display: none;
+    }
+    user-select: none;
+    cursor: grab;
+    &:active {
+        cursor: grabbing;
+    }
+}
+.tags-wrapper {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    height: 100%;
+    padding-right: 4px;
+}
+.tag-item {
+    flex-shrink: 0;
+}
+.tag-placeholder {
+    display: inline-block;
+    font-size: 12px;
+    color: #8a9aa8;
+    line-height: 32px;
 }
 .meta-item{opacity:0.95}
-
 .meta-item-row{
     display:flex;
     gap:10px;

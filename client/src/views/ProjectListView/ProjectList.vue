@@ -96,7 +96,7 @@
 
     function openAddProjectModal(){
         const modalWidth = 400;
-        const modalHeight = 600;
+        const modalHeight = 450;
         modalStore.createModal({
             id: 'create-project',
             title: '创建项目',

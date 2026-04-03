@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import {computed, ref, nextTick} from 'vue';
+import {computed, ref, nextTick, onMounted, onBeforeUnmount} from 'vue';
 import { Plus, Edit, Delete } from '@element-plus/icons-vue';
 import { useProjectStore } from '@/stores/projectStore';
 import { useModalStore } from '@/stores/modalStore';
@@ -26,22 +26,24 @@ const props = defineProps<{
     handleCreateNewProject?: () => void,
 }>();
 
-// 计算属性：将 Base64 转换为完整的 Data URL
 const thumbSrc = computed(() => {
     if (!props.thumb) return null
-
-    // 如果已经是 Data URL，直接返回
     if (props.thumb.startsWith('data:image')) {
         return props.thumb
     }
-
-    // 如果是纯 Base64，添加前缀
     return `data:image/png;base64,${props.thumb}`
 })
 
 const projectStore = useProjectStore();
 const modalStore = useModalStore();
 const cardRef = ref<HTMLDivElement | null>(null);
+
+// 标签滚动容器引用
+const tagsScrollRef = ref<HTMLElement | null>(null);
+// 拖拽状态
+let isDragging = false;
+let startX = 0;
+let scrollLeft = 0;
 
 function parseDate(v: number | string | null | undefined) {
     if (!v) return null;
@@ -62,8 +64,6 @@ function onCardClick() {
     } else if (props.handleCreateNewProject) {
         props.handleCreateNewProject();
     }
-    
-    // 移除卡片焦点，防止选中效果和键盘事件继续触发
     nextTick(() => {
         cardRef.value?.blur();
     });
@@ -98,7 +98,7 @@ async function handleClickUpdate(){
     await projectStore.getProjectSettings(props.id)
     projectStore.currentProjectId = props.id
     const modalWidth = 400;
-    const modalHeight = 600;
+    const modalHeight = 450;
     modalStore.createModal({
         id: 'update-modal',
         title: "更新项目",
@@ -118,6 +118,56 @@ async function handleClickUpdate(){
     })
 }
 
+// 鼠标拖拽滚动逻辑
+function onMouseDown(e: MouseEvent) {
+    if (!tagsScrollRef.value) return;
+    isDragging = true;
+    startX = e.pageX - tagsScrollRef.value.offsetLeft;
+    scrollLeft = tagsScrollRef.value.scrollLeft;
+    tagsScrollRef.value.style.cursor = 'grabbing';
+    e.preventDefault();
+}
+
+function onMouseMove(e: MouseEvent) {
+    if (!isDragging || !tagsScrollRef.value) return;
+    const x = e.pageX - tagsScrollRef.value.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    tagsScrollRef.value.scrollLeft = scrollLeft - walk;
+    e.preventDefault();
+}
+
+function onMouseUp(e: MouseEvent) {
+    if (!tagsScrollRef.value) return;
+    isDragging = false;
+    tagsScrollRef.value.style.cursor = 'grab';
+}
+
+function onWheel(e: WheelEvent) {
+    if (!tagsScrollRef.value) return;
+    if (e.deltaY !== 0) {
+        e.preventDefault();
+        tagsScrollRef.value.scrollLeft += e.deltaY;
+    }
+}
+
+onMounted(() => {
+    if (tagsScrollRef.value) {
+        tagsScrollRef.value.addEventListener('mousedown', onMouseDown);
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+        tagsScrollRef.value.addEventListener('wheel', onWheel, { passive: false });
+        tagsScrollRef.value.style.cursor = 'grab';
+    }
+});
+
+onBeforeUnmount(() => {
+    if (tagsScrollRef.value) {
+        tagsScrollRef.value.removeEventListener('mousedown', onMouseDown);
+        tagsScrollRef.value.removeEventListener('wheel', onWheel);
+    }
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+});
 </script>
 
 <template>
@@ -156,30 +206,39 @@ async function handleClickUpdate(){
 
         <div class="project-info">
             <div class="project-title">{{ props.title ?? (props.id ? `Project ${props.id}` : 'New') }}</div>
-            <div class="project-tags">
-                <div v-if="props.tags?.length!=0 && !props.isCreate" class="tags-container">
-                    <Tag
-                        v-for="tag in props.tags" 
-                        :key="tag" 
-                        :tag="{ content: tag }"
-                    >
-                    </Tag>
-                </div>
-                <div v-else-if="props.isCreate" class="tags-container">
-                    <div class="occupation-1">
 
+            <!-- 标签区域：横向滚动 + 隐藏滚动条 + 鼠标拖拽滚动 -->
+            <div class="project-tags">
+                <div
+                    ref="tagsScrollRef"
+                    class="tags-scroll"
+                >
+                    <div class="tags-wrapper">
+                        <!-- 正常卡片（非创建）有标签时显示标签列表 -->
+                        <template v-if="props.tags?.length && !props.isCreate">
+                            <Tag
+                                v-for="tag in props.tags"
+                                :key="tag"
+                                :tag="{ content: tag }"
+                                class="tag-item"
+                            />
+                        </template>
+                        <!-- 正常卡片无标签时显示占位符 -->
+                        <template v-else-if="!props.isCreate">
+                            <span class="tag-placeholder">暂无标签</span>
+                        </template>
+                        <!-- 创建卡片时：显示不可见占位符，保持高度一致 -->
+                        <template v-else>
+                            <span class="tag-placeholder-invisible"></span>
+                        </template>
                     </div>
                 </div>
-                <div v-else class="tags-container">
-                    暂无标签
-                </div>
             </div>
-            <div v-if="!(props.id === 0 && props.handleCreateNewProject)" class="project-meta">
+
+            <!-- 统一元数据区域：正常卡片显示真实数据，创建卡片显示隐藏占位符（保持高度） -->
+            <div class="project-meta" :class="{ 'invisible-meta': props.id === 0 && props.handleCreateNewProject }">
                 <span class="meta-item">修改: {{ formatDate(props.updated_at) }}</span>
                 <span class="meta-item">创建: {{ formatDate(props.created_at) }}</span>
-            </div>
-            <div v-else class="occupation-2">
-
             </div>
         </div>
     </div>
@@ -240,10 +299,6 @@ async function handleClickUpdate(){
     gap: 4px;
     z-index: 5;
 }
-.action-btn{
-    padding: 4px;
-    color: rgba(16,35,53,0.75);
-}
 .thumb-img{
     width:100%;
     height:100%;
@@ -270,9 +325,7 @@ async function handleClickUpdate(){
     padding: 14px 16px;
     display:flex;
     flex-direction:column;
-    gap:6px;
-    min-height: 75px; /* ensure new-card height matches cards with meta */
-    // height: 100px;
+    // gap:6px;
 }
 .project-title{
     font-weight:700;
@@ -288,26 +341,52 @@ async function handleClickUpdate(){
     font-size:12px;
     color:#6b7f8f;
 }
-.project-tags{
-    font-size:12px;
+.invisible-meta {
+    visibility: hidden;
 }
-.tags-container{
-    display: flex;
-    gap: 10px;
+.project-tags {
+    margin: 4px 0;
+    height: 32px;
+    overflow: visible;
 }
-.occupation-1{
-    height: 0px;
+.tags-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    height: 100%;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    &::-webkit-scrollbar {
+        display: none;
+    }
+    user-select: none;
+    cursor: grab;
+    &:active {
+        cursor: grabbing;
+    }
 }
-.occupation-2{
-    height: 38px;
+.tags-wrapper {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    height: 100%;
+    padding-right: 4px;
 }
-.new-card{ border: 1px solid rgba(28,128,199,0.06); }
-.meta-item{opacity:0.95}
-
-@media (max-width: 480px){
-    .project-card{ max-width: 100%; }
+.tag-item {
+    flex-shrink: 0;
 }
-
+.tag-placeholder {
+    display: inline-block;
+    font-size: 12px;
+    color: #8a9aa8;
+    line-height: 32px;
+}
+.tag-placeholder-invisible {
+    display: inline-block;
+    width: 1px;
+    height: 24px;
+    visibility: hidden;
+}
 .project-action-btn{
     cursor: pointer;
     padding: 6px;
@@ -325,5 +404,10 @@ async function handleClickUpdate(){
     &:hover {
         background-color: rgba(0, 0, 0, 0.05);
     }
+}
+.new-card{ border: 1px solid rgba(28,128,199,0.06); }
+.meta-item{opacity:0.95}
+@media (max-width: 480px){
+    .project-card{ max-width: 100%; }
 }
 </style>

@@ -25,7 +25,25 @@ import {
   mdiBrain,
   mdiTextSearch,
   mdiCalendarClock,
-  mdiFileDocumentMultiple
+  mdiFileDocumentMultiple,
+  mdiCloudCheck,
+  mdiShieldLock,
+  mdiCog,
+  mdiDatabase,
+  mdiChartLine,
+  mdiCubeOutline,
+  mdiTune,
+  mdiFinance,
+  mdiTrendingUp,
+  mdiRobot,
+  mdiVectorPolygon,
+  mdiCellphoneLink,
+  mdiServer,
+  mdiResistorNodes,
+  mdiChartBoxOutline,
+  mdiSecurity,
+  mdiChevronLeft,   // 新增：左箭头图标
+  mdiChevronRight   // 新增：右箭头图标
 } from '@mdi/js';
 
 import ConstNode from '@/components/nodes/input/ConstNode.vue'
@@ -257,7 +275,10 @@ const currentExampleIndex = ref(0)
 
 // 自动轮播定时器
 const carouselTimer = ref<NodeJS.Timeout | null>(null)
-
+// 进度条定时器
+const progressInterval = ref<NodeJS.Timeout | null>(null)
+// 进度百分比 (0-100)
+const progressPercent = ref(0)
 
 const currentName = computed(()=>{
   switch(currentExampleIndex.value) {
@@ -289,85 +310,216 @@ const currentEdges = computed(() => {
   }
 })
 
-// 特性列表
+// 特性列表 - 新增 mediaUrl 用于展示 GIF/视频
 const features = [
   {
     icon: mdiGraph,
     title: '严格类型系统',
     description: '支持 Int, Float, Bool, String, Table, File, Datetime 七大类型，确保数据流转的准确性。',
-    nodeType: 'input' // 对应 node.scss 中的颜色分类
+    nodeType: 'input',
+    mediaUrl: 'https://placehold.co/400x200/2563eb/white?text=Strict+Type+System'
   },
   {
     icon: mdiTableLarge,
     title: 'Pandas 表格处理',
     description: '内置强大的表格处理能力，支持过滤、去重、缺失值处理、列运算等复杂操作。',
-    nodeType: 'tableProcess'
+    nodeType: 'tableProcess',
+    mediaUrl: 'https://placehold.co/400x200/3b82f6/white?text=Pandas+Processing'
   },
   {
     icon: mdiChartScatterPlot,
     title: '专业可视化',
     description: '支持散点图、折线图、柱状图、面积图、K线图等多种专业金融图表绘制。',
-    nodeType: 'visualize'
+    nodeType: 'visualize',
+    mediaUrl: 'https://placehold.co/400x200/8b5cf6/white?text=Visualization'
   },
   {
     icon: mdiFunctionVariant,
     title: 'Python 驱动',
     description: '底层完全由 Python 驱动，兼容 Python 生态，计算结果精准可靠。',
-    nodeType: 'compute'
+    nodeType: 'compute',
+    mediaUrl: 'https://placehold.co/400x200/06b6d4/white?text=Python+Driven'
   },
   {
     icon: mdiBrain,
     title: '机器学习支持',
     description: '集成 scikit-learn，支持线性回归、逻辑回归等多种机器学习算法。',
-    nodeType: 'machineLearning'
+    nodeType: 'machineLearning',
+    mediaUrl: 'https://placehold.co/400x200/ec4899/white?text=Machine+Learning'
   },
   {
     icon: mdiTextSearch,
     title: '文本处理',
     description: '内置分词、正则匹配、情感分析等强大的文本处理能力。',
-    nodeType: 'stringProcess'
+    nodeType: 'stringProcess',
+    mediaUrl: 'https://placehold.co/400x200/f59e0b/white?text=Text+Processing'
   },
   {
     icon: mdiCalendarClock,
     title: '时间序列',
     description: '完整的时间序列数据处理能力，支持日期计算、移动窗口等操作。',
-    nodeType: 'datetimeProcess'
+    nodeType: 'datetimeProcess',
+    mediaUrl: 'https://placehold.co/400x200/10b981/white?text=Time+Series'
   },
   {
     icon: mdiFileDocumentMultiple,
     title: '文件系统',
     description: '支持 CSV、Excel、JSON 等多种文件格式的导入导出，配额管理更安全。',
-    nodeType: 'file'
+    nodeType: 'file',
+    mediaUrl: 'https://placehold.co/400x200/6b7280/white?text=File+System'
   }
 ]
 
 // 实例项目列表
 const examples = ref<ExploreListItem[]>([])
 
-// 开始自动轮播
-const startCarousel = () => {
-  if (carouselTimer.value) {
-    clearInterval(carouselTimer.value)
-  }
-
-  carouselTimer.value = setInterval(() => {
-    currentExampleIndex.value = (currentExampleIndex.value + 1) % 4
-  }, 3000) // 每3秒切换一次
+// 启动进度条更新
+const startProgress = () => {
+  if (progressInterval.value) clearInterval(progressInterval.value)
+  progressPercent.value = 0
+  progressInterval.value = setInterval(() => {
+    if (progressPercent.value < 100) {
+      progressPercent.value = Math.min(progressPercent.value + 2, 100)
+    }
+  }, 60) // 3000ms / 50步 = 60ms/步
 }
 
-// 停止自动轮播
-const stopCarousel = () => {
+// 重置进度条并重启自动轮播计时
+const resetCarouselAndProgress = () => {
+  // 重置进度条
+  if (progressInterval.value) clearInterval(progressInterval.value)
+  progressPercent.value = 0
+  startProgress()
+  // 重置自动轮播计时
+  if (carouselTimer.value) clearInterval(carouselTimer.value)
+  carouselTimer.value = setInterval(() => {
+    currentExampleIndex.value = (currentExampleIndex.value + 1) % 4
+    resetCarouselAndProgress()
+  }, 3000)
+}
+
+// 停止所有定时器
+const stopCarouselAndProgress = () => {
   if (carouselTimer.value) {
     clearInterval(carouselTimer.value)
     carouselTimer.value = null
+  }
+  if (progressInterval.value) {
+    clearInterval(progressInterval.value)
+    progressInterval.value = null
   }
 }
 
 // 手动切换示例
 const switchExample = (index: number) => {
+  if (currentExampleIndex.value === index) return
   currentExampleIndex.value = index
+  stopCarouselAndProgress()
+  resetCarouselAndProgress()
 }
 
+// ================= 生态圆柱体轮播逻辑 (增强版：无限循环 + 平滑旋转) =================
+// 生态卡片数据（共6个）
+const ecosystemItems = [
+  {
+    icon: mdiDatabase,
+    title: '数据接入',
+    description: '支持股票、加密货币、宏观经济数据等实时/历史数据源'
+  },
+  {
+    icon: mdiTune,
+    title: '数据清洗',
+    description: '缺失值处理、异常检测、数据标准化、去重聚合'
+  },
+  {
+    icon: mdiChartLine,
+    title: '技术指标',
+    description: '内置MACD、RSI、布林带等50+种技术分析指标'
+  },
+  {
+    icon: mdiRobot,
+    title: '机器学习',
+    description: '回归、分类、聚类算法，支持模型训练与评估'
+  },
+  {
+    icon: mdiVectorPolygon,
+    title: '策略回测',
+    description: '事件驱动回测框架，精准评估策略表现'
+  },
+  {
+    icon: mdiCellphoneLink,
+    title: '实时监控',
+    description: 'WebSocket实时行情接入，策略信号实时推送'
+  }
+]
+
+// 当前旋转角度（单位：度），可以无限累加/累减，实现无缝循环
+const currentEcoAngle = ref(0)
+// 生态自动轮播定时器
+let ecoAutoTimer: NodeJS.Timeout | null = null
+// 是否正在悬停（悬停时暂停自动轮播）
+const isEcoHovering = ref(false)
+
+// 获取当前高亮索引（0-5）
+const currentEcoIndex = computed(() => {
+  // 取模运算，确保结果在 0-5 之间
+  const raw = Math.round(currentEcoAngle.value / 60)
+  return ((raw % 6) + 6) % 6
+})
+
+// 旋转到指定索引（使用最短路径增量，保证动画平滑不绕远）
+const rotateToEcoIndex = (targetIndex: number) => {
+  const currentIndex = currentEcoIndex.value
+  let delta = targetIndex - currentIndex
+  // 选择最短路径
+  if (delta > 3) delta -= 6
+  if (delta < -3) delta += 6
+  currentEcoAngle.value += delta * 60
+}
+
+// 下一个（增加60度）
+const nextEco = () => {
+  currentEcoAngle.value += 60
+  resetEcoAutoTimer()
+}
+
+// 上一个（减少60度）
+const prevEco = () => {
+  currentEcoAngle.value -= 60
+  resetEcoAutoTimer()
+}
+
+// 启动生态自动轮播（每3秒切换一次）
+const startEcoAutoTimer = () => {
+  if (ecoAutoTimer) clearInterval(ecoAutoTimer)
+  ecoAutoTimer = setInterval(() => {
+    if (!isEcoHovering.value) {
+      nextEco()
+    }
+  }, 3000)
+}
+
+// 重置生态自动轮播计时（用户点击箭头后重新计时）
+const resetEcoAutoTimer = () => {
+  if (ecoAutoTimer) {
+    clearInterval(ecoAutoTimer)
+    ecoAutoTimer = null
+  }
+  startEcoAutoTimer()
+}
+
+// 暂停生态自动轮播（鼠标移入）
+const pauseEcoAuto = () => {
+  isEcoHovering.value = true
+}
+
+// 恢复生态自动轮播（鼠标移出）
+const resumeEcoAuto = () => {
+  isEcoHovering.value = false
+  resetEcoAutoTimer()
+}
+
+// ================= 原有 onMounted 等逻辑 =================
 onMounted(async () => {
   loginStore.checkAuthStatus()
   pageStore.setCurrentPage('Home')
@@ -379,8 +531,11 @@ onMounted(async () => {
     console.error('Failed to fetch examples:', e)
   }
 
-  // 启动自动轮播
-  startCarousel()
+  // 启动示例自动轮播和进度条
+  resetCarouselAndProgress()
+  
+  // 启动生态圆柱体自动轮播
+  startEcoAutoTimer()
 })
 
 const { onNodeClick, findNode, onConnect, onNodesInitialized, fitView, onNodeDragStop, addEdges, getNodes, onPaneClick, screenToFlowCoordinate } = useVueFlow('demo')
@@ -396,7 +551,8 @@ onNodesInitialized(() => {
 
 // 组件卸载时清理定时器
 onUnmounted(() => {
-  stopCarousel()
+  stopCarouselAndProgress()
+  if (ecoAutoTimer) clearInterval(ecoAutoTimer)
 })
 
 function jumpToLogin() {
@@ -420,6 +576,15 @@ function jumpToExample() {
 
 // 用户是否已登录
 const isLoggedIn = computed(() => loginStore.loggedIn)
+
+// 快速开始按钮行为
+function quickStart() {
+  if (isLoggedIn.value) {
+    jumpToProject()
+  } else {
+    jumpToLogin()
+  }
+}
 
 // 跳转到GitHub
 function jumpToGithub() {
@@ -455,49 +620,45 @@ function jumpToAdmin(){
 
 <template>
   <div class="home-container">
-    <!-- 背景装饰元素 -->
-    <div class="background-elements">
-      <div class="bg-circle circle-1"></div>
-      <div class="bg-circle circle-2"></div>
-      <div class="bg-circle circle-3"></div>
-    </div>
+    <!-- 动态背景粒子层 -->
+    <div class="particle-bg"></div>
+    <div class="gradient-orb orb-1"></div>
+    <div class="gradient-orb orb-2"></div>
+    <div class="gradient-orb orb-3"></div>
 
-    <!-- 主内容区 -->
     <div class="home-content">
-
-      <!-- 页面内容 -->
       <div class="scroll-content">
-        <!-- 第一部分：Hero Section (编辑器与节点展示) -->
+        <!-- Hero Section 优化布局：更直观的描述 + 快速开始按钮 -->
         <div class="section hero-section">
-          <div class="hero-content">
+          <div class="hero-top">
             <h1 class="hero-title">
-              可视化金融数据分析<br>
-              <span class="highlight">构建你的量化工作流</span>
+              NodePy
+              <span class="gradient-text">基于节点的金融数据分析平台</span>
             </h1>
             <p class="hero-subtitle">
-              NodePy 让数据分析像搭积木一样简单。无需编写复杂代码，通过拖拽节点即可完成从数据获取、清洗、计算到可视化的全过程。
+              无需编写复杂代码，通过拖拽节点即可完成从数据获取、清洗、计算到可视化的全过程。
             </p>
-
-            <div class="hero-actions">
-              <button  @click="isLoggedIn ? jumpToProject() : jumpToLogin()" class="cta-button">
-                <div class="button-icon-container"><svg-icon :path="mdiRocketLaunchOutline" :size="24" type="mdi"></svg-icon></div>
-                <div class="button-text-container">立即开始</div>
-              </button>
-              <button  @click="jumpToGithub" class="secondary-button">
-                <div class="button-icon-container"><svg-icon :path="mdiGithub" :size="24" type="mdi"></svg-icon></div>
-                <div class="button-text-container">GitHub</div>
+            
+            <!-- 快速开始按钮 -->
+            <div class="quick-start-wrapper">
+              <button @click="quickStart" class="quick-start-btn">
+                <!-- <svg-icon :path="mdiRocketLaunchOutline" :size="20" class="btn-icon" /> -->
+                快速开始
               </button>
             </div>
           </div>
-
+          
+          <!-- 可视化展示区（保持不变） -->
           <div class="hero-visual">
-            <!-- 模拟的编辑器界面 -->
             <div class="editor-mockup">
               <div class="mockup-header">
-                <div class="dots">
+                <div class="window-controls">
                   <span></span><span></span><span></span>
                 </div>
-                <div class="title">{{currentName}}</div>
+                <div class="file-name">{{ currentName }}</div>
+                <div class="mockup-actions">
+                  <div class="run-indicator"></div>
+                </div>
               </div>
               <div class="mockup-body">
                 <VueFlow
@@ -505,103 +666,239 @@ function jumpToAdmin(){
                   :edges="currentEdges"
                   :node-types="nodeTypes"
                   :default-viewport="{ zoom: 0.5 }"
-                  :min-zoom="0.5"
-                  :max-zoom="2"
+                  :min-zoom="0.3"
+                  :max-zoom="1.5"
                   fit-view-on-init
                   class="demo-flow"
                   id="demo"
                 >
-                  <Background color="rgba(50, 50, 50, 0.05)" variant="dots" :gap="20" :size="4"/>
-
+                  <Background color="rgba(50, 50, 50, 0.03)" variant="dots" :gap="16" :size="2"/>
                   <template #edge-NodePyEdge="NodePyEdgeProps">
                     <NodePyEdge v-bind="NodePyEdgeProps"/>
                   </template>
-
                   <template #connection-line="ConnectionLineProps">
                     <NodePyConnectionLine v-bind="ConnectionLineProps"/>
                   </template>
                 </VueFlow>
               </div>
-            </div>
-            <!-- 轮播指示器 -->
-            <div class="carousel-indicators">
-              <span
-                v-for="(_, index) in 4"
-                :key="index"
-                class="indicator-dot"
-                :class="{ active: currentExampleIndex === index }"
-                @click="switchExample(index)"
-              ></span>
+              <!-- 进度条 -->
+              <div class="carousel-progress">
+                <div class="progress-bar" :style="{ width: progressPercent + '%' }"></div>
+              </div>
+              <div class="carousel-indicators">
+                <span
+                  v-for="(_, index) in 4"
+                  :key="index"
+                  class="indicator-dot"
+                  :class="{ active: currentExampleIndex === index }"
+                  @click="switchExample(index)"
+                ></span>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- 第二部分：核心优势 (Features) -->
+        <!-- 核心优势 Features - 改为 GIF/视频展示区域 -->
         <div class="section features-section">
           <div class="section-header">
-            <h2 class="section-title">核心优势</h2>
-            <p class="section-subtitle">专为金融数据分析设计的节点式编程环境</p>
+            <h2 class="section-title">专为量化而生，<span class="gradient-text">开箱即用</span></h2>
+            <p class="section-subtitle">从数据获取到策略回测，NodePy 提供一站式金融数据分析解决方案</p>
           </div>
-
-          <div class="features-grid">
+          <div class="features-media-grid">
             <div
               v-for="(feature, index) in features"
               :key="index"
-              class="feature-card"
+              class="feature-media-card"
               :class="`type-${feature.nodeType}`"
             >
-              <div class="feature-icon-wrapper">
+              <div class="feature-media">
+                <!-- 展示 GIF/视频，实际使用时替换为真实资源 -->
+                <img :src="feature.mediaUrl" :alt="feature.title" class="feature-gif">
+              </div>
+              <div class="feature-info">
                 <div class="feature-icon">
                   <svg-icon :path="feature.icon" :size="24" type="mdi"></svg-icon>
                 </div>
+                <h3>{{ feature.title }}</h3>
+                <p>{{ feature.description }}</p>
               </div>
-              <h3 class="feature-title">{{ feature.title }}</h3>
-              <p class="feature-description">{{ feature.description }}</p>
             </div>
           </div>
         </div>
 
-        <!-- 第三部分：实例项目 (Examples) -->
-        <div class="section examples-section">
+        <!-- 全新生态展示: 立体圆柱体轮播 (增强版：大半径 + 两侧渐变遮罩 + 炫酷卡片) -->
+        <div class="section ecosystem-section">
           <div class="section-header">
-            <h2 class="section-title">实例项目</h2>
-            <p class="section-subtitle">从简单的图表绘制到复杂的策略回测，NodePy 都能轻松搞定</p>
+            <h2 class="section-title">丰富的<span class="gradient-text">节点生态</span></h2>
+            <p class="section-subtitle">覆盖数据分析全流程，满足复杂金融场景需求</p>
           </div>
+          
+          <div class="cylinder-carousel-wrapper"
+               @mouseenter="pauseEcoAuto"
+               @mouseleave="resumeEcoAuto">
+            <button class="carousel-arrow left-arrow" @click="prevEco">
+              <svg-icon :path="mdiChevronLeft" :size="32" />
+            </button>
+            <div class="cylinder-container">
+              <div class="cylinder-stage">
+                <div class="cylinder-carousel"
+                     :style="{ transform: `rotateY(${currentEcoAngle}deg)` }">
+                  <div v-for="(item, idx) in ecosystemItems"
+                       :key="idx"
+                       class="cylinder-card"
+                       :style="{ transform: `rotateY(${idx * 60}deg) translateZ(420px)` }">
+                    <div class="card-inner">
+                      <div class="eco-icon">
+                        <svg-icon :path="item.icon" :size="44" />
+                      </div>
+                      <h4>{{ item.title }}</h4>
+                      <p>{{ item.description }}</p>
+                      <div class="card-glow"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- 左右两侧渐变遮罩，制造淡出效果 -->
+              <div class="cylinder-mask mask-left"></div>
+              <div class="cylinder-mask mask-right"></div>
+            </div>
+            <button class="carousel-arrow right-arrow" @click="nextEco">
+              <svg-icon :path="mdiChevronRight" :size="32" />
+            </button>
+          </div>
+          <!-- 指示点 -->
+          <div class="cylinder-indicators">
+            <span v-for="(_, idx) in ecosystemItems"
+                  :key="idx"
+                  class="cylinder-dot"
+                  :class="{ active: currentEcoIndex === idx }"
+                  @click="rotateToEcoIndex(idx)"></span>
+          </div>
+        </div>
 
-          <div class="examples-grid">
-            <ExampleDemoFrame
-                v-for="example in examples"
-                :key="example.project_id"
-                :item="example"
-            ></ExampleDemoFrame>
+        <!-- 应用场景 / 模板案例 -->
+        <div class="section showcase-section">
+          <div class="section-header">
+            <h2 class="section-title">精选<span class="gradient-text">工作流模板</span></h2>
+            <p class="section-subtitle">从经典策略到前沿应用，快速启动您的项目</p>
+          </div>
+          <div class="showcase-grid">
+            <div class="showcase-card" @click="jumpToExample">
+              <div class="showcase-img placeholder-img-1"></div>
+              <div class="showcase-info">
+                <h3>量化选股策略</h3>
+                <p>多因子选股 + 回测分析，一键生成绩效报告</p>
+                <div class="showcase-tags">
+                  <span>机器学习</span>
+                  <span>回测</span>
+                </div>
+              </div>
+            </div>
+            <div class="showcase-card" @click="jumpToExample">
+              <div class="showcase-img placeholder-img-2"></div>
+              <div class="showcase-info">
+                <h3>高频数据处理</h3>
+                <p>Tick级数据清洗、聚合、特征工程流水线</p>
+                <div class="showcase-tags">
+                  <span>实时计算</span>
+                  <span>大数据</span>
+                </div>
+              </div>
+            </div>
+            <div class="showcase-card" @click="jumpToExample">
+              <div class="showcase-img placeholder-img-3"></div>
+              <div class="showcase-info">
+                <h3>风险敞口分析</h3>
+                <p>投资组合风险度量，VaR/CVaR 计算可视化</p>
+                <div class="showcase-tags">
+                  <span>风险管理</span>
+                  <span>可视化</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 混合部署与自托管优势 (优化布局 + 新命令) -->
+        <div class="section hybrid-section">
+          <div class="hybrid-container">
+            <div class="hybrid-text">
+              <span class="hybrid-badge">企业级</span>
+              <h2>云原生 + 自托管<br>双重保障</h2>
+              <p>支持在云端快速体验，也支持部署在您的自有服务器。数据不出域，满足金融级安全合规要求。</p>
+              <div class="hybrid-features">
+                <div><svg-icon :path="mdiCloudCheck" :size="20"/> 弹性伸缩，按需付费</div>
+                <div><svg-icon :path="mdiShieldLock" :size="20"/> 私有化部署，数据主权</div>
+                <div><svg-icon :path="mdiServer" :size="20"/> 混合模式，无缝切换</div>
+              </div>
+            </div>
+            <div class="hybrid-visual">
+              <div class="code-block">
+                <pre><code># 克隆项目
+git clone https://github.com/LKLLLLLLLLLL/NodePy.git
+cd NodePy
+
+# 安装 Python 依赖 (使用 uv)
+uv sync --all-groups
+
+# 安装前端依赖
+cd client
+npm install
+cd ..
+
+# 自定义配置 (编辑 /server/config.py 文件)
+
+# 构建并启动生产环境
+uv run task prod</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CTA 区域 -->
+        <div class="section cta-section">
+          <div class="cta-card">
+            <div class="cta-content">
+              <h2>准备好开始了吗？</h2>
+              <p>立即注册，开启您的可视化金融分析之旅</p>
+              <div class="cta-buttons">
+                <button @click="jumpToExample" class="cta-btn outline">探索案例</button>
+                <button @click="isLoggedIn ? jumpToProject() : jumpToLogin()" class="cta-btn solid">
+                  {{ isLoggedIn ? '进入工作台' : '免费注册' }}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- 页脚 -->
-        <div class="section footer-section">
-          <div class="cta-box">
-            <h2>准备好开始了吗？</h2>
-            <p>立即注册，开启您的可视化金融分析之旅</p>
-            <div class="footer-button-container">
-              <button  @click="jumpToExample()" class="cta-btn">
-                探索案例
-              </button>
-              <button  @click="isLoggedIn ? jumpToProject() : jumpToLogin()" class="cta-btn">
-                {{ isLoggedIn ? '进入工作台' : '免费注册' }}
-              </button>
-            </div>
-          </div>
-
-          <div class="footer-bottom">
-            <div class="footer-logo">
+        <div class="footer-section">
+          <div class="footer-main">
+            <div class="footer-brand">
               <h3>NodePy</h3>
-              <div class="admin-entrance-container" @click="jumpToAdmin">
-                管理员入口
+              <p>下一代可视化金融数据分析平台</p>
+              <div class="admin-entrance" @click="jumpToAdmin">管理员入口</div>
+            </div>
+            <div class="footer-links">
+              <div class="link-group">
+                <h4>产品</h4>
+                <a @click="jumpToExample">案例</a>
+                <a @click="jumpToProject">工作台</a>
+              </div>
+              <div class="link-group">
+                <h4>支持</h4>
+                <a>文档</a>
+                <a>社区</a>
+              </div>
+              <div class="link-group">
+                <h4>关于</h4>
+                <a @click="jumpToGithub">GitHub</a>
+                <a>团队</a>
               </div>
             </div>
-            <div class="footer-copyright">
-              <p>© 2025 NodePy Team. All rights reserved.</p>
-            </div>
+          </div>
+          <div class="footer-copyright">
+            <p>© 2025 NodePy Team. 数据驱动未来，节点构建智能。</p>
           </div>
         </div>
       </div>
@@ -612,552 +909,813 @@ function jumpToAdmin(){
 <style lang="scss" scoped>
 @use '@/common/global.scss' as *;
 @use '@/common/node.scss' as *;
-@use 'sass:color' as color;
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap');
 
-// 覆盖 node.scss 中的一些样式以适应展示
-.nodes-style {
-  position: absolute;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-  transition: transform 0.3s ease;
-
-  &:hover {
-    transform: scale(1.05);
-    z-index: 10;
-  }
-}
-
-.node-body {
-  padding: 10px;
-  min-height: 40px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
+// 重置与基础
 .home-container {
+  font-family: 'Inter', sans-serif;
   flex: 1;
-  display: flex;
-  flex-direction: column;
   position: relative;
-  width: 100%;
-  min-height: 0;
+  background: #f8faff;
   overflow-x: hidden;
-  background-color: $background-color;
-  user-select: none;
+  color: #1e293b;
 }
 
-.background-elements {
+// 动态背景元素
+.particle-bg {
   position: absolute;
   width: 100%;
   height: 100%;
-  z-index: 0;
-  overflow: hidden;
+  background-image: radial-gradient(#3b82f6 0.5px, transparent 0.5px);
+  background-size: 24px 24px;
+  opacity: 0.3;
   pointer-events: none;
+  z-index: 0;
+}
 
-  .bg-circle {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(60px);
-    opacity: 0.6;
-  }
+.gradient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+  z-index: 0;
+  pointer-events: none;
+}
 
-  .circle-1 {
-    width: 400px;
-    height: 400px;
-    top: -100px;
-    right: -100px;
-    background: rgba($stress-color, 0.15);
-  }
+.orb-1 {
+  width: 500px;
+  height: 500px;
+  background: #3b82f6;
+  top: -200px;
+  right: -150px;
+}
 
-  .circle-2 {
-    width: 300px;
-    height: 300px;
-    bottom: 100px;
-    left: -50px;
-    background: rgba($compute-node-color, 0.15);
-  }
+.orb-2 {
+  width: 400px;
+  height: 400px;
+  background: #8b5cf6;
+  bottom: 100px;
+  left: -100px;
+}
 
-  .circle-3 {
-    width: 200px;
-    height: 200px;
-    top: 30%;
-    left: 20%;
-    background: rgba($visualize-node-color, 0.1);
-  }
+.orb-3 {
+  width: 300px;
+  height: 300px;
+  background: #06b6d4;
+  top: 60%;
+  left: 40%;
 }
 
 .home-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  z-index: 1;
   position: relative;
+  z-index: 2;
   overflow-y: auto;
-}
-
-.home-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 40px;
-  max-width: 1400px;
-  margin: 0 auto;
-  width: 100%;
-  box-sizing: border-box;
-
-  .logo-container {
-    .logo-text {
-      h1 {
-        margin: 0;
-        font-size: 26px;
-        font-weight: 800;
-        color: #333;
-        letter-spacing: -0.5px;
-      }
-      .logo-tagline {
-        font-size: 13px;
-        color: #666;
-        font-weight: 500;
-      }
-    }
-  }
-
-  .login-btn {
-    font-weight: 600;
-    border-radius: 8px;
-    padding: 10px 24px;
-  }
+  height: 100%;
 }
 
 .section {
-  width: 100%;
-  padding: 80px 20px 20px 40px;
-  box-sizing: border-box;
-  max-width: 1500px;
+  max-width: 1280px;
   margin: 0 auto;
+  padding: 80px 24px;
 
   @media (max-width: 768px) {
-    padding: 50px 20px;
+    padding: 48px 20px;
   }
 }
 
 .section-header {
   text-align: center;
-  margin-bottom: 60px;
+  margin-bottom: 48px;
 
   .section-title {
-    font-size: 32px;
+    font-size: 2.5rem;
     font-weight: 800;
-    color: #333;
+    letter-spacing: -0.02em;
+    color: #0f172a;
     margin-bottom: 16px;
   }
 
   .section-subtitle {
-    font-size: 18px;
-    color: #666;
+    font-size: 1.125rem;
+    color: #475569;
+    max-width: 600px;
+    margin: 0 auto;
   }
 }
 
-// Hero Section
+.gradient-text {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+// Hero 区域优化
 .hero-section {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  min-height: 70vh;
-  gap: 60px;
+  text-align: center;
+  // gap: 48px;
+  padding-top: 60px;
+  padding-bottom: 60px;
+  min-height: auto;
 
-  @media (max-width: 992px) {
-    flex-direction: column;
-    text-align: center;
-    gap: 40px;
+  .hero-top {
+    max-width: 900px;
   }
 
-  .hero-content {
-    flex: 1;
-    max-width: 550px;
+  .hero-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 
-    .hero-title {
-      font-size: 48px;
-      font-weight: 900;
-      line-height: 1.2;
-      color: #1a1a1a;
-      margin-bottom: 24px;
+    .gradient-text {
+      font-size: 2rem;
+    }
 
-      .highlight {
-        color: $stress-color;
+    @media (max-width: 768px) {
+      font-size: 2.5rem;
+      .gradient-text {
+        font-size: 1.5rem;
+      }
+    }
+  }
+
+  .hero-subtitle {
+    font-size: 1.125rem;
+    color: #475569;
+    line-height: 1.6;
+    margin-bottom: 32px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+
+    strong {
+      color: #2563eb;
+      font-weight: 600;
+    }
+  }
+
+  // 快速开始按钮区域
+  .quick-start-wrapper {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-bottom: 48px;
+
+    .quick-start-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: white;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+
+      .btn-icon {
+        transition: transform 0.2s ease;
+      }
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+        
+        .btn-icon {
+          transform: translateX(2px);
+        }
       }
     }
 
-    .hero-subtitle {
-      font-size: 18px;
-      line-height: 1.6;
-      color: #555;
-      margin-bottom: 40px;
-    }
+    .outline-btn {
+      background: transparent;
+      border: 1px solid #cbd5e1;
+      padding: 12px 32px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: #1e293b;
 
-    .hero-actions {
-      display: flex;
-      justify-content: space-between;
-
-      @media (max-width: 992px) {
-        justify-content: center;
-      }
-
-      .button {
-        border-radius: 8px;
-        font-weight: 600;
-        padding: 12px 28px;
-      }
-
-      .button-icon-container{
-        margin-top: 7px;
-      }
-
-      .button-text-container{
-        font-size: 18px;
-      }
-
-      .secondary-button{
-        @include cancel-button-style;
-        width: 210px;
-        height: 48px;
-        display: inline-flex;
-        justify-content: center;
-        align-items: center;
-        gap: 12px;
-
-        &:hover{
-          @include cancel-button-hover-style;
-        }
-      }
-
-      .cta-button {
-        @include confirm-button-style;
-        width: 210px;
-        height: 48px;
-        display: inline-flex;
-        justify-content: center;
-        align-items: center;
-        gap: 12px;
-        background-color: $stress-color;
-        border-color: $stress-color;
-
-        &:hover {
-          // transform: translateY(-2px);
-          @include confirm-button-hover-style;
-        }
+      &:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
       }
     }
   }
 
   .hero-visual {
-    flex: 1.9;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-
-    // 轮播指示器样式
-    .carousel-indicators {
-      // height: 40px;
-      // position: absolute;
-      // bottom: 15px;
-      // left: 50%;
-      // transform: translateX(-50%);
-      margin-top: 10px;
-      display: flex;
-      gap: 10px;
-      z-index: 10;
-
-      .indicator-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background-color: #cbd5e1; // 蓝色系浅色
-        cursor: pointer;
-        transition: all 0.3s ease;
-
-        &.active {
-          background-color: $stress-color; // 使用项目主色调
-          // transform: scale(1.2);
-        }
-
-        &:hover:not(.active) {
-          background-color: #94a3b8; // 悬停时加深颜色
-        }
-      }
-    }
-
-    .editor-mockup {
-      width: 100%;
-      max-width: 900px;
-      height: 620px;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.12);
-      border: 1px solid rgba(0,0,0,0.05);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      transition: transform 0.5s ease;
-      position: relative;
-      margin-top: 20px;
-
-      .mockup-header {
-        height: 36px;
-        background: #f5f5f5;
-        border-bottom: 1px solid #e0e0e0;
-        display: flex;
-        align-items: center;
-        padding: 0 16px;
-
-        .dots {
-          display: flex;
-          gap: 6px;
-
-          span {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #ddd;
-            &:nth-child(1) { background: #ff5f56; }
-            &:nth-child(2) { background: #ffbd2e; }
-            &:nth-child(3) { background: #27c93f; }
-          }
-        }
-
-        .title {
-          padding-right: 40px;
-          flex: 1;
-          text-align: center;
-          font-size: 12px;
-          font-weight: bold;
-          color: #999;
-        }
-      }
-
-      .mockup-body {
-        flex: 1;
-        background-color: #fafafa;
-        position: relative;
-        overflow: hidden;
-      }
-    }
-  }
-}
-
-// Features Section
-.features-section {
-  min-height: 70vh;
-  .features-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 30px;
-  }
-
-  .feature-card {
-    background: white;
-    border-radius: 12px;
-    padding: 30px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
-    transition: all 0.3s ease;
-    border: 1px solid transparent;
-
-    &:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-    }
-
-    .feature-icon-wrapper {
-      margin-bottom: 20px;
-      .feature-icon {
-        width: 50px;
-        height: 50px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        svg {
-          font-size: 24px;
-          color: white;
-        }
-      }
-    }
-
-    // 根据类型设置颜色
-    &.type-input {
-      .feature-icon { background: $input-node-color; }
-      &:hover { border-color: rgba($input-node-color, 0.3); }
-    }
-    &.type-tableProcess {
-      .feature-icon { background: $table-node-color; }
-      &:hover { border-color: rgba($table-node-color, 0.3); }
-    }
-    &.type-visualize {
-      .feature-icon { background: $visualize-node-color; }
-      &:hover { border-color: rgba($visualize-node-color, 0.3); }
-    }
-    &.type-compute {
-      .feature-icon { background: $compute-node-color; }
-      &:hover { border-color: rgba($compute-node-color, 0.3); }
-    }
-    &.type-machineLearning {
-      .feature-icon { background: $machine-node-color; }
-      &:hover { border-color: rgba($machine-node-color, 0.3); }
-    }
-    &.type-stringProcess {
-      .feature-icon { background: $str-node-color; }
-      &:hover { border-color: rgba($str-node-color, 0.3); }
-    }
-    &.type-datetimeProcess {
-      .feature-icon { background: $datetime-node-color; }
-      &:hover { border-color: rgba($datetime-node-color, 0.3); }
-    }
-    &.type-file {
-      .feature-icon { background: $file-node-color; }
-      &:hover { border-color: rgba($file-node-color, 0.3); }
-    }
-
-    .feature-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: #333;
-      margin-bottom: 10px;
-    }
-
-    .feature-description {
-      font-size: 14px;
-      line-height: 1.6;
-      color: #666;
-    }
-  }
-}
-
-// Examples Section
-.examples-section {
-  min-height: 70vh;
-  // background: white; // 区分背景
-  width: 100%;
-  max-width: 100%; // 全宽背景
-
-  .section-header, .examples-grid {
-    max-width: 1500px;
+    width: 100%;
+    max-width: 900px;
     margin: 0 auto;
+    pointer-events: none;
+  }
+}
+
+.editor-mockup {
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 30px 50px -20px rgba(0,0,0,0.2);
+  border: 1px solid rgba(0,0,0,0.05);
+  transition: all 0.3s ease;
+  overflow: hidden;
+
+  .mockup-header {
+    background: #f1f5f9;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #e2e8f0;
+
+    .window-controls span {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+      &:nth-child(1) { background: #ff5f56; }
+      &:nth-child(2) { background: #ffbd2e; }
+      &:nth-child(3) { background: #27c93f; }
+    }
+
+    .file-name {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #334155;
+      background: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
   }
 
-  .examples-grid {
-    display: grid;
-    grid-template-rows: repeat(2, auto);
-    grid-auto-flow: column;
-    grid-auto-columns: 300px; // 固定列宽，确保一致性
-    gap: 30px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 60px;
-    justify-content: start; // 从左侧开始
+  .mockup-body {
+    height: 480px;
+    background: #fefefe;
+    position: relative;
+  }
 
-    // 隐藏滚动条但保持功能 (可选)
-    &::-webkit-scrollbar {
+  .carousel-progress {
+    height: 3px;
+    background: #e2e8f0;
+    width: 100%;
+    overflow: hidden;
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #2563eb, #7c3aed);
+      width: 0%;
+      transition: width 60ms linear;
+    }
+  }
+
+  .carousel-indicators {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px;
+    background: white;
+    border-top: 1px solid #f0f2f5;
+
+    .indicator-dot {
+      width: 8px;
       height: 8px;
-    }
-    &::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 4px;
-    }
-    &::-webkit-scrollbar-thumb {
-      background: #ccc;
-      border-radius: 4px;
-      &:hover { background: #bbb; }
+      border-radius: 10px;
+      background: #cbd5e1;
+      transition: 0.2s;
+      cursor: pointer;
+      &.active {
+        width: 28px;
+        background: #2563eb;
+      }
     }
   }
 }
 
-// Footer Section
-.footer-section {
-  padding-bottom: 40px;
+// 新的 Features 媒体网格 (GIF/视频展示)
+.features-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 28px;
+}
 
-  .cta-box {
-    background: linear-gradient(135deg, $stress-color, color.adjust($stress-color, $lightness: 10%));
-    border-radius: 20px;
-    padding: 60px;
-    text-align: center;
-    color: white;
-    margin-bottom: 60px;
-    box-shadow: 0 20px 40px rgba($stress-color, 0.2);
+.feature-media-card {
+  background: white;
+  border-radius: 24px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.03);
 
-    h2 {
-      font-size: 32px;
-      font-weight: 800;
+  &:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 30px -12px rgba(0,0,0,0.15);
+    border-color: rgba(37,99,235,0.2);
+  }
+
+  .feature-media {
+    width: 100%;
+    height: 180px;
+    overflow: hidden;
+    background: #f1f5f9;
+
+    .feature-gif {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+
+    &:hover .feature-gif {
+      transform: scale(1.02);
+    }
+  }
+
+  .feature-info {
+    padding: 20px;
+    position: relative;
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      background: #eef2ff;
+      color: #2563eb;
       margin-bottom: 16px;
     }
 
-    p {
-      font-size: 18px;
-      opacity: 0.9;
-      margin-bottom: 32px;
-    }
-
-    .cta-btn {
-      @include cancel-button-style;
-      background: white;
-      color: $stress-color;
-      border: none;
-      width: 200px;
+    h3 {
+      font-size: 1.2rem;
       font-weight: 700;
-      padding: 12px 36px;
-      height: auto;
-      font-size: 16px;
-
-      &:hover {
-        // transform: scale(1.05);
-        @include cancel-button-hover-style;
-      }
+      margin-bottom: 8px;
     }
-    .footer-button-container {
-      display: flex;
-      justify-content: center;
-      gap: 30px;
+
+    p {
+      color: #475569;
+      line-height: 1.5;
+      font-size: 0.85rem;
     }
   }
+}
 
-  .footer-bottom {
+// ========== 立体圆柱体轮播样式 (增强版：大半径，两侧渐变遮罩，炫酷卡片) ==========
+.cylinder-carousel-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 40px 0;
+  padding: 20px 0;
+}
+
+.carousel-arrow {
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(37,99,235,0.2);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+  color: #1e293b;
+  backdrop-filter: blur(8px);
+  z-index: 20;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+  
+  &:hover {
+    background: white;
+    transform: scale(1.08);
+    box-shadow: 0 12px 24px rgba(37,99,235,0.2);
+    color: #2563eb;
+    border-color: #2563eb;
+  }
+  
+  &.left-arrow {
+    margin-right: 20px;
+  }
+  
+  &.right-arrow {
+    margin-left: 20px;
+  }
+  
+  @media (max-width: 768px) {
+    width: 36px;
+    height: 36px;
+    &.left-arrow { margin-right: 10px; }
+    &.right-arrow { margin-left: 10px; }
+  }
+}
+
+.cylinder-container {
+  flex: 1;
+  max-width: 1100px;
+  perspective: 1600px;
+  overflow: visible;
+  position: relative;
+}
+
+.cylinder-stage {
+  width: 100%;
+  height: 380px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.cylinder-carousel {
+  position: relative;
+  width: 300px;
+  height: 340px;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.25, 0.85, 0.35, 1);
+  will-change: transform;
+}
+
+.cylinder-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: 340px;
+  border-radius: 28px;
+  background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(249,250,255,0.98));
+  backdrop-filter: blur(2px);
+  box-shadow: 0 25px 40px -12px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.8);
+  border: 1px solid rgba(255,255,255,0.6);
+  transition: all 0.3s ease;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 28px;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #2563eb, #7c3aed, #06b6d4);
+    border-radius: 28px 28px 0 0;
+  }
+  
+  .card-inner {
+    width: 100%;
+    position: relative;
+    z-index: 2;
+  }
+  
+  .eco-icon {
+    margin-bottom: 24px;
+    color: #2563eb;
+    background: linear-gradient(135deg, #eef2ff, #ffffff);
+    width: 70px;
+    height: 70px;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding-top: 30px;
-    // border-top: 1px solid #eee;
+    justify-content: center;
+    border-radius: 30px;
+    margin-left: auto;
+    margin-right: auto;
+    box-shadow: 0 8px 16px -8px rgba(0,0,0,0.1);
+    
+    svg {
+      width: 44px;
+      height: 44px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05));
+    }
+  }
+  
+  h4 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    margin-bottom: 14px;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    letter-spacing: -0.01em;
+  }
+  
+  p {
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.5;
+    font-weight: 500;
+  }
+  
+  .card-glow {
+    position: absolute;
+    bottom: -20px;
+    left: 10%;
+    width: 80%;
+    height: 40px;
+    background: radial-gradient(ellipse, rgba(37,99,235,0.2), transparent);
+    filter: blur(12px);
+    z-index: 0;
+    pointer-events: none;
+  }
+  
+  &:hover {
+    transform: translateY(-6px) rotateY(0deg) !important;
+    box-shadow: 0 35px 50px -20px rgba(0,0,0,0.35);
+    border-color: rgba(37,99,235,0.3);
+    
+    .card-glow {
+      opacity: 0.7;
+      transform: scale(1.1);
+    }
+  }
+  
+  @media (max-width: 768px) {
+    width: 260px;
+    height: 300px;
+    padding: 20px;
+    h4 { font-size: 1.2rem; }
+    p { font-size: 0.8rem; }
+    .eco-icon { width: 56px; height: 56px; svg { width: 36px; height: 36px; } }
+  }
+}
 
-    .footer-logo {
+// 左右渐变遮罩，制造淡出效果，提升圆柱体两侧视觉深度
+.cylinder-mask {
+  position: absolute;
+  top: 0;
+  width: 120px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 15;
+  transition: opacity 0.3s ease;
+  
+  &.mask-left {
+    left: 0;
+    background: linear-gradient(to right, rgba(248,250,255,0.95), rgba(248,250,255,0));
+  }
+  
+  &.mask-right {
+    right: 0;
+    background: linear-gradient(to left, rgba(248,250,255,0.95), rgba(248,250,255,0));
+  }
+  
+  @media (max-width: 768px) {
+    width: 60px;
+  }
+}
+
+.cylinder-indicators {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 32px;
+  
+  .cylinder-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 12px;
+    background: #cbd5e1;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    
+    &.active {
+      width: 32px;
+      background: linear-gradient(90deg, #2563eb, #7c3aed);
+      box-shadow: 0 0 6px rgba(37,99,235,0.4);
+    }
+    
+    &:hover {
+      background: #94a3b8;
+      transform: scale(1.1);
+    }
+  }
+}
+
+// 保留原生态卡片网格样式（已替换为圆柱体，但保留其他可能引用）
+.ecosystem-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.eco-card {
+  background: white;
+  border-radius: 24px;
+  padding: 28px;
+  text-align: center;
+  transition: 0.2s;
+  border: 1px solid #f1f5f9;
+  &:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 12px 20px -12px rgba(0,0,0,0.08);
+  }
+  .eco-icon {
+    margin-bottom: 20px;
+    color: #2563eb;
+  }
+  h4 { font-weight: 700; margin-bottom: 12px; }
+  p { color: #475569; font-size: 0.85rem; }
+}
+
+// Showcase
+.showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
+}
+
+.showcase-card {
+  background: white;
+  border-radius: 24px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+  &:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 25px -12px rgba(0,0,0,0.1);
+  }
+  .showcase-img {
+    height: 160px;
+    background-size: cover;
+    background-position: center;
+  }
+  .placeholder-img-1 { background: linear-gradient(135deg, #3b82f6, #8b5cf6); }
+  .placeholder-img-2 { background: linear-gradient(135deg, #06b6d4, #3b82f6); }
+  .placeholder-img-3 { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+  .showcase-info {
+    padding: 20px;
+    h3 { font-weight: 700; margin-bottom: 8px; }
+    p { font-size: 0.85rem; color: #475569; margin-bottom: 12px; }
+    .showcase-tags span {
+      background: #f1f5f9;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      margin-right: 8px;
+    }
+  }
+}
+
+// Hybrid Section (优化布局 + 新命令)
+.hybrid-section {
+  background: #0f172a;
+  margin: 40px auto;
+  border-radius: 48px;
+  padding: 0;
+  .hybrid-container {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+    padding: 64px;
+    @media (max-width: 768px) { flex-direction: column; padding: 40px; }
+  }
+  .hybrid-text {
+    color: white;
+    flex: 1;
+    .hybrid-badge {
+      background: rgba(255,255,255,0.2);
+      padding: 4px 12px;
+      border-radius: 40px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    h2 { font-size: 2rem; margin: 20px 0 16px; font-weight: 800; }
+    p { color: #cbd5e1; margin-bottom: 24px; }
+    .hybrid-features div {
       display: flex;
       align-items: center;
-      .admin-entrance-container{
-          font-size: 10px;
-          padding: 6px 12px;
-          padding-top: 10px;
-          color: grey;
-          cursor: pointer;
-      }
-      h3 {
-        font-size: 20px;
-        font-weight: 700;
-        color: #333;
-        margin-bottom: 4px;
-      }
-      p {
-        font-size: 12px;
-        color: #999;
-      }
+      gap: 8px;
+      margin-bottom: 12px;
+      svg { color: #3b82f6; }
     }
-
-    .footer-copyright{
-      p {
-        font-size: 12px;
-        color: #999;
+  }
+  .hybrid-visual {
+    flex: 1;
+    .code-block {
+      background: #1e293b;
+      border-radius: 20px;
+      padding: 20px;
+      pre {
+        color: #94a3b8;
+        font-family: 'Monaco', 'Menlo', monospace;
+        margin: 0;
+        white-space: pre-wrap;
+        font-size: 0.8rem;
+        line-height: 1.5;
       }
     }
   }
+}
+
+// CTA Card
+.cta-section {
+  .cta-card {
+    background: linear-gradient(145deg, #ffffff, #f8fafc);
+    border-radius: 48px;
+    padding: 64px;
+    text-align: center;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+    border: 1px solid #eef2ff;
+    h2 { font-size: 2rem; font-weight: 800; margin-bottom: 16px; }
+    p { color: #475569; margin-bottom: 32px; }
+    .cta-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      .cta-btn {
+        padding: 12px 28px;
+        border-radius: 40px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        &.solid {
+          background: #0f172a;
+          color: white;
+          border: none;
+          &:hover { background: #1e293b; transform: scale(1.02); }
+        }
+        &.outline {
+          background: transparent;
+          border: 1px solid #cbd5e1;
+          &:hover { background: #f1f5f9; }
+        }
+      }
+    }
+  }
+}
+
+// Footer
+.footer-section {
+  background: transparent;
+  border-top: 1px solid #eef2ff;
+  padding: 48px 24px 24px;
+  max-width: 1280px;
+  margin: 0 auto;
+  .footer-main {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 40px;
+    margin-bottom: 40px;
+    .footer-brand {
+      h3 { font-size: 1.5rem; font-weight: 800; }
+      .admin-entrance {
+        font-size: 0.7rem;
+        color: #64748b;
+        margin-top: 8px;
+        cursor: pointer;
+        &:hover { color: #2563eb; }
+      }
+    }
+    .footer-links {
+      display: flex;
+      gap: 48px;
+      .link-group {
+        h4 { font-weight: 700; margin-bottom: 12px; }
+        a {
+          display: block;
+          color: #475569;
+          margin-bottom: 8px;
+          cursor: pointer;
+          &:hover { color: #0f172a; }
+        }
+      }
+    }
+  }
+  .footer-copyright {
+    text-align: center;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    padding-top: 24px;
+    border-top: 1px solid #eef2ff;
+  }
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(37,99,235,0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(37,99,235,0); }
+  100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
 }
 </style>

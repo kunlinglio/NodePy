@@ -1,14 +1,22 @@
+<!-- UpdateProjectSetting.vue -->
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useProjectStore } from '@/stores/projectStore';
 import { useModalStore } from '@/stores/modalStore';
 import { useUserStore } from '@/stores/userStore';
 import Tag from '@/components/Tag.vue';
+import TagSelectionModal from '@/components/TagSelectionModal.vue';
 
 const projectStore = useProjectStore();
 const modalStore = useModalStore();
 const userStore = useUserStore();
 const labelPosition = ref<string>('top');
+const tagsScrollRef = ref<HTMLElement | null>(null);
+
+// 拖拽状态
+let isDragging = false;
+let startX = 0;
+let scrollLeft = 0;
 
 // 临时标签列表（初始从 store.currentProjectTags 复制）
 const selectedTags = ref<string[]>([]);
@@ -26,29 +34,106 @@ function removeTagFromTemp(tag: string) {
   }
 }
 
-// 创建新标签
-async function createNewTag() {
-  const tagName = prompt('请输入新标签名称');
-  if (tagName && tagName.trim()) {
-    const success = await projectStore.createTag(tagName.trim());
-    if (success) {
-      // 自动添加到当前临时标签
-      addTagToTemp(tagName.trim());
-      await projectStore.getAllTags();
-    }
+// 打开标签选择弹窗
+function openTagSelectionModal() {
+  const modalId = 'update-tag-selection';
+  if (modalStore.findModal(modalId)) return;
+
+  modalStore.createModal({
+    id: modalId,
+    title: '选择标签',
+    isActive: true,
+    isDraggable: true,
+    isResizable: false,
+    isModal: true,
+    position: {
+      x: (window.innerWidth - 500) / 2,
+      y: (window.innerHeight - 500) / 2,
+    },
+    size: { width: 500, height: 450 },
+    component: TagSelectionModal,
+    props: {
+      modalId: modalId,
+      initialTags: selectedTags.value,
+      onConfirm: (newTags: string[]) => {
+        selectedTags.value = newTags;
+      },
+    },
+  });
+}
+
+// 鼠标拖拽滚动逻辑
+function onMouseDown(e: MouseEvent) {
+  if (!tagsScrollRef.value) return;
+  // 避免在交互元素（如删除按钮）上触发拖拽
+  const target = e.target as HTMLElement;
+  if (target.closest('.tag-action') || target.closest('.add-tag-btn')) return;
+  
+  isDragging = true;
+  startX = e.pageX - tagsScrollRef.value.offsetLeft;
+  scrollLeft = tagsScrollRef.value.scrollLeft;
+  tagsScrollRef.value.style.cursor = 'grabbing';
+  tagsScrollRef.value.style.userSelect = 'none';
+  e.preventDefault();
+}
+
+function onMouseMove(e: MouseEvent) {
+  if (!isDragging || !tagsScrollRef.value) return;
+  const x = e.pageX - tagsScrollRef.value.offsetLeft;
+  const walk = (x - startX) * 1.5;
+  tagsScrollRef.value.scrollLeft = scrollLeft - walk;
+  e.preventDefault();
+}
+
+function onMouseUp() {
+  if (!tagsScrollRef.value) return;
+  isDragging = false;
+  tagsScrollRef.value.style.cursor = 'grab';
+  tagsScrollRef.value.style.userSelect = '';
+}
+
+function onWheel(e: WheelEvent) {
+  if (!tagsScrollRef.value) return;
+  if (e.deltaY !== 0) {
+    e.preventDefault();
+    tagsScrollRef.value.scrollLeft += e.deltaY;
   }
 }
 
 onMounted(async () => {
   await projectStore.getProjectSettings(projectStore.currentProjectId);
-  // 初始化临时标签列表
   selectedTags.value = [...projectStore.currentProjectTags];
+  
+  if (tagsScrollRef.value) {
+    tagsScrollRef.value.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    tagsScrollRef.value.addEventListener('wheel', onWheel, { passive: false });
+    tagsScrollRef.value.style.cursor = 'grab';
+  }
+});
+
+onBeforeUnmount(() => {
+  if (tagsScrollRef.value) {
+    tagsScrollRef.value.removeEventListener('mousedown', onMouseDown);
+    tagsScrollRef.value.removeEventListener('wheel', onWheel);
+  }
+  window.removeEventListener('mousemove', onMouseMove);
+  window.removeEventListener('mouseup', onMouseUp);
 });
 
 async function onConfirmUpdateProject() {
-  // 同步临时标签到 store
   projectStore.currentProjectTags = selectedTags.value;
-  console.log('selectedTags:', selectedTags.value,'currentProjectID', projectStore.currentProjectId, 'currentProjectName:', projectStore.currentProjectName, 'currentWhetherShow:', projectStore.currentWhetherShow);
+  console.log(
+    'selectedTags:',
+    selectedTags.value,
+    'currentProjectID',
+    projectStore.currentProjectId,
+    'currentProjectName:',
+    projectStore.currentProjectName,
+    'currentWhetherShow:',
+    projectStore.currentWhetherShow
+  );
   await projectStore.updateProjectSetting(projectStore.currentProjectId);
   await projectStore.initializeProjects();
   await projectStore.getAllTags();
@@ -76,39 +161,26 @@ async function onCancelUpdateProject() {
         </label>
       </el-form-item>
 
-      <!-- 标签管理区域 -->
+      <!-- 标签管理区域：加号固定在左侧，标签列表可滚动 -->
       <div class="tags-section">
-        <div class="section-title">所有标签</div>
-        <div class="all-tags-wrapper">
-          <div class="tags-scroll-container three-rows">
-            <div class="tag-item add-new" @click="createNewTag">
-              <span>+ 新建</span>
-            </div>
-            <Tag
-              v-for="tag in projectStore.allProjectTags"
-              :key="tag"
-              :content="tag"
-            >
-              <template #action>
-                <span class="tag-action add" @click.stop="addTagToTemp(tag)">+</span>
-              </template>
-            </Tag>
-          </div>
-        </div>
-
         <div class="section-title">当前项目标签</div>
         <div class="current-tags-wrapper">
-          <div class="tags-scroll-container one-row">
-            <Tag
-              v-for="tag in selectedTags"
-              :key="tag"
-              :content="tag"
-            >
-              <template #action>
-                <span class="tag-action remove" @click.stop="removeTagFromTemp(tag)">✕</span>
-              </template>
-            </Tag>
-            <div v-if="selectedTags.length === 0" class="empty-tips">暂无标签</div>
+          <div class="tags-row">
+            <div class="add-tag-btn" @click="openTagSelectionModal">
+              <span>+</span>
+            </div>
+            <div ref="tagsScrollRef" class="tags-scroll-container">
+              <Tag
+                v-for="tag in selectedTags"
+                :key="tag"
+                :content="tag"
+              >
+                <template #action>
+                  <span class="tag-action remove" @click.stop="removeTagFromTemp(tag)">✕</span>
+                </template>
+              </Tag>
+              <div v-if="selectedTags.length === 0" class="empty-tips">暂无标签</div>
+            </div>
           </div>
         </div>
       </div>
@@ -141,54 +213,55 @@ async function onCancelUpdateProject() {
   }
 }
 
-.all-tags-wrapper .tags-scroll-container.three-rows {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  max-height: 100px;
-  overflow-y: auto;
-  padding: 2px 0;
-  
-  &::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+.current-tags-wrapper {
+  .tags-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
-  &::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-  }
-}
 
-.current-tags-wrapper .tags-scroll-container.one-row {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 2px 0;
-  
-  &::-webkit-scrollbar {
-    height: 6px;
+  .add-tag-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: #ecf5ff;
+    color: #409eff;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    &:hover {
+      background-color: #d9ecff;
+      transform: scale(1.05);
+    }
   }
-  &::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-  }
-}
 
-.tag-item.add-new {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 16px;
-  font-size: 12px;
-  background-color: #ecf5ff;
-  color: #409eff;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  
-  &:hover {
-    background-color: #d9ecff;
+  .tags-scroll-container {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    cursor: grab;
+    &:active {
+      cursor: grabbing;
+    }
+    user-select: none;
+    
+    > * {
+      flex-shrink: 0;
+    }
   }
 }
 
@@ -197,10 +270,6 @@ async function onCancelUpdateProject() {
   cursor: pointer;
   font-size: 14px;
   font-weight: bold;
-  
-  &.add {
-    color: #27ae60;
-  }
   &.remove {
     color: #e74c3c;
   }
@@ -239,21 +308,3 @@ async function onCancelUpdateProject() {
   @include input-focus-style;
 }
 </style>
-
-<script lang="ts">
-// 辅助颜色函数（同创建弹窗）
-function getRandomColor(str: string): string {
-  const colors = [
-    '#FFE5B4', '#B4E0FF', '#C2F2E8', '#E6D3FF', '#FFD6E0',
-    '#D4F7D4', '#FFFACD', '#F0FFF0', '#F5F5DC', '#E6F3FF',
-    '#FFF0F5', '#FDFD96', '#E0FFFF', '#DDF8D8', '#FFE4E1',
-    '#F0E68C', '#D8BFD8', '#AFEEEE', '#F5DEB3', '#DEB887'
-  ];
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return colors[Math.abs(hash) % colors.length]!;
-}
-</script>

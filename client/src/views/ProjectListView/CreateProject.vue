@@ -1,16 +1,24 @@
+<!-- CreateProject.vue -->
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useProjectStore } from '@/stores/projectStore';
 import { useModalStore } from '@/stores/modalStore';
 import { useUserStore } from '@/stores/userStore';
 import { onUnmounted } from 'vue';
-import Tag from '@/components/Tag.vue'; 
+import Tag from '@/components/Tag.vue';
+import TagSelectionModal from '@/components/TagSelectionModal.vue';
 
 const projectStore = useProjectStore();
 const modalStore = useModalStore();
 const userStore = useUserStore();
 
 const inputRef = ref<HTMLInputElement | null>(null);
+const tagsScrollRef = ref<HTMLElement | null>(null);
+
+// 拖拽状态
+let isDragging = false;
+let startX = 0;
+let scrollLeft = 0;
 
 // 临时标签列表（创建时为空）
 const selectedTags = ref<string[]>([]);
@@ -19,7 +27,7 @@ const selectedTags = ref<string[]>([]);
 function addTagToTemp(tag: string) {
   if (!selectedTags.value.includes(tag)) {
     selectedTags.value.push(tag);
-    console.log(selectedTags.value)
+    console.log(selectedTags.value);
   }
 }
 
@@ -28,20 +36,74 @@ function removeTagFromTemp(tag: string) {
   const index = selectedTags.value.indexOf(tag);
   if (index !== -1) {
     selectedTags.value.splice(index, 1);
-    console.log(selectedTags.value)
+    console.log(selectedTags.value);
   }
 }
 
-// 创建新标签
-async function createNewTag() {
-  const tagName = prompt('请输入新标签名称');
-  if (tagName && tagName.trim()) {
-    const success = await projectStore.createTag(tagName.trim());
-    if (success) {
-      // 自动添加到当前临时标签
-      addTagToTemp(tagName.trim());
-      await projectStore.getAllTags();
-    }
+// 打开标签选择弹窗
+function openTagSelectionModal() {
+  const modalId = 'create-tag-selection';
+  // 避免重复打开
+  if (modalStore.findModal(modalId)) return;
+
+  modalStore.createModal({
+    id: modalId,
+    title: '选择标签',
+    isActive: true,
+    isDraggable: true,
+    isResizable: false,
+    isModal: true,
+    position: {
+      x: (window.innerWidth - 500) / 2,
+      y: (window.innerHeight - 500) / 2,
+    },
+    size: { width: 500, height: 450 },
+    component: TagSelectionModal,
+    props: {
+      modalId: modalId,
+      initialTags: selectedTags.value,
+      onConfirm: (newTags: string[]) => {
+        selectedTags.value = newTags;
+      },
+    },
+  });
+}
+
+// 鼠标拖拽滚动逻辑
+function onMouseDown(e: MouseEvent) {
+  if (!tagsScrollRef.value) return;
+  // 避免在交互元素（如删除按钮）上触发拖拽
+  const target = e.target as HTMLElement;
+  if (target.closest('.tag-action') || target.closest('.add-tag-btn')) return;
+  
+  isDragging = true;
+  startX = e.pageX - tagsScrollRef.value.offsetLeft;
+  scrollLeft = tagsScrollRef.value.scrollLeft;
+  tagsScrollRef.value.style.cursor = 'grabbing';
+  tagsScrollRef.value.style.userSelect = 'none';
+  e.preventDefault();
+}
+
+function onMouseMove(e: MouseEvent) {
+  if (!isDragging || !tagsScrollRef.value) return;
+  const x = e.pageX - tagsScrollRef.value.offsetLeft;
+  const walk = (x - startX) * 1.5;
+  tagsScrollRef.value.scrollLeft = scrollLeft - walk;
+  e.preventDefault();
+}
+
+function onMouseUp() {
+  if (!tagsScrollRef.value) return;
+  isDragging = false;
+  tagsScrollRef.value.style.cursor = 'grab';
+  tagsScrollRef.value.style.userSelect = '';
+}
+
+function onWheel(e: WheelEvent) {
+  if (!tagsScrollRef.value) return;
+  if (e.deltaY !== 0) {
+    e.preventDefault();
+    tagsScrollRef.value.scrollLeft += e.deltaY;
   }
 }
 
@@ -49,13 +111,37 @@ onMounted(() => {
   if (inputRef.value) {
     inputRef.value.focus();
   }
+  if (tagsScrollRef.value) {
+    tagsScrollRef.value.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    tagsScrollRef.value.addEventListener('wheel', onWheel, { passive: false });
+    tagsScrollRef.value.style.cursor = 'grab';
+  }
+});
+
+onBeforeUnmount(() => {
+  if (tagsScrollRef.value) {
+    tagsScrollRef.value.removeEventListener('mousedown', onMouseDown);
+    tagsScrollRef.value.removeEventListener('wheel', onWheel);
+  }
+  window.removeEventListener('mousemove', onMouseMove);
+  window.removeEventListener('mouseup', onMouseUp);
 });
 
 async function onCreateProject() {
-  // 将临时标签同步到 store
   projectStore.currentProjectTags = selectedTags.value;
   const success = await projectStore.createProject();
-  console.log('创建项目:', projectStore.currentProjectName, '公开：', projectStore.currentWhetherShow, '标签:', projectStore.currentProjectTags, '结果:', success);
+  console.log(
+    '创建项目:',
+    projectStore.currentProjectName,
+    '公开：',
+    projectStore.currentWhetherShow,
+    '标签:',
+    projectStore.currentProjectTags,
+    '结果:',
+    success
+  );
   if (success) {
     await projectStore.initializeProjects();
     await userStore.initializeUserInfo();
@@ -88,7 +174,6 @@ onUnmounted(async () => {
         />
       </el-form-item>
 
-      <!-- 公开项目复选框（与修改弹窗保持一致） -->
       <el-form-item label="公开项目">
         <label class="checkbox-container">
           <input type="checkbox" class="custom-checkbox" v-model="projectStore.currentWhetherShow" />
@@ -96,39 +181,26 @@ onUnmounted(async () => {
         </label>
       </el-form-item>
 
-      <!-- 标签管理区域 -->
+      <!-- 标签管理区域：加号固定在左侧，标签列表可滚动 -->
       <div class="tags-section">
-        <div class="section-title">所有标签</div>
-        <div class="all-tags-wrapper">
-          <div class="tags-scroll-container three-rows">
-            <div class="tag-item add-new" @click="createNewTag">
-              <span>+ 新建</span>
-            </div>
-            <Tag
-              v-for="tag in projectStore.allProjectTags"
-              :key="tag"
-              :content="tag"
-            >
-              <template #action>
-                <span class="tag-action add" @click.stop="addTagToTemp(tag)">+</span>
-              </template>
-            </Tag>
-          </div>
-        </div>
-
         <div class="section-title">当前项目标签</div>
         <div class="current-tags-wrapper">
-          <div class="tags-scroll-container one-row">
-            <Tag
-              v-for="tag in selectedTags"
-              :key="tag"
-              :content="tag"
-            >
-              <template #action>
-                <span class="tag-action remove" @click.stop="removeTagFromTemp(tag)">✕</span>
-              </template>
-            </Tag>
-            <div v-if="selectedTags.length === 0" class="empty-tips">暂无标签</div>
+          <div class="tags-row">
+            <div class="add-tag-btn" @click="openTagSelectionModal">
+              <span>+</span>
+            </div>
+            <div ref="tagsScrollRef" class="tags-scroll-container">
+              <Tag
+                v-for="tag in selectedTags"
+                :key="tag"
+                :content="tag"
+              >
+                <template #action>
+                  <span class="tag-action remove" @click.stop="removeTagFromTemp(tag)">✕</span>
+                </template>
+              </Tag>
+              <div v-if="selectedTags.length === 0" class="empty-tips">暂无标签</div>
+            </div>
           </div>
         </div>
       </div>
@@ -145,54 +217,48 @@ onUnmounted(async () => {
 @use "../../common/global.scss" as *;
 
 .create-project-container {
-        display: flex;
-        flex-direction: column;
-        width: 300px;
-        padding-bottom: 5px;
-    }
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  padding-bottom: 5px;
+}
 
-    .create-project-form{
-        margin-bottom: 20px;
-    }
+.create-project-form {
+  margin-bottom: 20px;
+}
 
-    .button-container{
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        // gap: 5px;
-    }
-    
-    .name-input {
-        @include input-style;
-    }
+.button-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
 
-    .name-input:focus {
-        @include input-focus-style;
-    }
+.name-input {
+  @include input-style;
+}
+.name-input:focus {
+  @include input-focus-style;
+}
 
-    .button {
-        width: 100%;
-    }
-
-    .button.cancel{
-        margin-top: 10px;
-        margin-left: 0;
-        @include cancel-button-style;
-    }
-
-    .button.cancel:hover{
-        @include cancel-button-hover-style;
-    }
-
-    .button.confirm-button{
-        width: 100%;
-        @include confirm-button-style;
-    }
-
-    .button.confirm-button:hover{
-        @include confirm-button-hover-style;
-    }
+.button {
+  width: 100%;
+}
+.button.cancel {
+  margin-top: 10px;
+  margin-left: 0;
+  @include cancel-button-style;
+}
+.button.cancel:hover {
+  @include cancel-button-hover-style;
+}
+.button.confirm-button {
+  width: 100%;
+  @include confirm-button-style;
+}
+.button.confirm-button:hover {
+  @include confirm-button-hover-style;
+}
 
 .tags-section {
   margin-top: 16px;
@@ -204,62 +270,55 @@ onUnmounted(async () => {
   }
 }
 
-// 所有标签容器：三行，垂直滚动
-.all-tags-wrapper {
-  .tags-scroll-container.three-rows {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    max-height: 100px;       // 约三行高度（28px*3 + 8px*2 = 100px）
-    overflow-y: auto;
-    padding: 2px 0;
-    
-    // 自定义滚动条（可选）
-    &::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    &::-webkit-scrollbar-thumb {
-      background: #c1c1c1;
-      border-radius: 3px;
-    }
-  }
-}
-
-// 当前项目标签容器：一行，横向滚动
 .current-tags-wrapper {
-  .tags-scroll-container.one-row {
+  .tags-row {
     display: flex;
-    flex-wrap: nowrap;
+    align-items: center;
     gap: 8px;
-    overflow-x: auto;
-    padding: 2px 0;
-    
-    &::-webkit-scrollbar {
-      height: 6px;
-    }
-    &::-webkit-scrollbar-thumb {
-      background: #c1c1c1;
-      border-radius: 3px;
+  }
+
+  .add-tag-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: #ecf5ff;
+    color: #409eff;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    &:hover {
+      background-color: #d9ecff;
+      transform: scale(1.05);
     }
   }
-}
 
-// 新增按钮样式（与 Tag 组件风格一致）
-.tag-item.add-new {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 16px;
-  font-size: 12px;
-  background-color: #ecf5ff;
-  color: #409eff;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  
-  &:hover {
-    background-color: #d9ecff;
+  .tags-scroll-container {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    cursor: grab;
+    &:active {
+      cursor: grabbing;
+    }
+    user-select: none;
+    
+    > * {
+      flex-shrink: 0;
+    }
   }
 }
 
@@ -268,10 +327,6 @@ onUnmounted(async () => {
   cursor: pointer;
   font-size: 14px;
   font-weight: bold;
-  
-  &.add {
-    color: #27ae60;
-  }
   &.remove {
     color: #e74c3c;
   }

@@ -24,26 +24,19 @@
             v-for="doc in docs"
             :key="doc.id"
             class="doc-card"
-            @click="openDoc(doc)"
-            @mouseenter="hoverDoc = doc.id"
-            @mouseleave="hoverDoc = null"
-            :class="{ 'doc-card-hover': hoverDoc === doc.id }"
+            @click="doc.isPlayground ? createPlayground() : openDoc(doc)"
           >
-            <div class="doc-header">
-              <div class="doc-icon" :class="{ 'doc-icon-hover': hoverDoc === doc.id }">
-                <svg-icon :path="doc.icon" :size="28" type="mdi"></svg-icon>
-              </div>
-              <div class="doc-info">
-                <h3 class="doc-title">{{ doc.title }}</h3>
-                <div class="doc-subtitle">{{ doc.category }}</div>
-              </div>
-            </div>
+            <!-- 描述 -->
             <p class="doc-description">{{ doc.description }}</p>
-            <div class="doc-footer">
-              <div class="footer-left">
-                <span class="read-time">{{ getDocInfo(doc.pages) }}</span>
-              </div>
-              <span class="date">{{ today }}</span>
+            <h3 class="doc-title">{{ doc.title }}</h3>
+            <!-- 标题组：中文标题 + 英文标题，通过 wrapper 实现靠下布局 -->
+            <div class="doc-title-wrapper">
+              <div class="doc-en-title">{{ doc.category }}</div>
+            </div>
+
+            <!-- 右下角装饰图标 (新增) -->
+            <div class="card-icon-bg" :style="{ color: getThemeColor(doc.id) }">
+              <svg-icon :path="doc.icon" :size="88" type="mdi"></svg-icon>
             </div>
           </div>
         </div>
@@ -180,6 +173,8 @@ import {
   mdiMenu,
 } from '@mdi/js'
 import { usePageStore } from '@/stores/pageStore'
+import { useProjectStore } from '@/stores/projectStore'
+import { useUserStore } from '@/stores/userStore'
 import Graph from '@/components/Graph/Graph.vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
@@ -189,6 +184,8 @@ import SubMenu from '@/components/RightClickMenu/SubMenu.vue'
 const router = useRouter()
 const route = useRoute()
 const pageStore = usePageStore()
+const projectStore = useProjectStore()
+const userStore = useUserStore()
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -216,7 +213,6 @@ const tutorialFiles = [
   '5_machine_learning.md'
 ]
 
-const hoverDoc = ref<number | null>(null)
 const docs = ref([
   {
     id: 1,
@@ -263,7 +259,30 @@ const docs = ref([
     pages: 8,
     playgroundProjectId: 11
   }
+  ,
+  {
+    id: 999,
+    title: '进入实战',
+    description: '立即创建空白工作台，快速试验节点与流程。',
+    icon: mdiHome,
+    category: 'Playground',
+    pages: 0,
+    isPlayground: true,
+    playgroundProjectId: null
+  }
 ])
+
+// 获取卡片主题色 (用于右下角图标)
+const getThemeColor = (docId: number): string => {
+  const colors: Record<number, string> = {
+    1: '#FF8C00', // 快速上手 - 活力橙
+    2: '#8B5CF6', // 核心概念 - 深邃紫
+    3: '#10B981', // 常见数据流程 - 数据绿
+    4: '#06B6D4', // 逻辑控制 - 科技青
+    5: '#EC4899'  // 机器学习 - 智能粉
+  }
+  return colors[docId] || '#108efe'
+}
 
 const getDocInfo = (pages: number) => {
   if (pages === 0) return '加载中...'
@@ -542,6 +561,34 @@ const navigateToDoc = (docId: number, sectionIndex: number = 1) => {
 // ========== 跳转逻辑修改 ==========
 const openDoc = (doc: any) => {
   navigateToDoc(doc.id, 1)   // 打开文档，默认显示第一节
+}
+
+// 点击创建 Playground（快速创建空白工作台并打开）
+const createPlayground = async () => {
+  const name = `Playground ${new Date().toISOString().replace(/[:.]/g, '-')}`
+  projectStore.currentProjectName = name
+  projectStore.currentProjectTags = []
+  projectStore.currentWhetherShow = false
+  const success = await projectStore.createProject()
+  if (success) {
+    // 保存创建 API 返回的项目 ID（createProject 会把它写入 store）
+    const createdId = projectStore.currentProjectId
+
+    // 重新加载列表（initializeProjects 会重置当前选择项为默认值）
+    await projectStore.initializeProjects()
+
+    // 优先使用 API 返回的 ID；若不可信（为空或仍为默认占位），则从 projectList 回退查找
+    let projectIdToOpen: number | null = createdId || null
+    if (!projectIdToOpen || projectIdToOpen === projectStore.currentProjectId) {
+      const found = (projectStore.projectList && projectStore.projectList.projects)
+        ? projectStore.projectList.projects.find((p: any) => p.project_name === name)
+        : null
+      projectIdToOpen = found ? found.project_id : projectStore.currentProjectId
+    }
+
+    const routeLocation = router.resolve({ name: 'editor-project', params: { projectId: projectIdToOpen } })
+    window.open(routeLocation.href, '_blank')
+  }
 }
 
 const goPrevSection = () => {
@@ -927,108 +974,105 @@ onMounted(async () => {
 
   .docs-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 30px;
+    grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: minmax(180px, auto);
+    gap: 24px;
+  }
+
+  @media (max-width: 1024px) {
+    .docs-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .docs-grid {
+      grid-template-columns: repeat(1, 1fr);
+    }
   }
 
   .doc-card {
     background: white;
-    border-radius: 8px;
+    border-radius: 12px;
     padding: 28px;
     box-shadow: 0 2px 8px rgba(16, 142, 254, 0.1);
-    transition: all 0.3s ease;
     border: 1px solid #e8f0f9;
     display: flex;
     flex-direction: column;
     cursor: pointer;
-
-    &:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 16px rgba(16, 142, 254, 0.15);
-      border-color: #108efe;
-    }
-
-    .doc-header {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 16px;
-
-      .doc-icon {
-        width: 50px;
-        height: 50px;
-        border-radius: 8px;
-        background: linear-gradient(135deg, rgba(16, 142, 254, 0.1), rgba(16, 142, 254, 0.05));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #108efe;
-        flex-shrink: 0;
-      }
-
-      .doc-info {
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-
-        .doc-title {
-          font-size: 16px;
-          font-weight: 700;
-          color: #333;
-          margin: 0 0 4px 0;
-          line-height: 1.3;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .doc-subtitle {
-          font-size: 11px;
-          font-weight: 500;
-          color: #108efe;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-      }
-    }
+    transition: none;
+    min-height: 220px;
+    position: relative;  // 为绝对定位的装饰图标提供锚点
+    overflow: hidden;    // 确保圆角裁剪，同时让图标不超出边界
 
     .doc-description {
       font-size: 13px;
       color: #666;
       line-height: 1.6;
-      margin-bottom: 16px;
-      flex: 1;
+      margin-bottom: 12px;
     }
 
-    .doc-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-top: 16px;
-      border-top: 1px solid #f0f0f0;
-
-      .footer-left {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 12px;
-        color: #999;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .read-time {
-        font-size: 12px;
-        color: #999;
-      }
-
-      .date {
-        font-size: 12px;
-        color: #999;
-        flex-shrink: 0;
-      }
+    .doc-title-wrapper {
+      margin-top: auto;
     }
+
+    .doc-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #333;
+      margin: 0 0 4px 0;
+      line-height: 1.3;
+    }
+
+    .doc-en-title {
+      font-size: 12px;
+      font-weight: 400;
+      color: #108efe;
+      margin-bottom: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    // 右下角装饰图标样式 (新增)
+    .card-icon-bg {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      width: 88px;
+      height: 88px;
+      opacity: 0.2;
+      pointer-events: none;   // 避免干扰卡片点击
+      transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+      z-index: 1;
+      
+      svg {
+        width: 100%;
+        height: 100%;
+        filter: drop-shadow(0 0 4px rgba(0,0,0,0.1));
+      }
+
+      // 浮动动画
+      animation: subtleFloat 6s ease-in-out infinite;
+    }
+
+    // 卡片悬浮时，装饰图标更明显，并轻微放大
+    &:hover .card-icon-bg {
+      opacity: 0.35;
+      transform: scale(1.05) rotate(2deg);
+    }
+  }
+}
+
+// 浮动动画
+@keyframes subtleFloat {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(1deg);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg);
   }
 }
 
