@@ -179,7 +179,16 @@ class TrackedSymbolRecord(Base):
     oldest_data_time = Column(DateTime(timezone=True), nullable=True)
     is_history_complete = Column(Boolean, default=False, nullable=False)
 
-# trigers
+class TutorialReviewRecord(Base):
+    __tablename__ = "tutorial_reviews"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    tutorial_id = Column(Integer, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True) # allow guest user
+    review = Column(Enum("like", "dislike", name="review_enum"), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+# triggers
 def file_size_trigger(conn) -> None:
     conn.execute(
         text("""
