@@ -314,8 +314,8 @@
         display: flex;
         flex-direction: row;
         width: 100%;        // 原来是 100vw
-        padding-left: 235px;
-        padding-right: 10px;
+        padding-left: 215px;
+        padding-right: 14px;
         align-items: center;
         background-color: transparent;
     }
@@ -339,7 +339,7 @@
         flex-direction: row;
         gap: 8px;
         margin-left: auto;
-        margin-right: 8px;
+        margin-right: 20px;
     }
 
     .graph-controls-right{
