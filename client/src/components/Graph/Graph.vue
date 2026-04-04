@@ -994,13 +994,6 @@ const editableStyle = computed(() => graphStore.project.editable ? 'auto' : 'non
 // import default controls styles
 @import '@vue-flow/controls/dist/style.css';
 
-.vue-flow__handle {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    border: none;
-}
-
 .vue-flow__pane {
     cursor: default !important;
 }
@@ -1057,6 +1050,13 @@ const editableStyle = computed(() => graphStore.project.editable ? 'auto' : 'non
 
 :deep(.vue-flow__panel.bottom.center) {
     width: 100%;
+}
+
+:deep(.vue-flow__handle) {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: none;
 }
 
 </style>
