@@ -252,6 +252,13 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
+:deep(.vue-flow__handle) {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: none;
+}
+
 .example-carousel {
   width: 100%;
   display: flex;
