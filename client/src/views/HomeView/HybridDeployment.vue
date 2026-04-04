@@ -39,7 +39,7 @@
           <span class="dot yellow"></span>
           <span class="dot green"></span>
         </div>
-        <span class="code-label">terminal</span>
+        <!-- <span class="code-label">terminal</span> -->
       </div>
       <div class="code-block">
         <pre><code ref="codeBlock" class="language-bash"># 克隆项目
@@ -108,12 +108,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: #ffffff;
-  border: 1px solid #eef2ff;
-  border-radius: 20px;
-  padding: 16px 20px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 16px 18px;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 8px 20px rgba(2,6,23,0.25);
   margin-bottom: 16px;  /* 卡片之间的间距，不破坏均分逻辑 */
 
   &:last-child {
@@ -133,10 +133,10 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #f0f4ff, #ffffff);
-    border-radius: 16px;
-    color: #2563eb;
-    font-size: 1.6rem;
+    background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+    border-radius: 12px;
+    color: #8dd6ff;
+    font-size: 1.5rem;
   }
 
   .feature-content {
@@ -146,13 +146,13 @@ onMounted(() => {
       display: block;
       font-size: 1rem;
       font-weight: 700;
-      color: #0f172a;
+      color: #eef2ff;
       margin-bottom: 4px;
     }
 
     span {
       font-size: 0.8rem;
-      color: #475569;
+      color: #c7d2e0;
       line-height: 1.4;
     }
   }
@@ -160,10 +160,10 @@ onMounted(() => {
 
 /* 右侧代码卡片（保持原有风格） */
 .code-card {
-  background: #ffffff;
-  border-radius: 24px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.02);
-  border: 1px solid #eef2ff;
+  background: rgba(255,255,255,0.04);
+  border-radius: 18px;
+  box-shadow: 0 12px 30px rgba(2,6,23,0.25);
+  border: 1px solid rgba(255,255,255,0.06);
   overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   height: fit-content;  /* 高度由内容决定，左侧会拉伸与之匹配 */
@@ -174,12 +174,12 @@ onMounted(() => {
   }
 
   .code-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 20px;
-    background: #f8fafc;
-    border-bottom: 1px solid #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
 
     .dot-group {
       display: flex;
@@ -207,9 +207,9 @@ onMounted(() => {
   }
 
   .code-block {
-    padding: 20px;
-    background: #fefefe;
-    overflow-x: auto;
+  padding: 16px;
+  background: rgba(255,255,255,0.02);
+  overflow-x: auto;
 
     pre {
       margin: 0;
@@ -253,6 +253,60 @@ onMounted(() => {
   }
 }
 
+/* 避免 highlight.js 的浅色主题在深色面板中出现白色背景重影 */
+/* 使用深度穿透，确保 highlight.js 动态插入的 token 元素也被覆盖 */
+.hybrid-deployment :deep(.hljs) {
+  background: transparent !important;
+  color: #e6eef8 !important;
+}
+.hybrid-deployment :deep(.hljs .hljs-comment),
+.hybrid-deployment :deep(.hljs .hljs-quote) {
+  color: #9aa6b4 !important;
+  font-style: italic;
+}
+
+/* 常见 token 颜色覆盖（深色面板） */
+.hybrid-deployment :deep(.hljs .hljs-keyword),
+.hybrid-deployment :deep(.hljs .hljs-selector-tag),
+.hybrid-deployment :deep(.hljs .hljs-subst) {
+  color: #c084fc !important;
+  font-weight: 600 !important;
+}
+.hybrid-deployment :deep(.hljs .hljs-number),
+.hybrid-deployment :deep(.hljs .hljs-literal),
+.hybrid-deployment :deep(.hljs .hljs-variable),
+.hybrid-deployment :deep(.hljs .hljs-template-variable),
+.hybrid-deployment :deep(.hljs .hljs-tag .hljs-attr) {
+  color: #60a5fa !important;
+}
+.hybrid-deployment :deep(.hljs .hljs-string),
+.hybrid-deployment :deep(.hljs .hljs-doctag) {
+  color: #7dd3fc !important;
+}
+.hybrid-deployment :deep(.hljs .hljs-title),
+.hybrid-deployment :deep(.hljs .hljs-section),
+.hybrid-deployment :deep(.hljs .hljs-selector-id) {
+  color: #93c5fd !important;
+}
+.hybrid-deployment :deep(.hljs .hljs-built_in),
+.hybrid-deployment :deep(.hljs .hljs-builtin-name),
+.hybrid-deployment :deep(.hljs .hljs-type) {
+  color: #60a5fa !important;
+}
+.hybrid-deployment :deep(.hljs .hljs-attr),
+.hybrid-deployment :deep(.hljs .hljs-symbol),
+.hybrid-deployment :deep(.hljs .hljs-bullet),
+.hybrid-deployment :deep(.hljs .hljs-link) {
+  color: #fbbf24 !important;
+}
+
+/* 对 pre.hljs 和 code.hljs 也做显式透明覆盖，防止其他全局样式生效 */
+.hybrid-deployment :deep(pre.hljs),
+.hybrid-deployment :deep(code.hljs) {
+  background: transparent !important;
+  color: inherit !important;
+}
+
 /* 响应式：小屏幕改为上下布局 */
 @media (max-width: 768px) {
   .hybrid-deployment {
@@ -269,61 +323,5 @@ onMounted(() => {
     flex: none;
     margin-bottom: 0;
   }
-}
-</style>
-
-<!-- 浅色代码高亮主题（保持不变） -->
-<style>
-.hljs {
-  display: block;
-  overflow-x: auto;
-  padding: 0;
-  background: #fefefe;
-  color: #24292e;
-}
-.hljs-comment,
-.hljs-quote {
-  color: #6a737d;
-  font-style: italic;
-}
-.hljs-keyword,
-.hljs-selector-tag,
-.hljs-subst {
-  color: #d73a49;
-}
-.hljs-number,
-.hljs-literal,
-.hljs-variable,
-.hljs-template-variable,
-.hljs-tag .hljs-attr {
-  color: #005cc5;
-}
-.hljs-string,
-.hljs-doctag {
-  color: #032f62;
-}
-.hljs-title,
-.hljs-section,
-.hljs-selector-id {
-  color: #6f42c1;
-}
-.hljs-built_in,
-.hljs-builtin-name,
-.hljs-type {
-  color: #005cc5;
-}
-.hljs-attr {
-  color: #e36209;
-}
-.hljs-symbol,
-.hljs-bullet,
-.hljs-link {
-  color: #e36209;
-}
-.hljs-emphasis {
-  font-style: italic;
-}
-.hljs-strong {
-  font-weight: bold;
 }
 </style>

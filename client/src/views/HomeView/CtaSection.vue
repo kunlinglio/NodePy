@@ -45,6 +45,11 @@ function quickStart() {
   backdrop-filter: blur(12px);
   border-radius: 48px;
   padding: 56px 48px;
+  /* 明确设置宽度，使在父容器中可扩展 */
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
   text-align: center;
   box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.5);

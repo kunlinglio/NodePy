@@ -33,9 +33,9 @@
             </div>
 
             <!-- 右下角装饰：“进入实战”保留原有图标，其他卡片展示 abstract 图片 -->
-            <div v-if="doc.id === 999" class="card-icon-bg" :style="{ color: getThemeColor(doc.id) }">
+            <!-- <div v-if="doc.id === 999" class="card-icon-bg" :style="{ color: getThemeColor(doc.id) }">
               <svg-icon :path="doc.icon" :size="88" type="mdi"></svg-icon>
-            </div>
+            </div> -->
           </div>
         </div>
       </div>
@@ -174,7 +174,6 @@ import { useLoginStore } from '@/stores/loginStore'
 import Graph from '@/components/Graph/Graph.vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
-import 'highlight.js/styles/github.css'
 import SubMenu from '@/components/RightClickMenu/SubMenu.vue'
 
 const router = useRouter()
@@ -202,6 +201,11 @@ const md = new MarkdownIt({
     return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>'
   }
 })
+
+  onMounted(() => {
+    // 动态加载 highlight.js 的样式，仅在 Explore 页面需要时注入，避免污染全局样式
+    import('highlight.js/styles/github.css').catch(() => {})
+  })
 
 const tutorialFiles = [
   '1_quick_start.md',
@@ -259,8 +263,8 @@ const docs = ref([
   },
   {
     id: 999,
-    title: '进入实战',
-    description: '立即创建空白工作台，快速试验节点与流程。',
+    title: '尝试一下',
+    description: '立即创建空白工作台，快速开始你的节点处理流程。',
     icon: mdiHome,
     category: 'Playground',
     pages: 0,
@@ -1055,7 +1059,7 @@ onMounted(async () => {
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.9) 60%, rgba(0,0,0,0.03) 100%);
+      background: linear-gradient(135deg, rgba(255,255,255,0.6) 10%, rgba(255,255,255,0.9) 55%, rgba(0,0,0,0.03) 100%);
       z-index: 1;
       pointer-events: none;
     }
@@ -1117,9 +1121,9 @@ onMounted(async () => {
       height: 88px;
       opacity: 0.2;
       pointer-events: none;
-      transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+      // transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
       z-index: 1;
-      animation: subtleFloat 6s ease-in-out infinite;
+      // animation: subtleFloat 6s ease-in-out infinite;
       
       svg {
         width: 100%;

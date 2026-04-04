@@ -6,9 +6,9 @@
           <span></span><span></span><span></span>
         </div>
         <div class="file-name">{{ currentName }}</div>
-        <div class="mockup-actions">
+        <!-- <div class="mockup-actions">
           <div class="run-indicator"></div>
-        </div>
+        </div> -->
       </div>
       <div class="mockup-body">
         <!-- 添加 transition 实现淡入淡出切换 -->

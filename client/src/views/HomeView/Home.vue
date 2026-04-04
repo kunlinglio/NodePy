@@ -313,12 +313,15 @@ onUnmounted(() => {
       </div>
 
       <!-- 工作流模板 -->
-      <div class="slide" :class="{ active: currentSection === 3 }">
+      <div class="slide showcase-slide" :class="{ active: currentSection === 3 }">
         <div class="section-wrapper">
           <div class="section-header">
             <h2 class="section-title">精选<span class="gradient-text">工作流模板</span></h2>
             <p class="section-subtitle">从经典策略到前沿应用，快速启动您的项目</p>
           </div>
+        </div>
+        <!-- 全屏画廊容器（突破 .section-wrapper 的 max-width 限制） -->
+        <div class="showcase-fullwidth">
           <ShowcaseCards />
         </div>
       </div>
@@ -335,19 +338,22 @@ onUnmounted(() => {
       </div>
 
       <!-- 混合部署 -->
-      <div class="slide" :class="{ active: currentSection === 5 }">
-        <div class="section-wrapper">
-          <div class="section-header">
-            <h2 class="section-title">
-              开源 + 可自托管<br />
-              <span class="gradient-text">企业级部署，兼顾数据隐私</span>
-            </h2>
-            <p class="section-subtitle">
-              NodePy 完全开源，支持云端 SaaS 或自有服务器部署，数据不出域，保障企业核心隐私安全。
-              满足金融级、GDPR 等合规要求，让您的业务在安全与弹性间完美平衡。
-            </p>
+      <div class="slide hybrid-slide" :class="{ active: currentSection === 5 }">
+        <!-- 将标题和内容放入全宽深色面板，使面板覆盖标题与说明 -->
+        <div class="hybrid-fullwidth">
+          <div class="hybrid-panel-full">
+            <div class="section-header">
+              <h2 class="section-title">
+                开源 + 可自托管<br />
+                <span class="gradient-text">企业级部署，兼顾数据隐私</span>
+              </h2>
+              <p class="section-subtitle">
+                NodePy 完全开源，支持云端 SaaS 或自有服务器部署，数据不出域，保障企业核心隐私安全。
+                满足金融级、GDPR 等合规要求，让您的业务在安全与弹性间完美平衡。
+              </p>
+            </div>
+            <HybridDeployment />
           </div>
-          <HybridDeployment />
         </div>
       </div>
 
@@ -472,6 +478,8 @@ html::-webkit-scrollbar {
     cursor: default;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    touch-action: auto; /* allow native touch scrolling in free mode */
+    -webkit-overflow-scrolling: touch;
 
     &::-webkit-scrollbar {
       display: none;
@@ -482,6 +490,11 @@ html::-webkit-scrollbar {
       height: auto;
     }
   }
+}
+
+/* Ensure CTA + Footer 区块有背景色（提高优先级以防被覆盖） */
+.fullscreen-slider .cta-footer-slide {
+  background: linear-gradient(180deg, #f8faff 0%, #f1f5f9 100%);
 }
 
 .slide {
@@ -545,6 +558,62 @@ html::-webkit-scrollbar {
   }
 }
 
+/* Showcase 全屏展示：使画廊突破 .section-wrapper 的 max-width 限制 */
+.showcase-slide {
+  .section-wrapper {
+    z-index: 2;
+  }
+}
+
+.showcase-fullwidth {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  padding: 20px 0px;
+  box-sizing: border-box;
+  z-index: 1;
+
+  .gallery-container {
+    width: 100%;
+    overflow: visible;
+  }
+}
+
+/* Hybrid 全屏深色面板：包裹标题与组件 */
+.hybrid-fullwidth {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  padding: 28px 0px;
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+.hybrid-panel-full {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #071025 0%, #0b1726 100%);
+  border-radius: 20px;
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.45);
+  .section-header{
+    .section-title{
+      color: white;
+    }
+    .section-subtitle{
+      color: grey;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .showcase-fullwidth {
+    padding: 16px 20px;
+  }
+}
+
 .cta-footer-slide {
   min-height: 100vh;
   height: auto;
@@ -578,11 +647,45 @@ html::-webkit-scrollbar {
 
     :deep(.cta-card) {
       width: 100%;
-      max-width: 900px;
+      max-width: 1100px;
       min-height: 300px;
       display: flex;
       flex-direction: column;
       justify-content: center;
+      /* CTA 不使用独立背景，让父级（Home 的 cta 区块）背景透出 */
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      color: inherit;
+    }
+
+    :deep(.cta-card) h2 {
+      background: none !important;
+      -webkit-background-clip: unset !important;
+      color: #0f172a !important; /* 与 Home 背景配合的深色文本 */
+    }
+    :deep(.cta-card) p {
+      color: #475569 !important;
+    }
+    :deep(.cta-card) .cta-btn.outline {
+      background: rgba(255,255,255,0.95) !important;
+      border: 1px solid #cbd5e1 !important;
+      color: #0f172a !important;
+      backdrop-filter: blur(4px) !important;
+    }
+    :deep(.cta-card) .cta-btn.solid {
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15) !important;
+    }
+
+    /* 确保 Hybrid 的代码高亮在深色面板中透明并使用深色主题色 */
+    .hybrid-panel-full :deep(.hljs),
+    .hybrid-panel-full :deep(pre.hljs),
+    .hybrid-panel-full :deep(code.hljs),
+    .hybrid-panel-full .code-block pre,
+    .hybrid-panel-full .code-block code {
+      background: transparent !important;
+      color: #e6eef8 !important;
     }
   }
 
