@@ -345,7 +345,7 @@ onBeforeUnmount(() => {
     visibility: hidden;
 }
 .project-tags {
-    margin: 4px 0;
+    // margin: 4px 0;
     height: 32px;
     overflow: visible;
 }

@@ -239,7 +239,7 @@
     color:#6b7f8f;
 }
 .project-tags {
-    margin: 4px 0;
+    // margin: 4px 0;
     height: 32px;
     overflow: visible;
 }

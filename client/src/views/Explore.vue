@@ -1,11 +1,10 @@
 <template>
   <div class="explore-container">
-    <!-- 背景装饰元素 -->
-    <div class="background-elements">
-      <div class="bg-circle circle-1"></div>
-      <div class="bg-circle circle-2"></div>
-      <div class="bg-circle circle-3"></div>
-    </div>
+    <!-- 背景装饰元素（类似 Home 但不同配色） -->
+    <div class="particle-bg"></div>
+    <div class="gradient-orb orb-1"></div>
+    <div class="gradient-orb orb-2"></div>
+    <div class="gradient-orb orb-3"></div>
 
     <!-- 主内容区 -->
     <div class="explore-content">
@@ -21,39 +20,33 @@
 
         <div class="docs-grid">
           <div
-            v-for="doc in docs"
-            :key="doc.id"
-            class="doc-card"
-            @click="doc.isPlayground ? createPlayground() : openDoc(doc)"
-          >
-            <!-- 描述 -->
+              v-for="doc in docs"
+              :key="doc.id"
+              class="doc-card"
+              :style="getCardBgStyle(doc.id)"
+              @click="doc.isPlayground ? createPlayground() : openDoc(doc)"
+            >
             <p class="doc-description">{{ doc.description }}</p>
-            <h3 class="doc-title">{{ doc.title }}</h3>
-            <!-- 标题组：中文标题 + 英文标题，通过 wrapper 实现靠下布局 -->
-            <div class="doc-title-wrapper">
-              <div class="doc-en-title">{{ doc.category }}</div>
+            <div class="title-row">
+              <h3 class="doc-title">{{ doc.title }}</h3>
+              <svg-icon :path="mdiArrowRight" :size="14" type="mdi" class="arrow-icon"></svg-icon>
             </div>
 
-            <!-- 右下角装饰图标 (新增) -->
-            <div class="card-icon-bg" :style="{ color: getThemeColor(doc.id) }">
+            <!-- 右下角装饰：“进入实战”保留原有图标，其他卡片展示 abstract 图片 -->
+            <div v-if="doc.id === 999" class="card-icon-bg" :style="{ color: getThemeColor(doc.id) }">
               <svg-icon :path="doc.icon" :size="88" type="mdi"></svg-icon>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 教程详情视图 -->
+      <!-- 教程详情视图（完整保留原有结构） -->
       <div v-else class="tutorial-detail-section">
         <div class="tutorial-content" ref="tutorialContentRef">
           <!-- 左侧：文档内容区域 -->
           <div class="tutorial-left">
             <div class="chapter-header">
-              <!-- 菜单按钮，带悬浮菜单 -->
-              <button 
-                ref="menuButtonRef"
-                class="menu-button" 
-                @click.stop="toggleMenu"
-              >
+              <button ref="menuButtonRef" class="menu-button" @click.stop="toggleMenu">
                 <svg-icon :path="mdiMenu" :size="20" type="mdi"></svg-icon>
               </button>
               <div class="chapter-info">
@@ -94,7 +87,7 @@
               <Graph
                 :isPlaygroundProject="true"
                 :playgroundProjectId="currentPlaygroundProjectId!"
-                :key="currentPlaygroundProjectId||-1"
+                :key="currentPlaygroundProjectId || -1"
               ></Graph>
             </div>
           </div>
@@ -154,7 +147,7 @@
 </template>
 
 <script lang='ts' setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 //@ts-ignore
 import SvgIcon from '@jamescoyle/vue-icon'
@@ -171,6 +164,8 @@ import {
   mdiPlaylistCheck,
   mdiRobot,
   mdiMenu,
+  mdiArrowRight,
+  mdiSitemap,
 } from '@mdi/js'
 import { usePageStore } from '@/stores/pageStore'
 import { useProjectStore } from '@/stores/projectStore'
@@ -261,8 +256,7 @@ const docs = ref([
     category: 'Machine Learning',
     pages: 8,
     playgroundProjectId: 11
-  }
-  ,
+  },
   {
     id: 999,
     title: '进入实战',
@@ -275,40 +269,71 @@ const docs = ref([
   }
 ])
 
-// 获取卡片主题色 (用于右下角图标)
+// 管理 abstract 图片加载状态
+const abstractImageLoaded = reactive<Record<number, boolean>>({
+  1: false,
+  2: false,
+  3: false,
+  4: false,
+  5: false
+})
+
+// 获取 abstract 图片 URL
+const getAbstractImageUrl = (docId: number): string => {
+  const baseUrl = import.meta.env.BASE_URL
+  return `${baseUrl}guides/${docId}_abstract.png`
+}
+
+// 获取卡片背景样式
+const getMinimapBgStyle = (docId: number) => {
+  const url = getAbstractImageUrl(docId)
+  return {
+    backgroundImage: `url(${url})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat'
+  }
+}
+
+// 将 abstract 图片传入卡片根元素作为 CSS 变量，用于伪元素做模糊背景
+const getCardBgStyle = (docId: number) => {
+  // 不为“进入实战”(id === 999) 填充背景图
+  if (docId === 999) return {}
+  const url = getAbstractImageUrl(docId)
+  return ({ ['--card-bg-image']: `url(${url})` } as any)
+}
+
+// 预加载 abstract 图片以处理加载状态
+const preloadAbstractImages = () => {
+  for (let i = 1; i <= 5; i++) {
+    const img = new Image()
+    img.onload = () => {
+      abstractImageLoaded[i] = true
+    }
+    img.onerror = () => {
+      abstractImageLoaded[i] = false
+    }
+    img.src = getAbstractImageUrl(i)
+  }
+}
+
 const getThemeColor = (docId: number): string => {
   const colors: Record<number, string> = {
-    1: '#FF8C00', // 快速上手 - 活力橙
-    2: '#8B5CF6', // 核心概念 - 深邃紫
-    3: '#10B981', // 常见数据流程 - 数据绿
-    4: '#06B6D4', // 逻辑控制 - 科技青
-    5: '#EC4899'  // 机器学习 - 智能粉
+    1: '#FF8C00',
+    2: '#8B5CF6',
+    3: '#10B981',
+    4: '#06B6D4',
+    5: '#EC4899'
   }
   return colors[docId] || '#108efe'
 }
 
-const getDocInfo = (pages: number) => {
-  if (pages === 0) return '加载中...'
-  const minutesPerSection = 2
-  const effectiveSections = Math.max(0, pages)
-  const totalMinutes = effectiveSections * minutesPerSection
-  if (totalMinutes < 60) {
-    return `共 ${effectiveSections} 小节，阅读约需 ${totalMinutes} 分钟`
-  } else {
-    const hours = Math.floor(totalMinutes / 60)
-    const mins = totalMinutes % 60
-    return `共 ${effectiveSections} 小节，阅读约需 ${hours} 小时 ${mins} 分钟`
-  }
-}
-
-// 存储每个文档的章节元数据：包含标题和索引（0‑based），索引与 splitIntoSections 返回的章节顺序一致
+// 存储每个文档的章节元数据
 const tutorialsChaptersMeta = ref<Map<number, Array<{ title: string; index: number }>>>(new Map())
 const cachedMarkdowns = ref<Map<number, string>>(new Map())
 const isPreloading = ref(false)
-// 存储每个文档的实际章节总数（与 tutorialsChaptersMeta 的长度一致）
 const docActualSections = ref<Map<number, number>>(new Map())
 
-// 将 markdown 切分成带标题的章节（包含概述）
 const splitIntoSections = (markdown: string) => {
   const lines = markdown.split('\n')
   const sections: Array<{ title: string; content: string; html: string }> = []
@@ -375,9 +400,7 @@ const preloadAllTutorials = async () => {
       const markdown = await response.text()
       cachedMarkdowns.value.set(docId, markdown)
 
-      // 使用 splitIntoSections 得到实际章节列表（包含概述）
       const actualSections = splitIntoSections(markdown)
-      // 存储章节元数据（标题 + 索引）
       const meta = actualSections.map((section, idx) => ({
         title: section.title,
         index: idx
@@ -385,7 +408,6 @@ const preloadAllTutorials = async () => {
       tutorialsChaptersMeta.value.set(docId, meta)
       docActualSections.value.set(docId, actualSections.length)
 
-      // 更新卡片显示的页数
       const doc = docs.value.find(d => d.id === docId)
       if (doc) doc.pages = actualSections.length
     })
@@ -410,7 +432,6 @@ const loadTutorial = async (docId: number) => {
         markdown = await response.text()
         cachedMarkdowns.value.set(docId, markdown)
 
-        // 若元数据缺失，则重新生成
         if (!tutorialsChaptersMeta.value.has(docId)) {
           const actualSections = splitIntoSections(markdown)
           const meta = actualSections.map((section, idx) => ({
@@ -495,7 +516,6 @@ const headerTitle = computed(() => {
   return `${docTitle} - ${sectionTitle}${progress}`
 })
 
-// 获取文档实际章节总数（用于跨文档跳转）
 const getDocTotalSections = (docId: number): number => {
   return docActualSections.value.get(docId) || 0
 }
@@ -541,11 +561,8 @@ const nextButtonLabel = computed(() => {
   return '下一节'
 })
 
-// ========== 强制刷新页面跳转到指定文档（可选章节） ==========
 const navigateToDoc = (docId: number, sectionIndex: number = 1) => {
-  // 如果目标文档与当前相同，且当前在详情页，则使用 SPA 内导航（不刷新）
   if (currentDocId.value === docId && currentDocId.value !== null) {
-    // 如果章节索引相同则无需操作
     if (currentSectionIndex.value + 1 === sectionIndex) return
     router.push({
       name: 'explore',
@@ -553,7 +570,6 @@ const navigateToDoc = (docId: number, sectionIndex: number = 1) => {
     })
     return
   }
-  // 不同文档或从列表页进入，强制刷新页面
   const routeLocation = router.resolve({
     name: 'explore',
     params: { docId, sectionIndex }
@@ -561,12 +577,10 @@ const navigateToDoc = (docId: number, sectionIndex: number = 1) => {
   window.location.href = routeLocation.href
 }
 
-// ========== 跳转逻辑修改 ==========
 const openDoc = (doc: any) => {
-  navigateToDoc(doc.id, 1)   // 打开文档，默认显示第一节
+  navigateToDoc(doc.id, 1)
 }
 
-// 点击创建 Playground（快速创建空白工作台并打开）
 const createPlayground = async () => {
   if (isLoggedIn.value) {
     const name = `Playground ${new Date().toISOString().replace(/[:.]/g, '-')}`
@@ -575,13 +589,8 @@ const createPlayground = async () => {
     projectStore.currentWhetherShow = false
     const success = await projectStore.createProject()
     if (success) {
-      // 保存创建 API 返回的项目 ID（createProject 会把它写入 store）
       const createdId = projectStore.currentProjectId
-
-      // 重新加载列表（initializeProjects 会重置当前选择项为默认值）
       await projectStore.initializeProjects()
-
-      // 优先使用 API 返回的 ID；若不可信（为空或仍为默认占位），则从 projectList 回退查找
       let projectIdToOpen: number | null = createdId || null
       if (!projectIdToOpen || projectIdToOpen === projectStore.currentProjectId) {
         const found = (projectStore.projectList && projectStore.projectList.projects)
@@ -589,19 +598,16 @@ const createPlayground = async () => {
           : null
         projectIdToOpen = found ? found.project_id : projectStore.currentProjectId
       }
-
       const routeLocation = router.resolve({ name: 'editor-project', params: { projectId: projectIdToOpen } })
       window.open(routeLocation.href, '_blank')
     }
-  }
-  else{
+  } else {
     await router.push({ name: 'visitor' });
   }
 }
 
 const goPrevSection = () => {
   if (hasPrevSection.value) {
-    // 同一文档内切换章节，使用 router.push（不刷新）
     const newIndex = currentSectionIndex.value - 1
     router.push({
       name: 'explore',
@@ -611,7 +617,6 @@ const goPrevSection = () => {
       }
     })
   } else if (hasPreviousDoc.value) {
-    // 切换到上一篇文档，强制刷新页面，跳转到其最后一节
     const prevDocId = currentDoc.value!.id - 1
     const totalSectionsPrev = getDocTotalSections(prevDocId)
     const targetSection = totalSectionsPrev > 0 ? totalSectionsPrev : 1
@@ -621,7 +626,6 @@ const goPrevSection = () => {
 
 const goNextSection = () => {
   if (hasNextSection.value) {
-    // 同一文档内切换章节，使用 router.push（不刷新）
     const newIndex = currentSectionIndex.value + 1
     router.push({
       name: 'explore',
@@ -631,13 +635,11 @@ const goNextSection = () => {
       }
     })
   } else if (hasNextDoc.value) {
-    // 切换到下一篇文档，强制刷新页面（默认第一节）
     const nextDocId = currentDoc.value!.id + 1
     navigateToDoc(nextDocId, 1)
   }
 }
 
-// 返回列表页（SPA 内跳转）
 const backToList = () => {
   router.push({ name: 'explore' })
 }
@@ -654,7 +656,7 @@ const nextDoc = () => {
   }
 }
 
-// ========== 顶部菜单（悬浮弹窗）逻辑 ==========
+// 顶部菜单逻辑
 const menuVisible = ref(false)
 const menuButtonRef = ref<HTMLElement | null>(null)
 const menuRootRef = ref<HTMLElement | null>(null)
@@ -678,9 +680,7 @@ const onMenuItemMouseEnter = (docId: number, event: MouseEvent) => {
   }
 }
 
-const onMenuItemMouseLeave = () => {
-  // 留空，避免过早隐藏子菜单
-}
+const onMenuItemMouseLeave = () => {}
 
 const onSubMenuMouseEnter = () => {
   clearHideTimer()
@@ -697,17 +697,15 @@ const onSubMenuMouseLeave = () => {
 const handleSubMenuSelect = (value: string) => {
   const [docIdStr, sectionIdxStr] = value.split(':')
   const docId = Number(docIdStr)
-  const sectionIndex = Number(sectionIdxStr) + 1   // 转为 1-based
+  const sectionIndex = Number(sectionIdxStr) + 1
 
   if (!isNaN(docId) && !isNaN(sectionIndex)) {
     if (currentDocId.value === docId) {
-      // 同一文档内切换章节，不刷新
       router.push({
         name: 'explore',
         params: { docId, sectionIndex }
       })
     } else {
-      // 切换到不同文档，强制刷新页面
       navigateToDoc(docId, sectionIndex)
     }
   }
@@ -757,7 +755,6 @@ const menuPositionStyle = computed(() => {
   }
 })
 
-// 主菜单项：使用包含概述的章节列表
 const mainMenuItems = computed(() => {
   return docs.value.map(doc => ({
     id: doc.id,
@@ -790,7 +787,7 @@ const submenuDirection = computed(() => {
   return 'right'
 })
 
-// ========== 路由监听（调整当前状态）==========
+// 路由监听
 watch(() => route.params.docId, (newDocId) => {
   if (newDocId) {
     const id = Number(newDocId)
@@ -844,7 +841,7 @@ watch(currentSectionIndex, () => {
   if (wrapper) wrapper.scrollTop = 0
 })
 
-// ========== 拖拽分割（保留原逻辑）==========
+// 拖拽分割线（保留原有逻辑）
 const startDragging = (e: MouseEvent) => {
   e.preventDefault()
   isDragging.value = true
@@ -865,6 +862,7 @@ const handleMouseMove = (e: MouseEvent) => {
 
 onMounted(async () => {
   await preloadAllTutorials()
+  preloadAbstractImages()
   window.addEventListener('click', onGlobalClick)
   window.addEventListener('mousemove', handleMouseMove)
   window.addEventListener('mouseup', stopDragging)
@@ -887,57 +885,60 @@ onMounted(async () => {
   user-select: none;
 }
 
-.background-elements {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-
-  .bg-circle {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(60px);
-    opacity: 0.4;
-  }
-
-  .circle-1 {
-    width: 400px;
-    height: 400px;
-    top: -100px;
-    right: -100px;
-    background: rgba(16, 142, 254, 0.08);
-  }
-
-  .circle-2 {
-    width: 300px;
-    height: 300px;
-    bottom: 100px;
-    left: -50px;
-    background: rgba(16, 142, 254, 0.06);
-  }
-
-  .circle-3 {
-    width: 200px;
-    height: 200px;
-    top: 30%;
-    left: 20%;
-    background: rgba(16, 142, 254, 0.04);
-  }
-}
-
+/* 主内容区填充剩余高度 */
 .explore-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  z-index: 1;
   position: relative;
-  overflow-y: auto;
-  background-color: #f5f7fa;
+  z-index: 1;
 }
 
+/* ========== 背景装饰（类似 Home 但不同配色） ========== */
+.particle-bg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-image: radial-gradient(#6366f1 0.8px, transparent 0.8px);
+  background-size: 28px 28px;
+  opacity: 0.2;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.gradient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.35;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.orb-1 {
+  width: 450px;
+  height: 450px;
+  background: #6366f1;
+  top: -150px;
+  right: -100px;
+}
+.orb-2 {
+  width: 350px;
+  height: 350px;
+  background: #06b6d4;
+  bottom: 80px;
+  left: -80px;
+}
+.orb-3 {
+  width: 280px;
+  height: 280px;
+  background: #8b5cf6;
+  top: 55%;
+  left: 20%;
+}
+
+/* ========== 教程列表区域 ========== */
 .section {
   width: 100%;
   padding: 80px 40px;
@@ -982,36 +983,96 @@ onMounted(async () => {
 
   .docs-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-auto-rows: minmax(180px, auto);
+    /* 固定较窄列以减小卡片宽度，同时居中布局以保持 3x2 外观 */
+    grid-template-columns: repeat(3, minmax(0, 320px));
     gap: 24px;
+    justify-content: center;
   }
 
+  /* 响应式：平板显示2列 */
   @media (max-width: 1024px) {
     .docs-grid {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 320px));
+      justify-content: center;
     }
   }
 
+  /* 手机显示1列 */
   @media (max-width: 640px) {
     .docs-grid {
-      grid-template-columns: repeat(1, 1fr);
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+      justify-content: center;
     }
   }
 
   .doc-card {
-    background: white;
-    border-radius: 12px;
+    @include controller-style;
     padding: 28px;
-    box-shadow: 0 2px 8px rgba(16, 142, 254, 0.1);
-    border: 1px solid #e8f0f9;
     display: flex;
     flex-direction: column;
     cursor: pointer;
-    transition: none;
+    transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
     min-height: 220px;
-    position: relative;  // 为绝对定位的装饰图标提供锚点
-    overflow: hidden;    // 确保圆角裁剪，同时让图标不超出边界
+    position: relative;
+    overflow: hidden;
+    /* 使用半透明背景，让伪元素的模糊图片能透出，达到融入效果 */
+    background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.88));
+    z-index: 1;
+
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 5px 15px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    /* 右下角模糊图块（使用 CSS 变量 --card-bg-image，从模板中注入） */
+    &::before {
+      content: "";
+      position: absolute;
+      width: 140px;
+      height: 140px;
+      /* 向右下角移动，部分超出卡片边界以显示局部图块效果 */
+      right: -10px;
+      bottom: -10px;
+      background-image: var(--card-bg-image, none);
+      background-size: cover;
+      background-position: center right;
+      background-repeat: no-repeat;
+      /* 减小模糊半径以使图片更清晰 */
+      filter: blur(1px) saturate(1.03) contrast(1);
+      transform: translateZ(0) scale(1.02);
+      opacity: 0.95;
+      z-index: 0;
+      pointer-events: none;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(16,24,40,0.06) inset;
+      transition: opacity 0.28s ease, transform 0.28s ease;
+      overflow: hidden;
+    }
+
+    /* 渐变遮罩层，平衡文字与背景对比 */
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.9) 60%, rgba(0,0,0,0.03) 100%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* 确保卡片内部内容高于伪元素 */
+    > * {
+      position: relative;
+      z-index: 2;
+    }
+
+    .card-icon-bg {
+      z-index: 3;
+    }
+
+    &:hover::before {
+      transform: scale(1.08);
+      opacity: 0.72;
+    }
 
     .doc-description {
       font-size: 13px;
@@ -1020,28 +1081,33 @@ onMounted(async () => {
       margin-bottom: 12px;
     }
 
-    .doc-title-wrapper {
-      margin-top: auto;
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      margin-top: 8px;
+
+      .doc-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #333;
+        margin: 0;
+        line-height: 1.3;
+      }
+
+      .arrow-icon {
+        color: inherit; /* 与标题同色 */
+        margin-left: 8px;
+        flex-shrink: 0;
+        transition: transform 0.16s ease;
+      }
     }
 
-    .doc-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #333;
-      margin: 0 0 4px 0;
-      line-height: 1.3;
+    &:hover .arrow-icon {
+      transform: translateX(4px);
     }
 
-    .doc-en-title {
-      font-size: 12px;
-      font-weight: 400;
-      color: #108efe;
-      margin-bottom: 0;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    // 右下角装饰图标样式 (新增)
+    /* “进入实战”卡片图标 */
     .card-icon-bg {
       position: absolute;
       bottom: 12px;
@@ -1049,21 +1115,27 @@ onMounted(async () => {
       width: 88px;
       height: 88px;
       opacity: 0.2;
-      pointer-events: none;   // 避免干扰卡片点击
+      pointer-events: none;
       transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
       z-index: 1;
+      animation: subtleFloat 6s ease-in-out infinite;
       
       svg {
         width: 100%;
         height: 100%;
         filter: drop-shadow(0 0 4px rgba(0,0,0,0.1));
       }
-
-      // 浮动动画
-      animation: subtleFloat 6s ease-in-out infinite;
     }
 
-    // 卡片悬浮时，装饰图标更明显，并轻微放大
+    /* 右下角模糊小背景（通过 ::before 渲染） */
+    /* 原先的 card-minimap-placeholder 已移除，使用伪元素展示模糊图块 */
+
+    &:hover .card-minimap-placeholder {
+      opacity: 0.95;
+      transform: scale(1.02);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
     &:hover .card-icon-bg {
       opacity: 0.35;
       transform: scale(1.05) rotate(2deg);
@@ -1071,23 +1143,18 @@ onMounted(async () => {
   }
 }
 
-// 浮动动画
 @keyframes subtleFloat {
-  0% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-6px) rotate(1deg);
-  }
-  100% {
-    transform: translateY(0px) rotate(0deg);
-  }
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(1deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
 }
 
+/* ========== 教程详情视图 ========== */
 .tutorial-detail-section {
   position: relative;
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   background: white;
   display: flex;
   flex-direction: column;
@@ -1098,6 +1165,7 @@ onMounted(async () => {
   .tutorial-content {
     display: flex;
     flex: 1;
+    min-height: 0;
     gap: 0;
     overflow: hidden;
     user-select: none;
@@ -1106,6 +1174,7 @@ onMounted(async () => {
       display: flex;
       flex-direction: column;
       width: 500px;
+      min-height: 0;
       overflow: hidden;
       position: relative;
       background: white;
@@ -1235,21 +1304,6 @@ onMounted(async () => {
           margin: 1.2em 0;
           color: #5b6e8c;
           font-style: italic;
-        }
-
-        :deep(pre) {
-          background: #f8fafc;
-          border-left: 4px solid #6c757d;
-          padding: 1.2em;
-          border-radius: 8px;
-          overflow-x: auto;
-          margin: 1.2em 0;
-
-          code {
-            font-family: 'Monaco', 'Courier New', monospace;
-            font-size: 14px;
-            color: #1e293b;
-          }
         }
 
         :deep(a) {
@@ -1399,8 +1453,9 @@ onMounted(async () => {
 
     .tutorial-right {
       display: flex;
-      width: auto;
       flex: 1;
+      min-width: 0;
+      min-height: 0;
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -1413,11 +1468,13 @@ onMounted(async () => {
         flex: 1;
         width: 100%;
         height: 100%;
+        min-height: 0;
       }
     }
   }
 }
 
+/* ========== 悬浮菜单 ========== */
 .floating-menu {
   @include controller-style;
   padding: 4px 4px;
@@ -1483,6 +1540,22 @@ onMounted(async () => {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .doc-card::before {
+    width: 88px;
+    height: 88px;
+    right: -8px;
+    bottom: -8px;
+    border-radius: 10px;
+    filter: blur(8px) saturate(1.02) contrast(0.96);
+    opacity: 0.85;
+  }
+  .gradient-orb {
+    opacity: 0.2;
   }
 }
 </style>

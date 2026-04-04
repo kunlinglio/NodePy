@@ -321,7 +321,7 @@ onUnmounted(() => {
 
   .carousel-progress {
     height: 3px;
-    background: #e2e8f0;
+    // background: #e2e8f0;
     width: 100%;
     overflow: hidden;
 

@@ -195,14 +195,14 @@ onMounted(() => {
     }
 
     .code-label {
-      font-family: 'Fira Code', 'Monaco', 'Menlo', monospace;
+      font-family: 'SimHei', 'Microsoft YaHei', sans-serif;
       font-size: 0.7rem;
       color: #475569;
-      background: #ffffff;
+    //   background: #ffffff;
       padding: 4px 12px;
       border-radius: 20px;
       letter-spacing: 0.5px;
-      border: 1px solid #e2e8f0;
+    //   border: 1px solid #e2e8f0;
     }
   }
 
