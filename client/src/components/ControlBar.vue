@@ -1,19 +1,11 @@
 <script lang="ts" setup>
-// import {useModalStore} from "@/stores/modalStore";
-// import { useProjectStore } from "@/stores/projectStore";
-import { DefaultService } from "@/utils/api";
-import { Avatar } from '@element-plus/icons-vue'
-import { ref,computed, watch } from "vue";
-import { type Project } from "@/utils/api";
-import { RouterLink } from 'vue-router';
-import {useRoute,useRouter} from 'vue-router';
+import { computed } from "vue";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 import { useGraphStore } from "@/stores/graphStore";
-import { useModalStore } from "@/stores/modalStore";
 import { useProjectStore } from "@/stores/projectStore";
-import Logout from "./Logout.vue";
 import { useLoginStore } from "@/stores/loginStore";
-import UserInfoMenu from "./FloatingMenu/UserInfoMenu.vue";
-import SvgIcon from '@jamescoyle/vue-icon';
+import { useModalStore } from "@/stores/modalStore";
+import SvgIcon from "@jamescoyle/vue-icon";
 import {
   mdiCompassOutline,
   mdiCompass,
@@ -24,9 +16,50 @@ import {
   mdiProjectorScreenOutline,
   mdiProjectorScreen,
   mdiAccountGroup,
-  mdiAccountGroupOutline
-} from '@mdi/js';
-import notify from "./Notification/notify";
+  mdiAccountGroupOutline,
+  mdiGithub,
+  mdiAccountCog,
+} from "@mdi/js";
+import UserInfoMenu from "./FloatingMenu/UserInfoMenu.vue";
+import AdminAccountInfo from '@/components/AdminAccountInfo.vue';
+
+const graphStore = useGraphStore();
+const projectStore = useProjectStore();
+const loginStore = useLoginStore();
+const modalStore = useModalStore();
+const route = useRoute();
+const router = useRouter();
+
+function jumpToGithub() {
+  window.open('https://github.com/LKLLLLLLLLLL/NodePy', '_blank');
+}
+
+// 迁移自 Footer：管理员入口逻辑（包含已登录时显示权限弹窗）
+function jumpToAdmin() {
+  if (loginStore.loggedIn) {
+    const UserAccessWidth = 300;
+    const UserAccessHeight = 240;
+    modalStore.createModal({
+      component: AdminAccountInfo,
+      title: '用户权限',
+      isActive: true,
+      isResizable: false,
+      isDraggable: true,
+      isModal: true,
+      position: {
+        x: window.innerWidth / 2 - UserAccessWidth / 2,
+        y: window.innerHeight / 2 - UserAccessHeight / 2
+      },
+      size: {
+        width: UserAccessWidth,
+        height: UserAccessHeight
+      },
+      id: 'user-access',
+    });
+    return;
+  }
+  router.push({ name: 'adminlogin' });
+}
 
 const explore_path_outline = mdiCompassOutline;
 const explore_path_filled = mdiCompass;
@@ -39,51 +72,39 @@ const square_path_filled = mdiAccountGroup;
 const file_path_outline = mdiFolderOutline;
 const file_path_filled = mdiFolder;
 
-const graphStore = useGraphStore()
-const modalStore = useModalStore()
-const loginStore = useLoginStore()
-const projectStore = useProjectStore()
-const route = useRoute()
-const router = useRouter()
-
-const showProjectName = computed(()=>{
-  if(route.params.projectId)return true
-  else return false
-})
+const showProjectName = computed(() => {
+  if (route.params.projectId) return true;
+  else return false;
+});
 
 const navItems = [
-  { name: 'Home', path: '/home', label: '首页', iconOutline: home_path_outline, iconFilled: home_path_filled, routeName: 'home' },
-  { name: 'Explore', path: '/explore', label: '探索', iconOutline: explore_path_outline, iconFilled: explore_path_filled, routeName: 'explore' },
-  { name: 'Example', path: '/example', label: '广场', iconOutline: square_path_outline, iconFilled: square_path_filled, routeName: 'example' },
-  { name: 'Project', path: '/project', label: '工作台', iconOutline: project_path_outline, iconFilled: project_path_filled, routeName: 'project' },
-  { name: 'File', path: '/file', label: '文件库', iconOutline: file_path_outline, iconFilled: file_path_filled, routeName: 'file' },
-]
+  { name: "Home", path: "/home", label: "首页", iconOutline: home_path_outline, iconFilled: home_path_filled, routeName: "home" },
+  { name: "Explore", path: "/explore", label: "探索", iconOutline: explore_path_outline, iconFilled: explore_path_filled, routeName: "explore" },
+  { name: "Example", path: "/example", label: "广场", iconOutline: square_path_outline, iconFilled: square_path_filled, routeName: "example" },
+  { name: "Project", path: "/project", label: "工作台", iconOutline: project_path_outline, iconFilled: project_path_filled, routeName: "project" },
+  { name: "File", path: "/file", label: "文件库", iconOutline: file_path_outline, iconFilled: file_path_filled, routeName: "file" },
+];
 
-// 判断当前页面是否激活
 const isActive = (item: typeof navItems[0]) => {
-  if (item.routeName) {
-    return route.name === item.routeName
-  }
-  return route.path === item.path
-}
+  if (item.routeName) return route.name === item.routeName;
+  return route.path === item.path;
+};
 
-// 判断项目是否为只读模式
 const isReadOnly = computed(() => {
-    return graphStore.project.editable === false
-})
-
+  return graphStore.project.editable === false;
+});
 </script>
 
 <template>
-  <div
-    class="control-bar set_background_color"
-    :class="{ 'readonly-mode': isReadOnly }"
-  >
-    <!-- 控制栏内容 -->
+  <div class="control-bar" :class="{ 'readonly-mode': isReadOnly }">
     <div class="control-content">
-        <div class="logo-container">
-          <img src="../../public/logo-trans.png" alt="Logo" class="logo"/>
-        </div>
+      <!-- 左侧 Logo -->
+      <div class="logo-area">
+        <img src="../../public/logo-trans.png" alt="Logo" class="logo" />
+      </div>
+
+      <!-- 中间导航 / 项目名 -->
+      <div class="middle-area">
         <nav class="nav-bar" v-if="!showProjectName">
           <RouterLink
             v-for="item in navItems"
@@ -103,24 +124,31 @@ const isReadOnly = computed(() => {
             </span>
           </RouterLink>
         </nav>
-
         <div v-else class="project-name">
           <h2>{{ graphStore.project.project_name }}</h2>
-          <!-- 只读提示 -->
-          <div v-if="isReadOnly" class="readonly-indicator">
-            只读
-          </div>
+          <div v-if="isReadOnly" class="readonly-indicator">只读</div>
         </div>
+      </div>
 
+      <!-- 右侧操作区：GitHub 按钮 + 管理员按钮 + 用户头像 -->
+      <div class="right-actions">
+        <button class="action-btn github-btn" @click="jumpToGithub" title="GitHub 仓库">
+          <SvgIcon type="mdi" :path="mdiGithub" class="action-icon" />
+        </button>
+        <button class="action-btn admin-btn" @click="jumpToAdmin" title="管理员入口">
+          <SvgIcon type="mdi" :path="mdiAccountCog" class="action-icon" />
+        </button>
         <div class="user-avatar">
           <UserInfoMenu />
         </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
-@use '../common/global.scss' as *;
+@use "../common/global.scss" as *;
+
 .control-bar {
   display: flex;
   flex-direction: row;
@@ -128,37 +156,40 @@ const isReadOnly = computed(() => {
   width: 100%;
   color: black;
   box-shadow: 0 0px 15px rgba(128, 128, 128, 0.1);
-  // border-bottom: 1px solid #e0e0e0;
 
   .control-content {
     display: flex;
     align-items: center;
-    // justify-content: space-between;
+    justify-content: space-between;
     width: 100%;
     height: 100%;
     padding: 0 20px;
     font-size: 14px;
     cursor: context-menu;
+  }
 
-    .logo-container {
-      flex-shrink: 0;
-      height: 90%;
-      margin-left: 15px;
-      position: absolute;
-      user-select: none;
+  .logo-area {
+    flex-shrink: 0;
+    height: 90%;
+    display: flex;
+    align-items: center;
 
-      .logo {
-        height: 100%;
-        width: auto;
-      }
+    .logo {
+      height: 100%;
+      width: auto;
     }
+  }
+
+  .middle-area {
+    flex: 1;
+    display: flex;
+    justify-content: center;
 
     .nav-bar {
       display: flex;
       align-items: center;
-      // gap: 6px;
-      flex: 1;
-      justify-content: center;
+      gap: 6px;
+
       .nav-link {
         color: #000000;
         text-decoration: none;
@@ -190,7 +221,6 @@ const isReadOnly = computed(() => {
           height: 22px;
           display: inline-block;
           fill: currentColor;
-          // margin-right: 1px;
         }
 
         .nav-label {
@@ -201,65 +231,64 @@ const isReadOnly = computed(() => {
           border-radius: 19px;
           color: $stress-color;
           background-color: white;
-            box-shadow: 0px 3px 5px rgba(128, 128, 128, 0.10);
-          // transform: translateY(-1px);
+          box-shadow: 0px 3px 5px rgba(128, 128, 128, 0.1);
         }
       }
     }
 
     .project-name {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 14px;
-      font-weight: 500;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .readonly-indicator {
-      display: flex;
-      // background-color: #108EFE;
-      color: #9d9b9b;
-      align-items: flex-end;
-      justify-content: flex-start;
-      height: 30px;
-      width: 40px;
-      margin-left: 7px;
-      border-radius: 4px;
-      font-size: 14px;
-      font-weight: bold;
-      // font-style: italic;
-    }
-
-    .add-to-my-project{
-      margin-left: 10px;
-    }
-
-    .actions {
       display: flex;
       align-items: center;
       gap: 8px;
-      flex-shrink: 0;
+
+      h2 {
+        margin: 0;
+        font-size: 1.25rem;
+      }
+
+      .readonly-indicator {
+        color: #9d9b9b;
+        font-size: 14px;
+        font-weight: bold;
+      }
+    }
+  }
+
+  .right-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+
+    // 通用按钮样式
+    .action-btn {
+      background: transparent;
+      border: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      color: #5b5b5b;
+
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.08);
+      }
+
+      .action-icon {
+        width: 22px;
+        height: 22px;
+        fill: currentColor;
+      }
     }
 
     .user-avatar {
       flex-shrink: 0;
-      margin-left: 20px;
-      margin-right: 15px;
       cursor: pointer;
-      position: absolute;
-      right: 0px;
     }
   }
 }
-
-</style>
-
-<style lang="scss" scoped>
-@use '../common/global.scss';
-  .box {
-    flex: 1;
-  }
 </style>

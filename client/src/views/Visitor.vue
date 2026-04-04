@@ -1,17 +1,18 @@
 <script lang="ts" setup>
-    import { usePageStore } from '@/stores/pageStore';
-    import { onMounted } from 'vue';
-
-    const pageStore = usePageStore()
-
-    onMounted(()=>{
-        pageStore.setCurrentPage('Visitor')
-    })
+    import Graph from '@/components/Graph/Graph.vue';
 </script>
 <template>
-    <div>
-        Visitor View
+    <div class="editor-container">
+        <Graph :isPlaygroundProject="true">
+        </Graph>
     </div>
 </template>
 <style lang="scss" scoped>
+    .editor-container{
+        flex: 1;
+        display: flex;
+        min-height: 0;
+        width: 100%;
+        background-color: white;
+    }
 </style>

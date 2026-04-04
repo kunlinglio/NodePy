@@ -175,6 +175,7 @@ import {
 import { usePageStore } from '@/stores/pageStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useUserStore } from '@/stores/userStore'
+import { useLoginStore } from '@/stores/loginStore'
 import Graph from '@/components/Graph/Graph.vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
@@ -186,6 +187,8 @@ const route = useRoute()
 const pageStore = usePageStore()
 const projectStore = useProjectStore()
 const userStore = useUserStore()
+const loginStore = useLoginStore()
+const isLoggedIn = computed(() => loginStore.loggedIn)
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -565,29 +568,34 @@ const openDoc = (doc: any) => {
 
 // 点击创建 Playground（快速创建空白工作台并打开）
 const createPlayground = async () => {
-  const name = `Playground ${new Date().toISOString().replace(/[:.]/g, '-')}`
-  projectStore.currentProjectName = name
-  projectStore.currentProjectTags = []
-  projectStore.currentWhetherShow = false
-  const success = await projectStore.createProject()
-  if (success) {
-    // 保存创建 API 返回的项目 ID（createProject 会把它写入 store）
-    const createdId = projectStore.currentProjectId
+  if (isLoggedIn.value) {
+    const name = `Playground ${new Date().toISOString().replace(/[:.]/g, '-')}`
+    projectStore.currentProjectName = name
+    projectStore.currentProjectTags = []
+    projectStore.currentWhetherShow = false
+    const success = await projectStore.createProject()
+    if (success) {
+      // 保存创建 API 返回的项目 ID（createProject 会把它写入 store）
+      const createdId = projectStore.currentProjectId
 
-    // 重新加载列表（initializeProjects 会重置当前选择项为默认值）
-    await projectStore.initializeProjects()
+      // 重新加载列表（initializeProjects 会重置当前选择项为默认值）
+      await projectStore.initializeProjects()
 
-    // 优先使用 API 返回的 ID；若不可信（为空或仍为默认占位），则从 projectList 回退查找
-    let projectIdToOpen: number | null = createdId || null
-    if (!projectIdToOpen || projectIdToOpen === projectStore.currentProjectId) {
-      const found = (projectStore.projectList && projectStore.projectList.projects)
-        ? projectStore.projectList.projects.find((p: any) => p.project_name === name)
-        : null
-      projectIdToOpen = found ? found.project_id : projectStore.currentProjectId
+      // 优先使用 API 返回的 ID；若不可信（为空或仍为默认占位），则从 projectList 回退查找
+      let projectIdToOpen: number | null = createdId || null
+      if (!projectIdToOpen || projectIdToOpen === projectStore.currentProjectId) {
+        const found = (projectStore.projectList && projectStore.projectList.projects)
+          ? projectStore.projectList.projects.find((p: any) => p.project_name === name)
+          : null
+        projectIdToOpen = found ? found.project_id : projectStore.currentProjectId
+      }
+
+      const routeLocation = router.resolve({ name: 'editor-project', params: { projectId: projectIdToOpen } })
+      window.open(routeLocation.href, '_blank')
     }
-
-    const routeLocation = router.resolve({ name: 'editor-project', params: { projectId: projectIdToOpen } })
-    window.open(routeLocation.href, '_blank')
+  }
+  else{
+    await router.push({ name: 'visitor' });
   }
 }
 
