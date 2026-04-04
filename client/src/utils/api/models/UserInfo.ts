@@ -2,9 +2,11 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type StorageStats = {
-    total_storage_bytes: number;
-    guest_storage_bytes: number;
-    example_storage_bytes: number;
+export type UserInfo = {
+    id: number;
+    username: string;
+    email: string;
+    file_total_space: number;
+    created_at: string;
 };
 

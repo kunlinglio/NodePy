@@ -6,22 +6,25 @@ import type { Body_upload_file_api_files_upload__project_id__post } from '../mod
 import type { DataView } from '../models/DataView';
 import type { ExploreList } from '../models/ExploreList';
 import type { File } from '../models/File';
+import type { FileInfo } from '../models/FileInfo';
 import type { FinancialSymbolStats } from '../models/FinancialSymbolStats';
 import type { LoginRequest } from '../models/LoginRequest';
 import type { Project } from '../models/Project';
+import type { ProjectInfo } from '../models/ProjectInfo';
 import type { ProjectList } from '../models/ProjectList';
 import type { ProjectListFilter } from '../models/ProjectListFilter';
 import type { ProjectSetting } from '../models/ProjectSetting';
-import type { ProjectStats } from '../models/ProjectStats';
 import type { ProjUIState } from '../models/ProjUIState';
+import type { ResetPasswordRequest } from '../models/ResetPasswordRequest';
 import type { SignupRequest } from '../models/SignupRequest';
 import type { StorageStats } from '../models/StorageStats';
 import type { SystemHealthResponse } from '../models/SystemHealthResponse';
-import type { SystemStatsResponse } from '../models/SystemStatsResponse';
 import type { Tag } from '../models/Tag';
 import type { TaskResponse } from '../models/TaskResponse';
 import type { TokenResponse } from '../models/TokenResponse';
+import type { TutorialReviewStats } from '../models/TutorialReviewStats';
 import type { UserFileList } from '../models/UserFileList';
+import type { UserInfo } from '../models/UserInfo';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -601,12 +604,12 @@ export class DefaultService {
      * @returns TokenResponse Login successful
      * @throws ApiError
      */
-    public static loginApiAdminLoginPost(
+    public static loginApiAdminAuthLoginPost(
         requestBody: LoginRequest,
     ): CancelablePromise<TokenResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/admin/login',
+            url: '/api/admin/auth/login',
             body: requestBody,
             mediaType: 'application/json',
             errors: {
@@ -622,10 +625,10 @@ export class DefaultService {
      * @returns TokenResponse Access token refreshed successfully
      * @throws ApiError
      */
-    public static refreshAccessTokenApiAdminRefreshPost(): CancelablePromise<TokenResponse> {
+    public static refreshAccessTokenApiAdminAuthRefreshPost(): CancelablePromise<TokenResponse> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/admin/refresh',
+            url: '/api/admin/auth/refresh',
             errors: {
                 401: `Invalid refresh token`,
                 500: `Internal server error`,
@@ -638,43 +641,203 @@ export class DefaultService {
      * @returns string Logged out successfully
      * @throws ApiError
      */
-    public static logoutApiAdminLogoutPost(): CancelablePromise<Record<string, string>> {
+    public static logoutApiAdminAuthLogoutPost(): CancelablePromise<Record<string, string>> {
         return __request(OpenAPI, {
             method: 'POST',
-            url: '/api/admin/logout',
+            url: '/api/admin/auth/logout',
         });
     }
     /**
-     * Get System Stats
-     * Get system-wide overview statistics.
-     * Includes: total users, total projects, total storage, total nodes output.
-     * @returns SystemStatsResponse System stats retrieved successfully
+     * Get System Health
+     * Combined health check and detailed performance stats.
+     * Returns comprehensive metrics for FastAPI, Postgres, Redis, MinIO, and Celery.
+     * @returns SystemHealthResponse Successful Response
      * @throws ApiError
      */
-    public static getSystemStatsApiAdminStatsOverviewGet(): CancelablePromise<SystemStatsResponse> {
+    public static getSystemHealthApiAdminHealthOverviewGet(): CancelablePromise<SystemHealthResponse> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/admin/stats/overview',
+            url: '/api/admin/health/overview',
+        });
+    }
+    /**
+     * List Users
+     * List all registered users, supports username search.
+     * @param username
+     * @param limit
+     * @param offset
+     * @returns UserInfo Successful Response
+     * @throws ApiError
+     */
+    public static listUsersApiAdminUsersListGet(
+        username?: (string | null),
+        limit: number = 100,
+        offset?: number,
+    ): CancelablePromise<Array<UserInfo>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/users/list',
+            query: {
+                'username': username,
+                'limit': limit,
+                'offset': offset,
+            },
             errors: {
+                400: `Bad request`,
                 401: `Unauthorized`,
-                403: `Access denied`,
-                500: `Internal server error`,
+                422: `Validation Error`,
             },
         });
     }
     /**
-     * Get Top Storage Users
+     * Delete User
+     * Delete a user account.
+     * @param userId
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static deleteUserApiAdminUsersUserIdDelete(
+        userId: number,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/admin/users/{user_id}',
+            path: {
+                'user_id': userId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Reset User Password
+     * Reset a user's password to a provided new password.
+     * @param userId
+     * @param requestBody
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static resetUserPasswordApiAdminUsersUserIdResetPasswordPost(
+        userId: number,
+        requestBody: ResetPasswordRequest,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/admin/users/{user_id}/reset-password',
+            path: {
+                'user_id': userId,
+            },
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Get Financial Stats
+     * Monitor financial data health and crawler coverage by aggregating
+     * actual records and comparing with tracking status.
+     * @returns FinancialSymbolStats Successful Response
+     * @throws ApiError
+     */
+    public static getFinancialStatsApiAdminFinancialOverviewGet(): CancelablePromise<Array<FinancialSymbolStats>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/financial/overview',
+        });
+    }
+    /**
+     * List Projects
+     * List projects, supports owner username and project name filters.
+     * @param ownerUsername
+     * @param projectName
+     * @param limit
+     * @param offset
+     * @returns ProjectInfo Successful Response
+     * @throws ApiError
+     */
+    public static listProjectsApiAdminProjectsOverviewGet(
+        ownerUsername?: (string | null),
+        projectName?: (string | null),
+        limit: number = 100,
+        offset?: number,
+    ): CancelablePromise<Array<ProjectInfo>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/projects/overview',
+            query: {
+                'owner_username': ownerUsername,
+                'project_name': projectName,
+                'limit': limit,
+                'offset': offset,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Set Project Visibility
+     * Set project public/private (show_in_explore).
+     * @param projectId
+     * @param show
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static setProjectVisibilityApiAdminProjectsProjectIdSetVisibilityPost(
+        projectId: number,
+        show: boolean,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/admin/projects/{project_id}/set-visibility',
+            path: {
+                'project_id': projectId,
+            },
+            query: {
+                'show': show,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Delete Project
+     * Delete a project.
+     * @param projectId
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static deleteProjectApiAdminProjectsProjectIdDelete(
+        projectId: number,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/admin/projects/{project_id}',
+            path: {
+                'project_id': projectId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Get Overview
      * Get storage stats of whole server.
      * @param limit
      * @returns StorageStats Storage stats retrieved successfully
      * @throws ApiError
      */
-    public static getTopStorageUsersApiAdminStatsStorageGet(
+    public static getOverviewApiAdminStorageOverviewGet(
         limit: number = 10,
     ): CancelablePromise<StorageStats> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/admin/stats/storage',
+            url: '/api/admin/storage/overview',
             query: {
                 'limit': limit,
             },
@@ -688,82 +851,120 @@ export class DefaultService {
         });
     }
     /**
-     * Get Financial Stats
-     * Monitor financial data health and coverage.
-     * @returns FinancialSymbolStats Financial stats retrieved successfully
+     * Get User Storage
+     * Return a user's storage quota and usage details.
+     * @param userId
+     * @returns any Successful Response
      * @throws ApiError
      */
-    public static getFinancialStatsApiAdminStatsFinancialGet(): CancelablePromise<Array<FinancialSymbolStats>> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/admin/stats/financial',
-            errors: {
-                401: `Unauthorized`,
-                403: `Access denied`,
-                404: `User not found`,
-                500: `Internal server error`,
-            },
-        });
-    }
-    /**
-     * Get Project Stats
-     * Get project-specific statistics. For detailed project list, use `/projects/list` api
-     * @returns ProjectStats Project stats retrieved successfully
-     * @throws ApiError
-     */
-    public static getProjectStatsApiAdminStatsProjectsGet(): CancelablePromise<ProjectStats> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/api/admin/stats/projects',
-            errors: {
-                401: `Unauthorized`,
-                403: `Access denied`,
-                404: `User not found`,
-                500: `Internal server error`,
-            },
-        });
-    }
-    /**
-     * Toggle Project Explore
-     * Toggle whether a project is shown in the explore/case library.
-     * @param projectId
-     * @param show
-     * @returns any Project explore status toggled successfully
-     * @throws ApiError
-     */
-    public static toggleProjectExploreApiAdminProjectsProjectIdToggleExplorePost(
-        projectId: number,
-        show: boolean,
+    public static getUserStorageApiAdminStorageUserUserIdGet(
+        userId: number,
     ): CancelablePromise<any> {
         return __request(OpenAPI, {
-            method: 'POST',
-            url: '/api/admin/projects/{project_id}/toggle-explore',
+            method: 'GET',
+            url: '/api/admin/storage/user/{user_id}',
             path: {
-                'project_id': projectId,
-            },
-            query: {
-                'show': show,
+                'user_id': userId,
             },
             errors: {
-                401: `Unauthorized`,
-                403: `Access denied`,
-                404: `Project not found`,
                 422: `Validation Error`,
-                500: `Internal server error`,
             },
         });
     }
     /**
-     * Get System Health
-     * Combined health check and detailed performance stats.
-     * Returns comprehensive metrics for FastAPI, Postgres, Redis, MinIO, and Celery.
-     * @returns SystemHealthResponse Successful Response
+     * List Files
+     * List files, supports filename search.
+     * @param filename
+     * @param limit
+     * @param offset
+     * @returns FileInfo Successful Response
      * @throws ApiError
      */
-    public static getSystemHealthApiAdminHealthGet(): CancelablePromise<SystemHealthResponse> {
+    public static listFilesApiAdminStorageFilesGet(
+        filename?: (string | null),
+        limit: number = 100,
+        offset?: number,
+    ): CancelablePromise<Array<FileInfo>> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/admin/health',
+            url: '/api/admin/storage/files',
+            query: {
+                'filename': filename,
+                'limit': limit,
+                'offset': offset,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Preview File
+     * Return a presigned URL to preview a file stored in MinIO.
+     * @param fileId
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static previewFileApiAdminStorageFilesFileIdPreviewGet(
+        fileId: number,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/storage/files/{file_id}/preview',
+            path: {
+                'file_id': fileId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Delete File
+     * Soft-delete a file record and attempt to remove from MinIO.
+     * @param fileId
+     * @returns any Successful Response
+     * @throws ApiError
+     */
+    public static deleteFileApiAdminStorageFilesFileIdDelete(
+        fileId: number,
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
+            url: '/api/admin/storage/files/{file_id}',
+            path: {
+                'file_id': fileId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Get Tutorial Review Stats
+     * Return like/dislike counts grouped by tutorial id.
+     * @param tutorialId
+     * @param limit
+     * @param offset
+     * @returns TutorialReviewStats Successful Response
+     * @throws ApiError
+     */
+    public static getTutorialReviewStatsApiAdminTutorialsReviewsGet(
+        tutorialId?: (number | null),
+        limit: number = 100,
+        offset?: number,
+    ): CancelablePromise<Array<TutorialReviewStats>> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/tutorials/reviews',
+            query: {
+                'tutorial_id': tutorialId,
+                'limit': limit,
+                'offset': offset,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
         });
     }
     /**

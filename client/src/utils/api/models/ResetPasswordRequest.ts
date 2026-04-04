@@ -2,9 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type UserStorageStats = {
-    user_id: number;
-    username: string;
-    storage_used: number;
+export type ResetPasswordRequest = {
+    new_password: string;
 };
 

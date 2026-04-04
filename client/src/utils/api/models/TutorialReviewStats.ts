@@ -2,9 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type ProjectStats = {
-    total_projects: number;
-    explore_projects: number;
-    recent_updates: number;
+export type TutorialReviewStats = {
+    tutorial_id: number;
+    likes: number;
+    dislikes: number;
+    total: number;
 };
 

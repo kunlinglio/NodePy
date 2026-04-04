@@ -5,8 +5,12 @@
 export type FinancialSymbolStats = {
     symbol: string;
     type: FinancialSymbolStats.type;
-    completed: boolean;
-    oldest_data: string;
+    is_history_complete: boolean;
+    record_count: number;
+    oldest_data: (number | null);
+    latest_data: (number | null);
+    data_gap_ratio: number;
+    is_active: boolean;
 };
 export namespace FinancialSymbolStats {
     export enum type {
