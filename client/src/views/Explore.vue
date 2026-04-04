@@ -883,6 +883,7 @@ onMounted(async () => {
   overflow-x: hidden;
   background-color: #f5f7fa;
   user-select: none;
+  z-index: 0;
 }
 
 /* 主内容区填充剩余高度 */
@@ -904,7 +905,7 @@ onMounted(async () => {
   background-size: 28px 28px;
   opacity: 0.2;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
 }
 
 .gradient-orb {
@@ -912,7 +913,7 @@ onMounted(async () => {
   border-radius: 50%;
   filter: blur(90px);
   opacity: 0.35;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
 }
 

@@ -156,6 +156,9 @@ const isReadOnly = computed(() => {
   width: 100%;
   color: black;
   box-shadow: 0 0px 15px rgba(128, 128, 128, 0.1);
+  background: #ffffff;
+  position: relative;
+  z-index: 1100;
 
   .control-content {
     display: flex;

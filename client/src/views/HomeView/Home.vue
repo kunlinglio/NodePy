@@ -398,6 +398,7 @@ html::-webkit-scrollbar {
   color: #1e293b;
   user-select: none;
   scrollbar-width: none;
+  z-index: 0;
   -ms-overflow-style: none;
 }
 
@@ -414,7 +415,7 @@ html::-webkit-scrollbar {
   background-size: 24px 24px;
   opacity: 0.3;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
 }
 
 .gradient-orb {
@@ -422,7 +423,7 @@ html::-webkit-scrollbar {
   border-radius: 50%;
   filter: blur(80px);
   opacity: 0.4;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
 }
 

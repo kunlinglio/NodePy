@@ -57,7 +57,7 @@ function openTagSelectionModal() {
       x: (window.innerWidth - 500) / 2,
       y: (window.innerHeight - 500) / 2,
     },
-    size: { width: 500, height: 450 },
+    size: { width: 500, height: 500 },
     component: TagSelectionModal,
     props: {
       modalId: modalId,

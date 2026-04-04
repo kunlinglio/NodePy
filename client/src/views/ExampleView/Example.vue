@@ -17,23 +17,26 @@
             <!-- 标签筛选区域：标题与滚动标签同行 -->
             <div class="filter-row tags-row">
                 <div class="filter-label">按标签筛选</div>
-                <div 
-                    ref="tagsScrollContainerRef" 
-                    class="tags-scroll-container" 
-                    @mousedown="startTagsDrag"
-                    @wheel.prevent="handleTagsWheel"
-                >
-                    <div class="tags-scroll-wrapper" :style="{ cursor: isDraggingTags ? 'grabbing' : 'grab' }">
-                        <button
-                            v-for="tag in availableTags"
-                            :key="tag"
-                            class="tag-filter-btn"
-                            :class="{ active: activeTags.includes(tag) }"
-                            @click="handleTagClickWithDragCheck(tag, $event)"
-                        >
-                            {{ tag }}
-                        </button>
-                        <span v-if="availableTags.length === 0" class="tag-placeholder">暂无标签</span>
+                <div class="tags-holder">
+                    <button class="tag-add-btn" @click="openTagPicker" @mousedown.stop>+</button>
+                    <div
+                        ref="tagsScrollContainerRef"
+                        class="tags-scroll-container"
+                        @mousedown="startTagsDrag"
+                        @wheel.prevent="handleTagsWheel"
+                    >
+                        <div class="tags-scroll-wrapper" :style="{ cursor: isDraggingTags ? 'grabbing' : 'grab' }">
+                            <button
+                                v-for="tag in displayTags"
+                                :key="tag"
+                                class="tag-filter-btn"
+                                :class="{ active: activeTags.includes(tag) }"
+                                @click="handleTagClickWithDragCheck(tag, $event)"
+                            >
+                                {{ tag }}
+                            </button>
+                            <span v-if="availableTags.length === 0" class="tag-placeholder">暂无标签</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -82,7 +85,22 @@
                         />
                     </template>
                 </div>
+
+                <div class="pagination-dots" v-if="totalPages > 1">
+                    <div class="dots">
+                        <button
+                            v-for="i in totalPages"
+                            :key="i"
+                            class="dot"
+                            :class="{ active: currentPage === (i-1) }"
+                            @click="goToPage(i-1)"
+                            :aria-label="`第 ${i} 页`"
+                        ></button>
+                    </div>
+                </div>
             </div>
+
+            <!-- 标签选择弹窗由 TagSelectionModal 组件通过 modalStore 管理 -->
         </div>
     </div>
     <Mask v-else />
@@ -100,6 +118,8 @@ import { ApiError } from '@/utils/api';
 import notify from '@/components/Notification/notify';
 import { ProjectListFilter, type ExploreListItem } from '@/utils/api';
 import { useProjectStore } from '@/stores/projectStore';
+import { useModalStore } from '@/stores/modalStore'
+import TagSelectionModal from '@/components/TagSelectionModal.vue'
 
 const loginStore = useLoginStore();
 const projectStore = useProjectStore();
@@ -115,10 +135,17 @@ const projects = ref<ExploreListItem[]>([])
 const totalCount = ref<number>(0)
 const loading = ref<boolean>(false)
 
+// 选中的标签（默认取 availableTags 的前三个）
 const activeTags = ref<string[]>([])
 const searchKeyword = ref<string>('')
 const searchInput = ref<string>('')
 const sortBy = ref<ProjectListFilter.ordered_by>(OrderedBy.CREATED_AT)
+
+// 仅展示的标签（页面顶部）：如果选中多个则在一行内全部显示（横向滚动）
+const displayTags = computed(() => activeTags.value)
+
+// modal store for opening TagSelectionModal
+const modalStore = useModalStore()
 
 const currentPage = ref<number>(0)
 const pageSize = ref<number>(20)
@@ -361,6 +388,42 @@ function handleTagClickWithDragCheck(tag: string, event: MouseEvent) {
     handleTagClick(tag)
 }
 
+function openTagPicker() {
+    const modalId = 'example-tag-selection'
+    if (modalStore.findModal(modalId)) return
+
+    modalStore.createModal({
+        id: modalId,
+        title: '选择标签',
+        isActive: true,
+        isDraggable: true,
+        isResizable: false,
+        isModal: true,
+        position: {
+            x: (window.innerWidth - 520) / 2,
+            y: (window.innerHeight - 520) / 2,
+        },
+        size: { width: 520, height: 520 },
+        component: TagSelectionModal,
+        props: {
+            modalId: modalId,
+            initialTags: activeTags.value,
+            onConfirm: (newTags: string[]) => {
+                activeTags.value = newTags
+                resetAndLoad()
+            }
+        }
+    })
+}
+
+async function goToPage(pageIndex: number) {
+    if (pageIndex < 0 || pageIndex >= totalPages.value) return
+    if (currentPage.value === pageIndex) return
+    currentPage.value = pageIndex
+    await loadPageData()
+    if (scrollContainerRef.value) scrollContainerRef.value.scrollTop = 0
+}
+
 function animateButton(e: MouseEvent) {
     const el = e.currentTarget as HTMLElement | null;
     if(!el) return;
@@ -374,11 +437,11 @@ onMounted(async () => {
     await loginStore.checkAuthStatus();
     if (loginStore.loggedIn) {
         await projectStore.getAllTags()
-        availableTags.value = projectStore.allProjectTags
-        activeTags.value = []
+        availableTags.value = projectStore.allProjectTags || []
+        // 默认选中前三个标签
+        activeTags.value = availableTags.value.slice(0, 3)
         await nextTick()
         await resetAndLoad();
-        if (scrollContainerRef.value) scrollContainerRef.value.addEventListener('scroll', onScroll)
         window.addEventListener('resize', handleResize)
         if (gridContainerRef.value) {
             resizeObserver = new ResizeObserver(async () => {
@@ -431,7 +494,7 @@ onBeforeUnmount(() => {
     }
     
     .search-section {
-        margin-bottom: 20px;
+        margin-bottom: 12px;
         display: flex;
         justify-content: center;
         width: 100%;
@@ -443,18 +506,19 @@ onBeforeUnmount(() => {
         
         .search-input {
             width: 100%;
-            padding: 10px 16px;
+            padding: 8px 12px;
             border: 1px solid #e4e7ed;
-            border-radius: 24px;
-            font-size: 14px;
+            border-radius: 20px;
+            font-size: 13px;
             outline: none;
             transition: all 0.2s ease;
             background: white;
             box-sizing: border-box;
+            height: 34px;
             
             &:focus {
-                border-color: #409eff;
-                box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+                border-color: #cbd5e1;
+                box-shadow: none;
             }
         }
     }
@@ -463,22 +527,43 @@ onBeforeUnmount(() => {
     .filter-row {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 8px;
         width: 100%;
-        margin-bottom: 20px;
+        margin-bottom: 12px;
         
         .filter-label {
-            width: 80px;
-            font-size: 14px;
+            width: 84px;
+            font-size: 13px;
             font-weight: 600;
-            color: #303133;
+            color: #6b7280; /* 改为灰色 */
             white-space: nowrap;
             flex-shrink: 0;
             letter-spacing: 0.3px;
             position: relative;
-            padding-left: 8px;
-            border-left: 3px solid #409eff;
+            padding-left: 6px;
         }
+    }
+
+    .tags-holder {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .tags-holder .tag-add-btn {
+        height: 28px;
+        width: 28px;
+        font-size: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 1px dashed #cbd5e1;
+        background: white;
+        color: #6b7280;
+        cursor: pointer;
+        flex-shrink: 0;
     }
     
     /* 标签滚动容器 - 无滚动条，仅通过拖拽和滚轮滚动，占据剩余宽度 */
@@ -497,20 +582,21 @@ onBeforeUnmount(() => {
         
         .tags-scroll-wrapper {
             display: inline-flex;
-            gap: 10px;
-            padding: 4px 0;
+            gap: 8px;
+            padding: 2px 0;
+            align-items: center;
         }
         
         .tag-filter-btn {
-            height: 34px;
-            font-size: 13px;
+            height: 28px;
+            font-size: 12px;
             font-weight: 500;
-            color: rgba(20, 20, 20, 0.8);
-            padding: 0 16px;
-            transition: all 0.2s ease;
-            min-width: 70px;
+            color: rgba(20, 20, 20, 0.85);
+            padding: 0 12px;
+            transition: all 0.16s ease;
+            min-width: 64px;
             text-align: center;
-            border-radius: 18px;
+            border-radius: 16px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -521,16 +607,31 @@ onBeforeUnmount(() => {
             flex-shrink: 0;
             
             &:hover {
-                background-color: #f0f2f5;
-                border-color: #c0c4cc;
+                background-color: #f7fafc;
+                border-color: #d1d5db;
             }
             
             &.active {
                 color: #ffffff;
                 background-color: #409eff;
                 border-color: #409eff;
-                box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+                box-shadow: 0 2px 8px rgba(64, 158, 255, 0.16);
             }
+        }
+
+        .tag-add-btn {
+            height: 28px;
+            width: 28px;
+            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 1px dashed #cbd5e1;
+            background: white;
+            color: #6b7280;
+            cursor: pointer;
+            flex-shrink: 0;
         }
         
         .tag-placeholder {
@@ -550,31 +651,31 @@ onBeforeUnmount(() => {
         gap: 12px;
         
         .sort-option-btn {
-            height: 34px;
-            font-size: 13px;
+            height: 28px;
+            font-size: 12px;
             font-weight: 500;
-            color: rgba(20, 20, 20, 0.8);
-            padding: 0 20px;
-            border-radius: 18px;
+            color: rgba(20, 20, 20, 0.85);
+            padding: 0 14px;
+            border-radius: 16px;
             background: white;
             border: 1px solid #e4e7ed;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.16s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             white-space: nowrap;
             
             &:hover {
-                background-color: #f0f2f5;
-                border-color: #c0c4cc;
+                background-color: #f7fafc;
+                border-color: #d1d5db;
             }
             
             &.active {
                 color: #ffffff;
                 background-color: #409eff;
                 border-color: #409eff;
-                box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+                box-shadow: 0 2px 8px rgba(64, 158, 255, 0.16);
             }
             
             &.clicked {
@@ -632,6 +733,47 @@ onBeforeUnmount(() => {
             color: #c0c4cc;
         }
     }
+
+    /* 分页控件 */
+    .pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 12px 0 24px 0;
+
+        .page-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #e4e7ed;
+            background: white;
+            cursor: pointer;
+            color: #374151;
+        }
+
+        .page-numbers {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .page-number {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            background: white;
+            cursor: pointer;
+            color: #374151;
+
+            &.active {
+                background: #409eff;
+                color: white;
+                border-color: #409eff;
+            }
+        }
+    }
+
+    /* 标签选择弹窗由 `TagSelectionModal` 组件提供样式 */
     
     @media (max-width: 768px) {
         .example-content {
@@ -669,4 +811,62 @@ onBeforeUnmount(() => {
             font-size: 12px;
         }
     }
+
+//     // 背景粒子层（新增）
+// .example-bg-particles {
+//     position: absolute;
+//     top: 0;
+//     left: 0;
+//     width: 100%;
+//     height: 100%;
+//     background-image: radial-gradient(#6366f1 0.8px, transparent 0.8px);  // 使用紫色调，与 Home 的蓝色区分
+//     background-size: 28px 28px;
+//     opacity: 0.25;
+//     pointer-events: none;
+//     z-index: 0;
+// }
+
+// // 渐变 orb 通用样式（新增）
+// .example-orb {
+//     position: absolute;
+//     border-radius: 50%;
+//     filter: blur(80px);
+//     opacity: 0.35;
+//     pointer-events: none;
+//     z-index: 0;
+// }
+
+// // 各个 orb 的具体样式（数量和颜色与 Home 不同）
+// .orb-1 {
+//     width: 480px;
+//     height: 480px;
+//     background: #3b82f6;      // 蓝色
+//     top: -200px;
+//     right: -120px;
+// }
+
+// .orb-2 {
+//     width: 420px;
+//     height: 420px;
+//     background: #ec489a;      // 粉红色（Home 没有）
+//     bottom: -100px;
+//     left: -150px;
+// }
+
+// .orb-3 {
+//     width: 360px;
+//     height: 360px;
+//     background: #10b981;      // 翠绿色（Home 没有）
+//     top: 50%;
+//     left: 30%;
+//     transform: translate(-30%, -50%);
+// }
+
+// .orb-4 {                      // 新增第四个 orb，进一步区分 Home
+//     width: 300px;
+//     height: 300px;
+//     background: #f59e0b;      // 琥珀色
+//     bottom: 20%;
+//     right: 10%;
+// }
 </style>
