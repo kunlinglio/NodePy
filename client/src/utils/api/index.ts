@@ -52,6 +52,7 @@ export type { TokenResponse } from './models/TokenResponse';
 export type { TutorialReviewStats } from './models/TutorialReviewStats';
 export type { UserFileList } from './models/UserFileList';
 export type { UserInfo } from './models/UserInfo';
+export type { UserStorageInfo } from './models/UserStorageInfo';
 export type { ValidationError } from './models/ValidationError';
 
 export { DefaultService } from './services/DefaultService';

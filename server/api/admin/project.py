@@ -91,7 +91,7 @@ async def set_project_visibility(
     show: bool,
     admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session),
-):
+) -> None:
     """Set project public/private (show_in_explore)."""
     try:
         project = await db_client.get(ProjectRecord, project_id)
@@ -99,7 +99,6 @@ async def set_project_visibility(
             raise HTTPException(status_code=404, detail="Project not found")
         project.show_in_explore = show  # type: ignore
         await db_client.commit()
-        return {"message": f"Project visibility set to {show}"}
     except HTTPException:
         raise
     except Exception as e:
@@ -112,7 +111,7 @@ async def delete_project(
     project_id: int,
     admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session),
-):
+) -> None:
     """Delete a project."""
     try:
         project = await db_client.get(ProjectRecord, project_id)
@@ -120,7 +119,6 @@ async def delete_project(
             raise HTTPException(status_code=404, detail="Project not found")
         await db_client.execute(text("DELETE FROM projects WHERE id = :id"), {"id": project_id})
         await db_client.commit()
-        return {"message": "Project deleted"}
     except HTTPException:
         raise
     except Exception as e:

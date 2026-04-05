@@ -86,7 +86,7 @@ async def delete_user(
     user_id: int,
     admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session),
-):
+) -> None:
     """Delete a user account."""
     try:
         user = await db_client.get(UserRecord, user_id)
@@ -95,7 +95,6 @@ async def delete_user(
         # delete user (cascades via FK ondelete)
         await db_client.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
         await db_client.commit()
-        return {"message": "User deleted"}
     except HTTPException:
         raise
     except Exception as e:
@@ -109,7 +108,7 @@ async def reset_user_password(
     req: ResetPasswordRequest,
     admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session),
-):
+) -> None:
     """Reset a user's password to a provided new password."""
     try:
         if not AuthUtils.is_valid_password(req.new_password):
@@ -119,7 +118,6 @@ async def reset_user_password(
             raise HTTPException(status_code=404, detail="User not found")
         user.hashed_password = AuthUtils.hash_password(req.new_password) # type: ignore
         await db_client.commit()
-        return {"message": "Password reset"}
     except HTTPException:
         raise
     except Exception as e:

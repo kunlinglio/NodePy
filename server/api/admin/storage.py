@@ -40,6 +40,13 @@ class FileInfo(BaseModel):
     last_modify_time: datetime
     is_deleted: bool
 
+class UserStorageInfo(BaseModel):
+    user_id: int
+    username: str
+    used_bytes: int
+    total_bytes: int
+    used_percentage: float
+
 
 @router.get(
     "/overview",
@@ -96,7 +103,7 @@ async def get_user_storage(
     user_id: int,
     admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session),
-):
+) -> UserStorageInfo:
     """Return a user's storage quota and usage details."""
     try:
         user = await db_client.get(UserRecord, user_id)
@@ -105,13 +112,13 @@ async def get_user_storage(
         fm = FileManager(async_db_session=db_client)
         used = await fm._cal_user_occupy_async(user_id)
         total = int(user.file_total_space)  # type: ignore
-        return {
-            "user_id": user_id,
-            "username": user.username,
-            "used_bytes": used,
-            "total_bytes": total,
-            "used_percentage": (used / total * 100) if total > 0 else 0,
-        }
+        return UserStorageInfo(
+            user_id=user_id,
+            username=user.username, # type: ignore
+            used_bytes=used,
+            total_bytes=total,
+            used_percentage=(used / total * 100) if total > 0 else 0,
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -185,7 +192,7 @@ async def preview_file(
     file_id: int,
     admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session),
-):
+) -> str:
     """Return a presigned URL to preview a file stored in MinIO."""
     try:
         file = await db_client.get(FileRecord, file_id)
@@ -198,7 +205,7 @@ async def preview_file(
             secure=False,
         )
         url = m.presigned_get_object("nodepy-files", file.file_key, expires=timedelta(minutes=15)) # type: ignore
-        return {"url": url}
+        return url
     except HTTPException:
         raise
     except Exception as e:
@@ -211,7 +218,7 @@ async def delete_file(
     file_id: int,
     admin: UserRecord = Depends(get_admin_user),
     db_client: AsyncSession = Depends(get_async_session),
-):
+) -> None:
     """Soft-delete a file record and attempt to remove from MinIO."""
     try:
         file = await db_client.get(FileRecord, file_id)
@@ -225,7 +232,6 @@ async def delete_file(
         except Exception:
             # ignore MinIO deletion errors; DB is authoritative
             pass
-        return {"message": "File deleted"}
     except HTTPException:
         raise
     except Exception as e:

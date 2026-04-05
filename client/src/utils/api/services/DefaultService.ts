@@ -25,6 +25,7 @@ import type { TokenResponse } from '../models/TokenResponse';
 import type { TutorialReviewStats } from '../models/TutorialReviewStats';
 import type { UserFileList } from '../models/UserFileList';
 import type { UserInfo } from '../models/UserInfo';
+import type { UserStorageInfo } from '../models/UserStorageInfo';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -894,12 +895,12 @@ export class DefaultService {
      * Get User Storage
      * Return a user's storage quota and usage details.
      * @param userId
-     * @returns any Successful Response
+     * @returns UserStorageInfo Successful Response
      * @throws ApiError
      */
     public static getUserStorageApiAdminStorageUserUserIdGet(
         userId: number,
-    ): CancelablePromise<any> {
+    ): CancelablePromise<UserStorageInfo> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/admin/storage/user/{user_id}',
@@ -963,12 +964,12 @@ export class DefaultService {
      * Preview File
      * Return a presigned URL to preview a file stored in MinIO.
      * @param fileId
-     * @returns any Successful Response
+     * @returns string Successful Response
      * @throws ApiError
      */
     public static previewFileApiAdminStorageFilesFileIdPreviewGet(
         fileId: number,
-    ): CancelablePromise<any> {
+    ): CancelablePromise<string> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/admin/storage/files/{file_id}/preview',
