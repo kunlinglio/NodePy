@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import text
 
@@ -59,6 +59,27 @@ async def list_projects(
                 )
             )
         return projects
+    except Exception as e:
+        logger.exception(f"Error listing projects: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/overview/num", status_code=200)
+async def list_projects_num(
+    owner_username: Optional[str] = None,
+    project_name: Optional[str] = None,
+    admin: UserRecord = Depends(get_admin_user),
+    db_client: AsyncSession = Depends(get_async_session),
+) -> int:
+    """List projects, supports owner username and project name filters."""
+    try:
+        stmt = select(func.count()).join(UserRecord, ProjectRecord.owner_id == UserRecord.id)
+        if owner_username:
+            stmt = stmt.where(UserRecord.username.contains(owner_username))
+        if project_name:
+            stmt = stmt.where(ProjectRecord.name.contains(project_name))
+        result = await db_client.execute(stmt)
+        return result.scalar() or 0
     except Exception as e:
         logger.exception(f"Error listing projects: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

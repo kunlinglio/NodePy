@@ -19,7 +19,7 @@ class TutorialReviewStats(BaseModel):
 
 
 @router.get("/reviews", response_model=List[TutorialReviewStats])
-async def get_tutorial_review_stats(
+async def get_tutorial_review(
     tutorial_id: Optional[int] = None,
     limit: int = 100,
     offset: int = 0,
@@ -51,5 +51,19 @@ async def get_tutorial_review_stats(
             stats.append(TutorialReviewStats(tutorial_id=tid, likes=likes, dislikes=dislikes, total=likes + dislikes))
 
         return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/reviews/num", response_model=int)
+async def get_tutorial_review_num(
+    tutorial_id: Optional[int] = None,
+    admin: UserRecord = Depends(get_admin_user),
+    db_client: AsyncSession = Depends(get_async_session),
+) -> int:
+    """Return the number of reviews for a specific tutorial."""
+    try:
+        stmt = select(func.count()).where(TutorialReviewRecord.tutorial_id == tutorial_id)
+        result = await db_client.execute(stmt)
+        return result.scalar() or 0
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

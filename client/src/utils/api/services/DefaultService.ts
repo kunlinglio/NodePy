@@ -690,6 +690,29 @@ export class DefaultService {
         });
     }
     /**
+     * List Users Num
+     * Return the number of registered users, supports username search.
+     * @param username
+     * @returns number Successful Response
+     * @throws ApiError
+     */
+    public static listUsersNumApiAdminUsersListNumGet(
+        username?: (string | null),
+    ): CancelablePromise<number> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/users/list/num',
+            query: {
+                'username': username,
+            },
+            errors: {
+                400: `Bad request`,
+                401: `Unauthorized`,
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
      * Delete User
      * Delete a user account.
      * @param userId
@@ -779,6 +802,30 @@ export class DefaultService {
         });
     }
     /**
+     * List Projects Num
+     * List projects, supports owner username and project name filters.
+     * @param ownerUsername
+     * @param projectName
+     * @returns number Successful Response
+     * @throws ApiError
+     */
+    public static listProjectsNumApiAdminProjectsOverviewNumGet(
+        ownerUsername?: (string | null),
+        projectName?: (string | null),
+    ): CancelablePromise<number> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/projects/overview/num',
+            query: {
+                'owner_username': ownerUsername,
+                'project_name': projectName,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
      * Set Project Visibility
      * Set project public/private (show_in_explore).
      * @param projectId
@@ -828,24 +875,17 @@ export class DefaultService {
     /**
      * Get Overview
      * Get storage stats of whole server.
-     * @param limit
      * @returns StorageStats Storage stats retrieved successfully
      * @throws ApiError
      */
-    public static getOverviewApiAdminStorageOverviewGet(
-        limit: number = 10,
-    ): CancelablePromise<StorageStats> {
+    public static getOverviewApiAdminStorageOverviewGet(): CancelablePromise<StorageStats> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/admin/storage/overview',
-            query: {
-                'limit': limit,
-            },
             errors: {
                 401: `Unauthorized`,
                 403: `Access denied`,
                 404: `User not found`,
-                422: `Validation Error`,
                 500: `Internal server error`,
             },
         });
@@ -899,6 +939,27 @@ export class DefaultService {
         });
     }
     /**
+     * List Files Num
+     * Return the number of files, supports filename search.
+     * @param filename
+     * @returns number Successful Response
+     * @throws ApiError
+     */
+    public static listFilesNumApiAdminStorageFilesNumGet(
+        filename?: (string | null),
+    ): CancelablePromise<number> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/storage/files/num',
+            query: {
+                'filename': filename,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
      * Preview File
      * Return a presigned URL to preview a file stored in MinIO.
      * @param fileId
@@ -941,7 +1002,7 @@ export class DefaultService {
         });
     }
     /**
-     * Get Tutorial Review Stats
+     * Get Tutorial Review
      * Return like/dislike counts grouped by tutorial id.
      * @param tutorialId
      * @param limit
@@ -949,7 +1010,7 @@ export class DefaultService {
      * @returns TutorialReviewStats Successful Response
      * @throws ApiError
      */
-    public static getTutorialReviewStatsApiAdminTutorialsReviewsGet(
+    public static getTutorialReviewApiAdminTutorialsReviewsGet(
         tutorialId?: (number | null),
         limit: number = 100,
         offset?: number,
@@ -964,6 +1025,75 @@ export class DefaultService {
             },
             errors: {
                 422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Get Tutorial Review Num
+     * Return the number of reviews for a specific tutorial.
+     * @param tutorialId
+     * @returns number Successful Response
+     * @throws ApiError
+     */
+    public static getTutorialReviewNumApiAdminTutorialsReviewsNumGet(
+        tutorialId?: (number | null),
+    ): CancelablePromise<number> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/admin/tutorials/reviews/num',
+            query: {
+                'tutorial_id': tutorialId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
+     * Review Tutorial
+     * @param tutorialId
+     * @param review
+     * @returns any Review tutorial successfully
+     * @throws ApiError
+     */
+    public static reviewTutorialApiTutorialReviewTutorialIdPost(
+        tutorialId: number,
+        review: 'like' | 'dislike',
+    ): CancelablePromise<any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/tutorial/review/{tutorial_id}',
+            path: {
+                'tutorial_id': tutorialId,
+            },
+            query: {
+                'review': review,
+            },
+            errors: {
+                422: `Validation Error`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Get Tutorial Reviews
+     * Returns (like_count, dislike_count) for the given tutorial_id
+     * @param tutorialId
+     * @returns any[] Get tutorial reviews successfully
+     * @throws ApiError
+     */
+    public static getTutorialReviewsApiTutorialReviewTutorialIdGet(
+        tutorialId: number,
+    ): CancelablePromise<any[]> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/tutorial/review/{tutorial_id}',
+            path: {
+                'tutorial_id': tutorialId,
+            },
+            errors: {
+                422: `Validation Error`,
+                500: `Internal server error`,
             },
         });
     }

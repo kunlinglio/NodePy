@@ -53,7 +53,7 @@ class FileInfo(BaseModel):
     },
 )
 async def get_overview(
-    limit: int = 10, admin: UserRecord = Depends(get_admin_user), db_client: AsyncSession = Depends(get_async_session)
+    admin: UserRecord = Depends(get_admin_user), db_client: AsyncSession = Depends(get_async_session)
 ) -> StorageStats:
     """Get storage stats of whole server."""
     try:
@@ -163,6 +163,22 @@ async def list_files(
         logger.exception(f"Error listing files: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+@router.get("/files/num", status_code=200)
+async def list_files_num(
+    filename: Optional[str] = None,
+    admin: UserRecord = Depends(get_admin_user),
+    db_client: AsyncSession = Depends(get_async_session),
+) -> int:
+    """Return the number of files, supports filename search."""
+    try:
+        stmt = select(func.count()).where(FileRecord.is_deleted.is_(False))
+        if filename:
+            stmt = stmt.where(FileRecord.filename.contains(filename))
+        result = await db_client.execute(stmt)
+        return result.scalar() or 0
+    except Exception as e:
+        logger.exception(f"Error listing files: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/files/{file_id}/preview")
 async def preview_file(

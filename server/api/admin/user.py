@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import text
 
@@ -62,6 +62,24 @@ async def list_users(
         logger.exception(f"Error listing users: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+@router.get(
+    "/list/num", status_code=200, responses={400: {"description": "Bad request"}, 401: {"description": "Unauthorized"}}
+)
+async def list_users_num(
+    username: Optional[str] = None,
+    admin: UserRecord = Depends(get_admin_user),
+    db_client: AsyncSession = Depends(get_async_session),
+) -> int:
+    """Return the number of registered users, supports username search."""
+    try:
+        stmt = select(func.count()).select_from(UserRecord)
+        if username:
+            stmt = stmt.where(UserRecord.username.contains(username))
+        result = await db_client.execute(stmt)
+        return result.scalar() or 0
+    except Exception as e:
+        logger.exception(f"Error counting users: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.delete("/{user_id}")
 async def delete_user(

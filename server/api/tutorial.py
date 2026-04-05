@@ -1,4 +1,3 @@
-
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,7 +14,7 @@ router = APIRouter()
 API router for tutorial-related endpoints.
 """
 
-router.post(
+@router.post(
     "/review/{tutorial_id}",
     status_code=200,
     responses={
@@ -58,7 +57,7 @@ async def review_tutorial(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-router.get(
+@router.get(
     "/review/{tutorial_id}",
     status_code=200,
     responses={
