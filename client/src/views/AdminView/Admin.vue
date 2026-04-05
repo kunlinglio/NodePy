@@ -3,13 +3,13 @@
     import { useAdminLoginStore } from "@/stores/adminLoginStore";
     import { useUserStore } from "@/stores/userStore";
     import { useRouter } from "vue-router";
-    import { type SystemStatsResponse, type StorageStats, type FinancialSymbolStats, type ProjectStats, type SystemHealthResponse } from "@/utils/api";
+    import {type StorageStats, type FinancialSymbolStats, type SystemHealthResponse } from "@/utils/api";
     import { PostgresMetrics } from "@/utils/api";
     import { RedisMetrics } from "@/utils/api";
     import { CeleryMetrics } from "@/utils/api";
     import { MinioMetrics } from "@/utils/api";
-    import SystemStatus from "./SystemStatus.vue";
     import ServerStorageStatus from "./ServerStorageStatus.vue";
+    import UserStatus from "./UserStatus.vue";
     import FinancialStatus from "./FinancialStatus.vue";
     import SystemHealthStatus from "./SystemHealthStatus.vue";
     import ProjectStatus from "./ProjectStatus.vue";
@@ -21,22 +21,10 @@
     const userStore = useUserStore();
     const router = useRouter();
 
-    const defaultSystemStatsResponse: SystemStatsResponse = {
-        total_users: 0,
-        total_projects: 0,
-        total_storage_bytes: 0,
-        total_nodes_output: 0,
-    };
     const defaultStorageStats: StorageStats = {
         total_storage_bytes: 0,
         guest_storage_bytes: 0,
         example_storage_bytes: 0,
-        top_users: [],
-    };
-    const defaultProjectStats: ProjectStats = {
-        total_projects: 0,
-        explore_projects: 0,
-        recent_updates: 0,
     };
     const defaultSystemHealthResponse: SystemHealthResponse = {
         fastapi_latency_ms: 0,
@@ -65,12 +53,11 @@
         },
     };
 
-    const currentDemo = ref<string>("");
+    const currentDemo = ref<string>("userStatus");
     const currentAdmin = ref<string>(userStore.currentUserInfo.username || "DefaultAdmin");
-    const systemStatus = ref<SystemStatsResponse>(defaultSystemStatsResponse);
+    // const systemStatus = ref<SystemStatsResponse>(defaultSystemStatsResponse);
     const serverStorageStatus = ref<StorageStats>(defaultStorageStats);
     const financialStatus = ref<Array<FinancialSymbolStats>>([]);
-    const projectStatus = ref<ProjectStats>(defaultProjectStats);
     const systemHealthStatus = ref<SystemHealthResponse>(defaultSystemHealthResponse);
 
     // 头像首字母缩写
@@ -97,15 +84,11 @@
         currentAdmin.value = userStore.currentUserInfo.username || "DefaultAdmin";
     });
 
-    async function handleGetSystemStatus() {
-        currentDemo.value = "loading";
-        systemStatus.value = await adminStore.getSystemStatus();
-        currentDemo.value = "systemStatus";
+    async function handleGetUserStatus() {
+        currentDemo.value = "userStatus";
     }
 
-    async function handleGetServerStorageStatus(limit: number = 10) {
-        currentDemo.value = "loading";
-        serverStorageStatus.value = await adminStore.getServerStorageStatus(limit);
+    async function handleGetServerStorageStatus() {
         currentDemo.value = "serverStorageStatus";
     }
 
@@ -116,15 +99,7 @@
     }
 
     async function handleGetProjectStatus() {
-        currentDemo.value = "loading";
-        projectStatus.value = await adminStore.getProjectStatus();
         currentDemo.value = "projectStatus";
-    }
-
-    async function handleToggleProjectAccessible(id: number, show: boolean) {
-        currentDemo.value = "loading";
-        await adminStore.toggleProjectAccessible(id, show);
-        currentDemo.value = "projectManagement"
     }
 
     async function handleGetSystemHealthStatus() {
@@ -150,8 +125,8 @@
                 </div>
             </div>
             <div class="buttonlist-container">
-                <button @click="handleGetSystemStatus">系统状态</button>
-                <button @click="handleGetServerStorageStatus(10)">服务器存储状态</button>
+                <button @click="handleGetUserStatus">用户状态</button>
+                <button @click="handleGetServerStorageStatus">服务器存储状态</button>
                 <button @click="handleGetFinancialStatus">财务状态</button>
                 <button @click="handleGetProjectStatus">项目状态</button>
                 <button @click="handleGetSystemHealthStatus">系统健康状态</button>
@@ -170,8 +145,8 @@
             </div>
         </div>
         <div class="right-container">
-            <div class="demo-container" v-if="currentDemo === 'systemStatus'">
-                <SystemStatus :systemStatus="systemStatus" />
+            <div class="demo-container" v-if="currentDemo === 'userStatus'">
+                <UserStatus/>
             </div>
             <div class="demo-container" v-else-if="currentDemo === 'serverStorageStatus'">
                 <ServerStorageStatus :serverStorageStatus="serverStorageStatus" />
@@ -179,9 +154,9 @@
             <div class="demo-container" v-else-if="currentDemo === 'financialStatus'">
                 <FinancialStatus :financialStatus="financialStatus" />
             </div>
-            <div class="demo-container" v-else-if="currentDemo === 'projectStatus'">
+            <!-- <div class="demo-container" v-else-if="currentDemo === 'projectStatus'">
                 <ProjectStatus :projectStatus="projectStatus" />
-            </div>
+            </div> -->
             <div class="demo-container" v-else-if="currentDemo === 'systemHealthStatus'">
                 <SystemHealthStatus :systemHealthStatus="systemHealthStatus" />
             </div>

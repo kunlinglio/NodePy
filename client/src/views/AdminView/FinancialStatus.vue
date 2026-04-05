@@ -1,20 +1,16 @@
 <script lang="ts" setup>
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { type FinancialSymbolStats } from "@/utils/api";
 
 const props = defineProps<{
   financialStatus: Array<FinancialSymbolStats>;
 }>();
 
-// 分页配置
-const currentPage = ref(1);
-const pageSize = ref(10);
-
 // 格式化时间戳（兼容 number | string | null）
 const formatTimestamp = (timestamp: number | string | null): string => {
   if (timestamp === null || timestamp === undefined) return "暂无数据";
   const numTimestamp = typeof timestamp === "string" ? parseInt(timestamp, 10) : timestamp;
-  if (isNaN(numTimestamp)) return "无效时间戳";
+  if (isNaN(numTimestamp) || numTimestamp === 0) return "无数据";
   const date = new Date(numTimestamp * 1000);
   return date.toLocaleString("zh-CN", {
     year: "numeric",
@@ -25,12 +21,19 @@ const formatTimestamp = (timestamp: number | string | null): string => {
   });
 };
 
+// 格式化缺口率（小数转百分比）
+const formatGapRatio = (ratio: number): string => {
+  if (ratio === undefined || ratio === null) return "N/A";
+  return `${(ratio * 100).toFixed(1)}%`;
+};
+
 // 统计卡片数据
 const stats = computed(() => {
   const total = props.financialStatus.length;
-  const completedCount = props.financialStatus.filter(item => item.completed).length;
+  const completedCount = props.financialStatus.filter(item => item.is_history_complete).length;
   const cryptoCount = props.financialStatus.filter(item => item.type === "crypto").length;
   const stockCount = props.financialStatus.filter(item => item.type === "stock").length;
+  const activeCount = props.financialStatus.filter(item => item.is_active).length;
 
   return [
     {
@@ -40,23 +43,30 @@ const stats = computed(() => {
       color: "#108efe",
     },
     {
-      title: "已完成同步",
+      title: "历史完整",
       value: completedCount,
       suffix: `/${total}`,
       icon: "✅",
       color: "#10b981",
     },
     {
+      title: "活跃品种",
+      value: activeCount,
+      suffix: `/${total}`,
+      icon: "⚡",
+      color: "#f59e0b",
+    },
+    {
       title: "加密货币",
       value: cryptoCount,
       icon: "₿",
-      color: "#f59e0b",
+      color: "#8b5cf6",
     },
     {
       title: "股票",
       value: stockCount,
       icon: "📈",
-      color: "#8b5cf6",
+      color: "#ec489a",
     },
   ];
 });
@@ -69,68 +79,24 @@ const getTypeStyle = (type: string) => {
   return { backgroundColor: "#e0f2fe", color: "#0284c7", label: "股票" };
 };
 
-// 状态标签样式
-const getStatusStyle = (completed: boolean) => {
-  if (completed) {
-    return { backgroundColor: "#d1fae5", color: "#059669", label: "已完成" };
+// 历史完整状态标签
+const getHistoryStatusStyle = (isComplete: boolean) => {
+  if (isComplete) {
+    return { backgroundColor: "#d1fae5", color: "#059669", label: "完整" };
   }
-  return { backgroundColor: "#fee2e2", color: "#dc2626", label: "未完成" };
+  return { backgroundColor: "#fee2e2", color: "#dc2626", label: "不完整" };
 };
 
-// 原始数据
+// 活跃状态标签（非活跃改为浅橙色，不用灰色）
+const getActiveStatusStyle = (isActive: boolean) => {
+  if (isActive) {
+    return { backgroundColor: "#dcfce7", color: "#16a34a", label: "活跃" };
+  }
+  return { backgroundColor: "#ffedd5", color: "#ea580c", label: "非活跃" };
+};
+
+// 原始数据（全量展示）
 const allData = computed(() => props.financialStatus || []);
-
-// 分页后的数据
-const paginatedData = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value;
-  const end = start + pageSize.value;
-  return allData.value.slice(start, end);
-});
-
-// 总页数
-const totalPages = computed(() => Math.ceil(allData.value.length / pageSize.value));
-
-// 页码切换
-const goToPage = (page: number) => {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page;
-  }
-};
-
-// 上一页
-const prevPage = () => goToPage(currentPage.value - 1);
-
-// 下一页
-const nextPage = () => goToPage(currentPage.value + 1);
-
-// 生成页码数组（带省略号）
-const pageNumbers = computed(() => {
-  const total = totalPages.value;
-  const current = currentPage.value;
-  const delta = 2;
-  const range: any[] = [];
-  const rangeWithDots: any[] = [];
-  let l;
-
-  for (let i = 1; i <= total; i++) {
-    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
-      range.push(i);
-    }
-  }
-
-  range.forEach((i) => {
-    if (l) {
-      if (i - l === 2) {
-        rangeWithDots.push(l + 1);
-      } else if (i - l !== 1) {
-        rangeWithDots.push('...');
-      }
-    }
-    rangeWithDots.push(i);
-    l = i;
-  });
-  return rangeWithDots;
-});
 </script>
 
 <template>
@@ -169,12 +135,16 @@ const pageNumbers = computed(() => {
             <tr>
               <th>交易品种</th>
               <th>类型</th>
-              <th>同步状态</th>
-              <th>最早可用数据</th>
+              <th>历史完整性</th>
+              <th>记录数</th>
+              <th>最早数据</th>
+              <th>最新数据</th>
+              <th>数据缺口率</th>
+              <th>活跃状态</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(item, idx) in paginatedData" :key="idx">
+            <tr v-for="(item, idx) in allData" :key="idx">
               <td class="symbol">{{ item.symbol }}</td>
               <td>
                 <span
@@ -191,58 +161,31 @@ const pageNumbers = computed(() => {
                 <span
                   class="badge status-badge"
                   :style="{
-                    backgroundColor: getStatusStyle(item.completed).backgroundColor,
-                    color: getStatusStyle(item.completed).color,
+                    backgroundColor: getHistoryStatusStyle(item.is_history_complete).backgroundColor,
+                    color: getHistoryStatusStyle(item.is_history_complete).color,
                   }"
                 >
-                  {{ getStatusStyle(item.completed).label }}
+                  {{ getHistoryStatusStyle(item.is_history_complete).label }}
                 </span>
               </td>
-              <td class="timestamp">
-                {{ formatTimestamp(item.oldest_data) }}
+              <td class="record-count">{{ item.record_count ?? 0 }}</td>
+              <td class="timestamp">{{ formatTimestamp(item.oldest_data) }}</td>
+              <td class="timestamp">{{ formatTimestamp(item.latest_data) }}</td>
+              <td class="gap-ratio">{{ formatGapRatio(item.data_gap_ratio) }}</td>
+              <td>
+                <span
+                  class="badge active-badge"
+                  :style="{
+                    backgroundColor: getActiveStatusStyle(item.is_active).backgroundColor,
+                    color: getActiveStatusStyle(item.is_active).color,
+                  }"
+                >
+                  {{ getActiveStatusStyle(item.is_active).label }}
+                </span>
               </td>
             </tr>
           </tbody>
         </table>
-
-        <!-- 分页组件 -->
-        <div class="pagination" v-if="totalPages > 1">
-          <button
-            class="page-btn"
-            :disabled="currentPage === 1"
-            @click="prevPage"
-            aria-label="上一页"
-          >
-            <span class="btn-icon">‹</span>
-          </button>
-
-          <template v-for="(page, index) in pageNumbers" :key="index">
-            <button
-              v-if="page === '...'"
-              class="page-dots"
-              disabled
-            >
-              ...
-            </button>
-            <button
-              v-else
-              class="page-btn"
-              :class="{ active: currentPage === page }"
-              @click="goToPage(Number(page))"
-            >
-              {{ page }}
-            </button>
-          </template>
-
-          <button
-            class="page-btn"
-            :disabled="currentPage === totalPages"
-            @click="nextPage"
-            aria-label="下一页"
-          >
-            <span class="btn-icon">›</span>
-          </button>
-        </div>
       </div>
 
       <!-- 空状态 -->
@@ -274,7 +217,7 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 20px;
   margin-bottom: 32px;
 }
@@ -398,7 +341,7 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
 
       th,
       td {
-        padding: 14px 16px;
+        padding: 12px 12px;
         text-align: left;
         border-bottom: 1px solid $border-light;
       }
@@ -409,6 +352,7 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
         color: $text-dark;
         font-size: 13px;
         letter-spacing: 0.3px;
+        white-space: nowrap;
       }
 
       tbody tr {
@@ -426,6 +370,12 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
         font-size: 14px;
       }
 
+      .record-count,
+      .gap-ratio {
+        text-align: left;          // 改为左对齐
+        font-family: monospace;
+      }
+
       .badge {
         display: inline-block;
         padding: 4px 10px;
@@ -433,79 +383,13 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
         font-size: 12px;
         font-weight: 500;
         line-height: 1.2;
+        white-space: nowrap;
       }
 
       .timestamp {
         font-size: 13px;
         color: $text-gray;
-      }
-    }
-
-    .pagination {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 8px;
-      padding: 16px 20px;
-      border-top: 1px solid $border-light;
-      flex-wrap: wrap;
-
-      .page-btn {
-        min-width: 36px;
-        height: 36px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 8px;
-        border-radius: 6px;
-        background: transparent;
-        border: 1px solid $border-light;
-        font-size: 14px;
-        font-weight: 500;
-        color: $text-gray;
-        cursor: pointer;
-        transition: all 0.2s ease;
-
-        &:hover:not(:disabled) {
-          background: rgba(16, 142, 254, 0.08);
-          border-color: $primary-color;
-          color: $primary-color;
-          transform: translateY(-1px);
-        }
-
-        &:active:not(:disabled) {
-          transform: translateY(0);
-        }
-
-        &:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-
-        &.active {
-          background: $primary-color;
-          border-color: $primary-color;
-          color: white;
-          box-shadow: 0 2px 6px rgba(16, 142, 254, 0.2);
-        }
-
-        .btn-icon {
-          font-size: 18px;
-          line-height: 1;
-        }
-      }
-
-      .page-dots {
-        min-width: 36px;
-        height: 36px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-        color: $text-gray;
-        cursor: default;
-        background: transparent;
-        border: none;
+        white-space: nowrap;
       }
     }
   }
@@ -573,20 +457,13 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
 
   .data-table th,
   .data-table td {
-    padding: 12px 12px;
+    padding: 10px 8px;
+    font-size: 12px;
   }
 
   .badge {
-    font-size: 11px;
-  }
-
-  .pagination {
-    gap: 4px;
-    .page-btn {
-      min-width: 32px;
-      height: 32px;
-      font-size: 13px;
-    }
+    font-size: 10px;
+    padding: 2px 6px;
   }
 }
 </style>

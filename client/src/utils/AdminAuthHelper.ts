@@ -12,7 +12,7 @@ const isDev = import.meta.env.DEV;
  */
 export const adminLogin = async (credentials: LoginRequest): Promise<TokenResponse> => {
   try {
-    const response = await DefaultService.loginApiAdminLoginPost(credentials);
+    const response = await DefaultService.loginApiAdminAuthLoginPost(credentials);
 
     if (response.access_token) {
       AdminAuthenticatedServiceFactory.setToken(response.access_token);
@@ -31,7 +31,7 @@ export const adminLogin = async (credentials: LoginRequest): Promise<TokenRespon
  */
 export const adminLogout = async (): Promise<void> => {
   try {
-    await DefaultService.logoutApiAdminLogoutPost();
+    await DefaultService.logoutApiAdminAuthLogoutPost();
   } catch (error) {
     console.error('Admin 登出 API 调用失败:', error);
   } finally {

@@ -18,9 +18,9 @@ export class AdminAuthError extends Error {
 
 // 定义排除的方法类型（admin 认证相关）
 type ExcludedAdminMethods =
-  | 'loginApiAdminLoginPost'
-  | 'refreshAccessTokenApiAdminRefreshPost'
-  | 'logoutApiAdminLogoutPost'
+  | 'loginApiAdminAuthLoginPost'
+  | 'refreshAccessTokenApiAdminAuthRefreshPost'
+  | 'logoutApiAdminAuthLogoutPost'
   | 'spaFallbackFullPathGet'; // SPA 回退也排除
 
 // 使用条件类型排除特定方法
@@ -106,7 +106,7 @@ export function withAdminAuthMethod<T extends any[], R>(
         if (isAuthError && retryCount < 1) {
           try {
             // 使用 admin 刷新端点
-            const tokenResponse = await DefaultService.refreshAccessTokenApiAdminRefreshPost();
+            const tokenResponse = await DefaultService.refreshAccessTokenApiAdminAuthRefreshPost();
 
             if (tokenResponse.access_token) {
               setAdminAuthToken(tokenResponse.access_token);
@@ -155,9 +155,9 @@ export function createAdminAuthenticatedService(): AdminAuthenticatedService {
 
   // 不需要添加认证的方法列表（admin 认证相关）
   const excludedMethods: ExcludedAdminMethods[] = [
-    'loginApiAdminLoginPost',
-    'refreshAccessTokenApiAdminRefreshPost',
-    'logoutApiAdminLogoutPost',
+    'loginApiAdminAuthLoginPost',
+    'refreshAccessTokenApiAdminAuthRefreshPost',
+    'logoutApiAdminAuthLogoutPost',
     'spaFallbackFullPathGet'
   ];
 
