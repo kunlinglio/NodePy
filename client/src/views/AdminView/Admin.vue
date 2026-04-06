@@ -154,9 +154,9 @@
             <div class="demo-container" v-else-if="currentDemo === 'financialStatus'">
                 <FinancialStatus :financialStatus="financialStatus" />
             </div>
-            <!-- <div class="demo-container" v-else-if="currentDemo === 'projectStatus'">
-                <ProjectStatus :projectStatus="projectStatus" />
-            </div> -->
+            <div class="demo-container" v-else-if="currentDemo === 'projectStatus'">
+                <ProjectStatus/>
+            </div>
             <div class="demo-container" v-else-if="currentDemo === 'systemHealthStatus'">
                 <SystemHealthStatus :systemHealthStatus="systemHealthStatus" />
             </div>
