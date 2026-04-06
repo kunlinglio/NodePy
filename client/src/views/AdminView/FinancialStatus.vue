@@ -1,10 +1,12 @@
 <script lang="ts" setup>
-import { computed } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { type FinancialSymbolStats } from "@/utils/api";
+import { useAdminStore } from "@/stores/adminStore";
+import Loading from "@/components/Loading.vue";
 
-const props = defineProps<{
-  financialStatus: Array<FinancialSymbolStats>;
-}>();
+const adminStore = useAdminStore();
+const financialStatus = ref<Array<FinancialSymbolStats>>([] as Array<FinancialSymbolStats>);
+const loading = ref(true);
 
 // 格式化时间戳（兼容 number | string | null）
 const formatTimestamp = (timestamp: number | string | null): string => {
@@ -29,11 +31,11 @@ const formatGapRatio = (ratio: number): string => {
 
 // 统计卡片数据
 const stats = computed(() => {
-  const total = props.financialStatus.length;
-  const completedCount = props.financialStatus.filter(item => item.is_history_complete).length;
-  const cryptoCount = props.financialStatus.filter(item => item.type === "crypto").length;
-  const stockCount = props.financialStatus.filter(item => item.type === "stock").length;
-  const activeCount = props.financialStatus.filter(item => item.is_active).length;
+  const total = financialStatus.value.length;
+  const completedCount = financialStatus.value.filter(item => item.is_history_complete).length;
+  const cryptoCount = financialStatus.value.filter(item => item.type === "crypto").length;
+  const stockCount = financialStatus.value.filter(item => item.type === "stock").length;
+  const activeCount = financialStatus.value.filter(item => item.is_active).length;
 
   return [
     {
@@ -96,104 +98,120 @@ const getActiveStatusStyle = (isActive: boolean) => {
 };
 
 // 原始数据（全量展示）
-const allData = computed(() => props.financialStatus || []);
+const allData = computed(() => financialStatus.value || []);
+
+onMounted(async () => {
+  loading.value = true;
+  try {
+    financialStatus.value = await adminStore.getFinancialStatus();
+  } catch (error) {
+    console.error("获取财务数据失败:", error);
+  } finally {
+    loading.value = false;
+  }
+});
 </script>
 
 <template>
   <div class="financial-container">
-    <!-- 统计卡片 -->
-    <div class="stats-grid">
-      <div
-        v-for="(card, idx) in stats"
-        :key="idx"
-        class="stat-card"
-        :style="{ '--card-accent': card.color }"
-      >
-        <div class="card-icon" :style="{ backgroundColor: card.color + '10' }">
-          <span class="icon-emoji">{{ card.icon }}</span>
-        </div>
-        <div class="card-content">
-          <div class="card-title">{{ card.title }}</div>
-          <div class="card-value">
-            {{ card.value }}
-            <span v-if="card.suffix" class="card-suffix">{{ card.suffix }}</span>
+    <div v-if="loading" class="loading-wrapper">
+      <Loading />
+    </div>
+    <template v-else>
+      <!-- 统计卡片 -->
+      <div class="stats-grid">
+        <div
+          v-for="(card, idx) in stats"
+          :key="idx"
+          class="stat-card"
+          :style="{ '--card-accent': card.color }"
+        >
+          <div class="card-icon" :style="{ backgroundColor: card.color + '10' }">
+            <span class="icon-emoji">{{ card.icon }}</span>
+          </div>
+          <div class="card-content">
+            <div class="card-title">{{ card.title }}</div>
+            <div class="card-value">
+              {{ card.value }}
+              <span v-if="card.suffix" class="card-suffix">{{ card.suffix }}</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 数据表格 -->
-    <div class="data-table-wrapper">
-      <div class="table-header">
-        <h3 class="section-title">📊 财务数据同步状态</h3>
-        <span class="section-subtitle">各金融品种的历史数据同步情况</span>
-      </div>
+      <!-- 数据表格 -->
+      <div class="data-table-wrapper">
+        <div class="table-header">
+          <h3 class="section-title">📊 财务数据同步状态</h3>
+          <span class="section-subtitle">各金融品种的历史数据同步情况</span>
+        </div>
 
-      <div class="table-container" v-if="allData.length > 0">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>交易品种</th>
-              <th>类型</th>
-              <th>历史完整性</th>
-              <th>记录数</th>
-              <th>最早数据</th>
-              <th>最新数据</th>
-              <th>数据缺口率</th>
-              <th>活跃状态</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, idx) in allData" :key="idx">
-              <td class="symbol">{{ item.symbol }}</td>
-              <td>
-                <span
-                  class="badge type-badge"
-                  :style="{
-                    backgroundColor: getTypeStyle(item.type).backgroundColor,
-                    color: getTypeStyle(item.type).color,
-                  }"
-                >
-                  {{ getTypeStyle(item.type).label }}
-                </span>
-              </td>
-              <td>
-                <span
-                  class="badge status-badge"
-                  :style="{
-                    backgroundColor: getHistoryStatusStyle(item.is_history_complete).backgroundColor,
-                    color: getHistoryStatusStyle(item.is_history_complete).color,
-                  }"
-                >
-                  {{ getHistoryStatusStyle(item.is_history_complete).label }}
-                </span>
-              </td>
-              <td class="record-count">{{ item.record_count ?? 0 }}</td>
-              <td class="timestamp">{{ formatTimestamp(item.oldest_data) }}</td>
-              <td class="timestamp">{{ formatTimestamp(item.latest_data) }}</td>
-              <td class="gap-ratio">{{ formatGapRatio(item.data_gap_ratio) }}</td>
-              <td>
-                <span
-                  class="badge active-badge"
-                  :style="{
-                    backgroundColor: getActiveStatusStyle(item.is_active).backgroundColor,
-                    color: getActiveStatusStyle(item.is_active).color,
-                  }"
-                >
-                  {{ getActiveStatusStyle(item.is_active).label }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="table-container" v-if="allData.length > 0">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>交易品种</th>
+                <th>类型</th>
+                <th>历史完整性</th>
+                <th>记录数</th>
+                <th>最早数据</th>
+                <th>最新数据</th>
+                <th>数据缺口率</th>
+                <th>活跃状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, idx) in allData" :key="idx">
+                <td class="symbol">{{ item.symbol }}</td>
+                <td>
+                  <span
+                    class="badge type-badge"
+                    :style="{
+                      backgroundColor: getTypeStyle(item.type).backgroundColor,
+                      color: getTypeStyle(item.type).color,
+                    }"
+                  >
+                    {{ getTypeStyle(item.type).label }}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    class="badge status-badge"
+                    :style="{
+                      backgroundColor: getHistoryStatusStyle(item.is_history_complete).backgroundColor,
+                      color: getHistoryStatusStyle(item.is_history_complete).color,
+                    }"
+                  >
+                    {{ getHistoryStatusStyle(item.is_history_complete).label }}
+                  </span>
+                </td>
+                <td class="record-count">{{ item.record_count ?? 0 }}</td>
+                <td class="timestamp">{{ formatTimestamp(item.oldest_data) }}</td>
+                <td class="timestamp">{{ formatTimestamp(item.latest_data) }}</td>
+                <td class="gap-ratio">{{ formatGapRatio(item.data_gap_ratio) }}</td>
+                <td>
+                  <span
+                    class="badge active-badge"
+                    :style="{
+                      backgroundColor: getActiveStatusStyle(item.is_active).backgroundColor,
+                      color: getActiveStatusStyle(item.is_active).color,
+                    }"
+                  >
+                    {{ getActiveStatusStyle(item.is_active).label }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <!-- 空状态 -->
-      <div v-else class="empty-state">
-        <div class="empty-icon">📭</div>
-        <div class="empty-text">暂无财务数据</div>
+        <!-- 空状态 -->
+        <div v-else class="empty-state">
+          <div class="empty-icon">📭</div>
+          <div class="empty-text">暂无财务数据</div>
+        </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
@@ -213,6 +231,16 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
   background: transparent;
   overflow-y: auto;
   padding: 4px;
+  position: relative;
+}
+
+.loading-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  width: 100%;
+  height: 100%;
 }
 
 .stats-grid {
@@ -372,7 +400,7 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
 
       .record-count,
       .gap-ratio {
-        text-align: left;          // 改为左对齐
+        text-align: left;
         font-family: monospace;
       }
 

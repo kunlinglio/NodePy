@@ -1,10 +1,12 @@
 <script lang="ts" setup>
-import { computed } from "vue";
+import { onMounted, ref } from "vue";
 import { type SystemHealthResponse } from "@/utils/api";
+import { useAdminStore } from "@/stores/adminStore";
+import Loading from "@/components/Loading.vue";
 
-const props = defineProps<{
-  systemHealthStatus: SystemHealthResponse;
-}>();
+const adminStore = useAdminStore();
+const systemHealthStatus = ref<SystemHealthResponse>({} as SystemHealthResponse);
+const loading = ref(true);
 
 // 获取状态样式
 const getStatusStyle = (status: string | undefined) => {
@@ -31,194 +33,210 @@ const formatPercent = (value: number | null | undefined): string => {
   if (value === undefined || value === null) return "N/A";
   return `${value.toFixed(1)}%`;
 };
+
+onMounted(async () => {
+  loading.value = true;
+  try {
+    systemHealthStatus.value = await adminStore.getSystemHealthStatus();
+  } catch (error) {
+    console.error("获取系统健康状态失败:", error);
+  } finally {
+    loading.value = false;
+  }
+});
 </script>
 
 <template>
   <div class="health-container">
-    <!-- 整体概览卡片（FastAPI 延迟） -->
-    <div class="overview-card">
-      <div class="overview-icon">🚀</div>
-      <div class="overview-content">
-        <div class="overview-title">FastAPI 服务</div>
-        <div class="overview-latency">
-          {{ formatLatency(systemHealthStatus.fastapi_latency_ms) }}
-        </div>
-        <div class="overview-label">请求延迟</div>
-      </div>
+    <div v-if="loading" class="loading-wrapper">
+      <Loading />
     </div>
-
-    <!-- 各服务卡片网格 -->
-    <div class="services-grid">
-      <!-- PostgreSQL -->
-      <div class="service-card">
-        <div class="card-header">
-          <div class="service-icon">🐘</div>
-          <div class="service-title">PostgreSQL</div>
-          <div
-            class="status-badge"
-            :style="{
-              backgroundColor: getStatusStyle(systemHealthStatus.postgres?.status).bg,
-              color: getStatusStyle(systemHealthStatus.postgres?.status).color,
-            }"
-          >
-            {{ getStatusStyle(systemHealthStatus.postgres?.status).icon }}
-            {{ getStatusStyle(systemHealthStatus.postgres?.status).text }}
+    <template v-else>
+      <!-- 整体概览卡片（FastAPI 延迟） -->
+      <div class="overview-card">
+        <div class="overview-icon">🚀</div>
+        <div class="overview-content">
+          <div class="overview-title">FastAPI 服务</div>
+          <div class="overview-latency">
+            {{ formatLatency(systemHealthStatus.fastapi_latency_ms) }}
           </div>
-        </div>
-        <div class="card-body">
-          <div class="metric-row">
-            <span class="metric-label">延迟</span>
-            <span class="metric-value">{{ formatLatency(systemHealthStatus.postgres?.latency_ms) }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">活跃连接</span>
-            <span class="metric-value">{{ systemHealthStatus.postgres?.active_connections ?? 0 }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">空闲连接</span>
-            <span class="metric-value">{{ systemHealthStatus.postgres?.idle_connections ?? 0 }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">总连接数</span>
-            <span class="metric-value">{{ systemHealthStatus.postgres?.total_connections ?? 0 }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">数据库大小</span>
-            <span class="metric-value">{{ systemHealthStatus.postgres?.database_size ?? "N/A" }}</span>
-          </div>
-          <div v-if="systemHealthStatus.postgres?.error" class="error-message">
-            ⚠️ {{ systemHealthStatus.postgres.error }}
-          </div>
+          <div class="overview-label">请求延迟</div>
         </div>
       </div>
 
-      <!-- Redis -->
-      <div class="service-card">
-        <div class="card-header">
-          <div class="service-icon">⚡</div>
-          <div class="service-title">Redis</div>
-          <div
-            class="status-badge"
-            :style="{
-              backgroundColor: getStatusStyle(systemHealthStatus.redis?.status).bg,
-              color: getStatusStyle(systemHealthStatus.redis?.status).color,
-            }"
-          >
-            {{ getStatusStyle(systemHealthStatus.redis?.status).icon }}
-            {{ getStatusStyle(systemHealthStatus.redis?.status).text }}
+      <!-- 各服务卡片网格 -->
+      <div class="services-grid">
+        <!-- PostgreSQL -->
+        <div class="service-card">
+          <div class="card-header">
+            <div class="service-icon">🐘</div>
+            <div class="service-title">PostgreSQL</div>
+            <div
+              class="status-badge"
+              :style="{
+                backgroundColor: getStatusStyle(systemHealthStatus.postgres?.status).bg,
+                color: getStatusStyle(systemHealthStatus.postgres?.status).color,
+              }"
+            >
+              {{ getStatusStyle(systemHealthStatus.postgres?.status).icon }}
+              {{ getStatusStyle(systemHealthStatus.postgres?.status).text }}
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="metric-row">
+              <span class="metric-label">延迟</span>
+              <span class="metric-value">{{ formatLatency(systemHealthStatus.postgres?.latency_ms) }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">活跃连接</span>
+              <span class="metric-value">{{ systemHealthStatus.postgres?.active_connections ?? 0 }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">空闲连接</span>
+              <span class="metric-value">{{ systemHealthStatus.postgres?.idle_connections ?? 0 }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">总连接数</span>
+              <span class="metric-value">{{ systemHealthStatus.postgres?.total_connections ?? 0 }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">数据库大小</span>
+              <span class="metric-value">{{ systemHealthStatus.postgres?.database_size ?? "N/A" }}</span>
+            </div>
+            <div v-if="systemHealthStatus.postgres?.error" class="error-message">
+              ⚠️ {{ systemHealthStatus.postgres.error }}
+            </div>
           </div>
         </div>
-        <div class="card-body">
-          <div class="metric-row">
-            <span class="metric-label">延迟</span>
-            <span class="metric-value">{{ formatLatency(systemHealthStatus.redis?.latency_ms) }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">内存使用</span>
-            <span class="metric-value">{{ systemHealthStatus.redis?.used_memory_human ?? "N/A" }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">峰值内存</span>
-            <span class="metric-value">{{ systemHealthStatus.redis?.peak_memory_human ?? "N/A" }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">命中率</span>
-            <span class="metric-value">{{ formatPercent(systemHealthStatus.redis?.hit_rate) }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">客户端连接</span>
-            <span class="metric-value">{{ systemHealthStatus.redis?.connected_clients ?? 0 }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">版本</span>
-            <span class="metric-value">{{ systemHealthStatus.redis?.version ?? "N/A" }}</span>
-          </div>
-          <div v-if="systemHealthStatus.redis?.error" class="error-message">
-            ⚠️ {{ systemHealthStatus.redis.error }}
-          </div>
-        </div>
-      </div>
 
-      <!-- Celery -->
-      <div class="service-card">
-        <div class="card-header">
-          <div class="service-icon">🍃</div>
-          <div class="service-title">Celery</div>
-          <div
-            class="status-badge"
-            :style="{
-              backgroundColor: getStatusStyle(systemHealthStatus.celery?.status).bg,
-              color: getStatusStyle(systemHealthStatus.celery?.status).color,
-            }"
-          >
-            {{ getStatusStyle(systemHealthStatus.celery?.status).icon }}
-            {{ getStatusStyle(systemHealthStatus.celery?.status).text }}
+        <!-- Redis -->
+        <div class="service-card">
+          <div class="card-header">
+            <div class="service-icon">⚡</div>
+            <div class="service-title">Redis</div>
+            <div
+              class="status-badge"
+              :style="{
+                backgroundColor: getStatusStyle(systemHealthStatus.redis?.status).bg,
+                color: getStatusStyle(systemHealthStatus.redis?.status).color,
+              }"
+            >
+              {{ getStatusStyle(systemHealthStatus.redis?.status).icon }}
+              {{ getStatusStyle(systemHealthStatus.redis?.status).text }}
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="metric-row">
+              <span class="metric-label">延迟</span>
+              <span class="metric-value">{{ formatLatency(systemHealthStatus.redis?.latency_ms) }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">内存使用</span>
+              <span class="metric-value">{{ systemHealthStatus.redis?.used_memory_human ?? "N/A" }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">峰值内存</span>
+              <span class="metric-value">{{ systemHealthStatus.redis?.peak_memory_human ?? "N/A" }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">命中率</span>
+              <span class="metric-value">{{ formatPercent(systemHealthStatus.redis?.hit_rate) }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">客户端连接</span>
+              <span class="metric-value">{{ systemHealthStatus.redis?.connected_clients ?? 0 }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">版本</span>
+              <span class="metric-value">{{ systemHealthStatus.redis?.version ?? "N/A" }}</span>
+            </div>
+            <div v-if="systemHealthStatus.redis?.error" class="error-message">
+              ⚠️ {{ systemHealthStatus.redis.error }}
+            </div>
           </div>
         </div>
-        <div class="card-body">
-          <div class="metric-row">
-            <span class="metric-label">延迟</span>
-            <span class="metric-value">{{ formatLatency(systemHealthStatus.celery?.latency_ms) }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">活跃任务</span>
-            <span class="metric-value">{{ systemHealthStatus.celery?.active_tasks ?? 0 }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">等待任务</span>
-            <span class="metric-value">{{ systemHealthStatus.celery?.waiting_tasks ?? 0 }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">撤销任务</span>
-            <span class="metric-value">{{ systemHealthStatus.celery?.revoked_tasks ?? 0 }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">工作节点数</span>
-            <span class="metric-value">{{ systemHealthStatus.celery?.worker_count ?? 0 }}</span>
-          </div>
-          <div v-if="systemHealthStatus.celery?.error" class="error-message">
-            ⚠️ {{ systemHealthStatus.celery.error }}
-          </div>
-        </div>
-      </div>
 
-      <!-- MinIO -->
-      <div class="service-card">
-        <div class="card-header">
-          <div class="service-icon">📦</div>
-          <div class="service-title">MinIO</div>
-          <div
-            class="status-badge"
-            :style="{
-              backgroundColor: getStatusStyle(systemHealthStatus.minio?.status).bg,
-              color: getStatusStyle(systemHealthStatus.minio?.status).color,
-            }"
-          >
-            {{ getStatusStyle(systemHealthStatus.minio?.status).icon }}
-            {{ getStatusStyle(systemHealthStatus.minio?.status).text }}
+        <!-- Celery -->
+        <div class="service-card">
+          <div class="card-header">
+            <div class="service-icon">🍃</div>
+            <div class="service-title">Celery</div>
+            <div
+              class="status-badge"
+              :style="{
+                backgroundColor: getStatusStyle(systemHealthStatus.celery?.status).bg,
+                color: getStatusStyle(systemHealthStatus.celery?.status).color,
+              }"
+            >
+              {{ getStatusStyle(systemHealthStatus.celery?.status).icon }}
+              {{ getStatusStyle(systemHealthStatus.celery?.status).text }}
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="metric-row">
+              <span class="metric-label">延迟</span>
+              <span class="metric-value">{{ formatLatency(systemHealthStatus.celery?.latency_ms) }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">活跃任务</span>
+              <span class="metric-value">{{ systemHealthStatus.celery?.active_tasks ?? 0 }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">等待任务</span>
+              <span class="metric-value">{{ systemHealthStatus.celery?.waiting_tasks ?? 0 }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">撤销任务</span>
+              <span class="metric-value">{{ systemHealthStatus.celery?.revoked_tasks ?? 0 }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">工作节点数</span>
+              <span class="metric-value">{{ systemHealthStatus.celery?.worker_count ?? 0 }}</span>
+            </div>
+            <div v-if="systemHealthStatus.celery?.error" class="error-message">
+              ⚠️ {{ systemHealthStatus.celery.error }}
+            </div>
           </div>
         </div>
-        <div class="card-body">
-          <div class="metric-row">
-            <span class="metric-label">延迟</span>
-            <span class="metric-value">{{ formatLatency(systemHealthStatus.minio?.latency_ms) }}</span>
+
+        <!-- MinIO -->
+        <div class="service-card">
+          <div class="card-header">
+            <div class="service-icon">📦</div>
+            <div class="service-title">MinIO</div>
+            <div
+              class="status-badge"
+              :style="{
+                backgroundColor: getStatusStyle(systemHealthStatus.minio?.status).bg,
+                color: getStatusStyle(systemHealthStatus.minio?.status).color,
+              }"
+            >
+              {{ getStatusStyle(systemHealthStatus.minio?.status).icon }}
+              {{ getStatusStyle(systemHealthStatus.minio?.status).text }}
+            </div>
           </div>
-          <div class="metric-row">
-            <span class="metric-label">桶数量</span>
-            <span class="metric-value">{{ systemHealthStatus.minio?.bucket_count ?? 0 }}</span>
-          </div>
-          <div class="metric-row">
-            <span class="metric-label">桶列表</span>
-            <span class="metric-value metric-list">
-              {{ (systemHealthStatus.minio?.buckets || []).join(", ") || "无" }}
-            </span>
-          </div>
-          <div v-if="systemHealthStatus.minio?.error" class="error-message">
-            ⚠️ {{ systemHealthStatus.minio.error }}
+          <div class="card-body">
+            <div class="metric-row">
+              <span class="metric-label">延迟</span>
+              <span class="metric-value">{{ formatLatency(systemHealthStatus.minio?.latency_ms) }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">桶数量</span>
+              <span class="metric-value">{{ systemHealthStatus.minio?.bucket_count ?? 0 }}</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">桶列表</span>
+              <span class="metric-value metric-list">
+                {{ (systemHealthStatus.minio?.buckets || []).join(", ") || "无" }}
+              </span>
+            </div>
+            <div v-if="systemHealthStatus.minio?.error" class="error-message">
+              ⚠️ {{ systemHealthStatus.minio.error }}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
@@ -238,6 +256,16 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
   background: transparent;
   overflow-y: auto;
   padding: 4px;
+  position: relative;
+}
+
+.loading-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  width: 100%;
+  height: 100%;
 }
 
 .overview-card {
