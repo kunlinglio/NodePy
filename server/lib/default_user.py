@@ -29,7 +29,7 @@ def initialize_default_users():
                 username=EXAMPLE_USER_USERNAME,
                 email=EXAMPLE_USER_EMAIL,
                 hashed_password=None,
-                file_total_space=10 * 1024 * 1024 * 1024 * 1024,  # 10 TB
+                file_total_space=100 * 1024 * 1024 * 1024,  # 100 GB
             )
             db.add(user)
             db.flush()

@@ -73,7 +73,7 @@ async def list_projects_num(
 ) -> int:
     """List projects, supports owner username and project name filters."""
     try:
-        stmt = select(func.count()).join(UserRecord, ProjectRecord.owner_id == UserRecord.id)
+        stmt = select(func.count()).select_from(ProjectRecord).join(UserRecord, ProjectRecord.owner_id == UserRecord.id)
         if owner_username:
             stmt = stmt.where(UserRecord.username.contains(owner_username))
         if project_name:

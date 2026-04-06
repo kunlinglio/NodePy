@@ -8,6 +8,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import text
 
+from server.config import (
+    ADMIN_USER_USERNAME,
+    EXAMPLE_USER_USERNAME,
+    GUEST_USER_USERNAME,
+)
 from server.lib.AuthUtils import AuthUtils, get_admin_user
 from server.models.database import (
     UserRecord,
@@ -92,6 +97,8 @@ async def delete_user(
         user = await db_client.get(UserRecord, user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+        if user.username in [EXAMPLE_USER_USERNAME, GUEST_USER_USERNAME, ADMIN_USER_USERNAME]: # type: ignore
+            raise HTTPException(status_code=403, detail="Cannot delete example, guest, or admin user")
         # delete user (cascades via FK ondelete)
         await db_client.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
         await db_client.commit()
@@ -114,6 +121,8 @@ async def reset_user_password(
         if not AuthUtils.is_valid_password(req.new_password):
             raise HTTPException(status_code=400, detail="Password does not meet requirements")
         user = await db_client.get(UserRecord, user_id)
+        if user.username in [EXAMPLE_USER_USERNAME, GUEST_USER_USERNAME, ADMIN_USER_USERNAME]: # type: ignore
+            raise HTTPException(status_code=403, detail="Cannot reset password for example, guest, or admin user")
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         user.hashed_password = AuthUtils.hash_password(req.new_password) # type: ignore

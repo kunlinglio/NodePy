@@ -178,7 +178,7 @@ async def list_files_num(
 ) -> int:
     """Return the number of files, supports filename search."""
     try:
-        stmt = select(func.count()).where(FileRecord.is_deleted.is_(False))
+        stmt = select(func.count()).select_from(FileRecord).where(FileRecord.is_deleted.is_(False))
         if filename:
             stmt = stmt.where(FileRecord.filename.contains(filename))
         result = await db_client.execute(stmt)

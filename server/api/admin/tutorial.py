@@ -62,7 +62,7 @@ async def get_tutorial_review_num(
 ) -> int:
     """Return the number of reviews for a specific tutorial."""
     try:
-        stmt = select(func.count()).where(TutorialReviewRecord.tutorial_id == tutorial_id)
+        stmt = select(func.count()).select_from(TutorialReviewRecord).where(TutorialReviewRecord.tutorial_id == tutorial_id)
         result = await db_client.execute(stmt)
         return result.scalar() or 0
     except Exception as e:
