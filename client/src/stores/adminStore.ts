@@ -332,38 +332,39 @@ export const useAdminStore = defineStore('admin', () => {
         }
     }
 
-    async function previewFile(fileId: number) {
+    async function previewFile(fileKey: string) {
         try {
             console.log('Fetching file preview...')
-            const reponse = await adminAuthService.previewFileApiAdminStorageFilesFileIdPreviewGet(fileId)
-            console.log(reponse)
-            return reponse
+            const token = localStorage.getItem('access_token') || '';
+            // 根据环境决定 baseURL
+            let baseURL = '';
+            if (import.meta.env.DEV) {
+                // 开发环境：使用本地 8000 端口
+                baseURL = 'http://localhost:8000';
+            }
+            // 生产环境：baseURL 保持为空字符串，使用相对路径
+            const url = `${baseURL}/api/admin/storage/files/${fileKey}/preview`;
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const blob = await response.blob();
+            if (!blob || blob.size === 0) {
+                throw new Error('文件内容为空');
+            }
+            return blob;
         } catch(err) {
             console.error('Error fetching file preview:', err);
-            if(err instanceof ApiError) {
-                switch(err.status) {
-                    case 422:
-                        notify({
-                            message: '验证错误',
-                            type: 'error'
-                        });
-                        break;
-                    default:
-                        const errMsg = handleNetworkError(err)
-                        notify({
-                            message: errMsg,
-                            type: 'error'
-                        });
-                        break;
-                }
-            } else {
-                const errMsg = handleNetworkError(err)
-                notify({
-                    message: errMsg,
-                    type: 'error'
-                });
-            }
-            throw err
+            const errMsg = handleNetworkError(err);
+            notify({
+                message: errMsg,
+                type: 'error'
+            });
+            throw err;
         }
     }
 

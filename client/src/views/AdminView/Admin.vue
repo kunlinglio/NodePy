@@ -3,7 +3,7 @@
     import { useAdminLoginStore } from "@/stores/adminLoginStore";
     import { useUserStore } from "@/stores/userStore";
     import { useRouter } from "vue-router";
-    import {type StorageStats, type FinancialSymbolStats, type SystemHealthResponse } from "@/utils/api";
+    import {type FinancialSymbolStats, type SystemHealthResponse } from "@/utils/api";
     import { PostgresMetrics } from "@/utils/api";
     import { RedisMetrics } from "@/utils/api";
     import { CeleryMetrics } from "@/utils/api";
@@ -21,11 +21,6 @@
     const userStore = useUserStore();
     const router = useRouter();
 
-    const defaultStorageStats: StorageStats = {
-        total_storage_bytes: 0,
-        guest_storage_bytes: 0,
-        example_storage_bytes: 0,
-    };
     const defaultSystemHealthResponse: SystemHealthResponse = {
         fastapi_latency_ms: 0,
         postgres: {
@@ -55,8 +50,6 @@
 
     const currentDemo = ref<string>("userStatus");
     const currentAdmin = ref<string>(userStore.currentUserInfo.username || "DefaultAdmin");
-    // const systemStatus = ref<SystemStatsResponse>(defaultSystemStatsResponse);
-    const serverStorageStatus = ref<StorageStats>(defaultStorageStats);
     const financialStatus = ref<Array<FinancialSymbolStats>>([]);
     const systemHealthStatus = ref<SystemHealthResponse>(defaultSystemHealthResponse);
 
@@ -149,7 +142,7 @@
                 <UserStatus/>
             </div>
             <div class="demo-container" v-else-if="currentDemo === 'serverStorageStatus'">
-                <ServerStorageStatus :serverStorageStatus="serverStorageStatus" />
+                <ServerStorageStatus/>
             </div>
             <div class="demo-container" v-else-if="currentDemo === 'financialStatus'">
                 <FinancialStatus :financialStatus="financialStatus" />
