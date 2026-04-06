@@ -105,7 +105,7 @@ onMounted(async () => {
   try {
     financialStatus.value = await adminStore.getFinancialStatus();
   } catch (error) {
-    console.error("获取财务数据失败:", error);
+    console.error("获取金融数据失败:", error);
   } finally {
     loading.value = false;
   }
@@ -142,7 +142,7 @@ onMounted(async () => {
       <!-- 数据表格 -->
       <div class="data-table-wrapper">
         <div class="table-header">
-          <h3 class="section-title">📊 财务数据同步状态</h3>
+          <h3 class="section-title">📊 金融数据同步状态</h3>
           <span class="section-subtitle">各金融品种的历史数据同步情况</span>
         </div>
 
@@ -208,7 +208,7 @@ onMounted(async () => {
         <!-- 空状态 -->
         <div v-else class="empty-state">
           <div class="empty-icon">📭</div>
-          <div class="empty-text">暂无财务数据</div>
+          <div class="empty-text">暂无金融数据</div>
         </div>
       </div>
     </template>

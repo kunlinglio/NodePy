@@ -122,7 +122,7 @@ const debouncedGetReviewStatus = withDebounce(handleGetReviewStatus);
         <button 
           @click="debouncedGetFinancialStatus" 
           :class="{ active: currentDemo === 'financialStatus' }"
-        >财务状态</button>
+        >金融数据</button>
         <button 
           @click="debouncedGetProjectStatus" 
           :class="{ active: currentDemo === 'projectStatus' }"
