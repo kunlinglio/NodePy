@@ -93,24 +93,12 @@
       </div>
     </div>
 
-    <!-- 分页组件 -->
-    <div class="pagination" v-if="!loading && totalPages > 1">
-      <button
-        class="page-btn"
-        :disabled="currentPage === 1"
-        @click="goToPage(currentPage - 1)"
-      >
-        上一页
-      </button>
-      <span class="page-info">第 {{ currentPage }} / {{ totalPages }} 页</span>
-      <button
-        class="page-btn"
-        :disabled="currentPage === totalPages"
-        @click="goToPage(currentPage + 1)"
-      >
-        下一页
-      </button>
-    </div>
+    <!-- 分页组件（已抽离） -->
+    <PageDivision
+      :current-page="currentPage"
+      :total-pages="totalPages"
+      @page-change="goToPage"
+    />
   </div>
 </template>
 
@@ -119,6 +107,7 @@ import { ref, onMounted, computed } from "vue";
 import { type UserInfo } from "@/utils/api";
 import { useAdminStore } from "@/stores/adminStore";
 import Loading from "@/components/Loading.vue";
+import PageDivision from "./PageDivision.vue";
 
 const adminStore = useAdminStore();
 
@@ -193,25 +182,25 @@ const refreshData = async () => {
   loading.value = false;
 };
 
-// 搜索处理
+// 搜索处理（修复bug：始终重置页码并刷新总数）
 const handleSearch = async () => {
+  // 重置页码到第一页
   if (currentPage.value !== 1) {
     currentPage.value = 1;
-    await fetchUserList();
-  } else {
-    await refreshData();
   }
+  // 刷新所有数据（重新获取总数和列表）
+  await refreshData();
 };
 
-// 清空搜索
+// 清空搜索（修复bug：始终重置页码并刷新总数）
 const handleResetSearch = async () => {
   searchUsername.value = "";
+  // 重置页码到第一页
   if (currentPage.value !== 1) {
     currentPage.value = 1;
-    await fetchUserList();
-  } else {
-    await refreshData();
   }
+  // 刷新所有数据
+  await refreshData();
 };
 
 // 跳转页面
@@ -584,44 +573,6 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
     justify-content: center;
     align-items: center;
     min-height: 300px;
-  }
-}
-
-/* 分页 */
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-  margin-top: 24px;
-  padding: 12px;
-
-  .page-btn {
-    padding: 8px 16px;
-    border-radius: 12px;
-    background: $card-white;
-    border: 1px solid $border-light;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s ease;
-
-    &:hover:not(:disabled) {
-      background: $primary-color;
-      color: white;
-      border-color: $primary-color;
-      transform: translateY(-1px);
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-  }
-
-  .page-info {
-    font-size: 14px;
-    color: $text-gray;
   }
 }
 
