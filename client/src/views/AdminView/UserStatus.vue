@@ -64,14 +64,14 @@
                     @click="handleResetPassword(user.id, user.username)"
                     title="重置密码"
                   >
-                    🔑 重置密码
+                    重置密码
                   </button>
                   <button
                     class="action-btn delete-btn"
                     @click="handleDeleteUser(user.id, user.username)"
                     title="删除用户"
                   >
-                    🗑️ 删除用户
+                    删除用户
                   </button>
                 </template>
                 <span v-else class="builtin-tip">内置用户，不可操作</span>
@@ -87,13 +87,13 @@
         <div class="empty-text">暂无用户数据</div>
       </div>
 
-      <!-- 加载状态（居中） -->
+      <!-- 加载状态 -->
       <div v-if="loading" class="loading-wrapper">
         <Loading />
       </div>
     </div>
 
-    <!-- 分页组件（已抽离） -->
+    <!-- 分页组件 -->
     <PageDivision
       :current-page="currentPage"
       :total-pages="totalPages"
@@ -116,18 +116,15 @@ const totalUsers = ref(0);
 const loading = ref(true);
 const searchUsername = ref("");
 const currentPage = ref(1);
-const pageSize = 20; // 正式每页20条，测试时可改为1
+const pageSize = 20;
 
-// 内置用户名列表
 const isBuiltInUser = (username: string): boolean => {
   const builtIn = ['NodePy-Learning', 'NodePy-Guest', 'admin'];
   return builtIn.includes(username);
 };
 
-// 总页数
 const totalPages = computed(() => Math.ceil(totalUsers.value / pageSize));
 
-// 格式化存储大小
 const formatStorage = (bytes: number): string => {
   if (bytes === undefined || bytes === null) return "0 B";
   if (bytes === 0) return "0 B";
@@ -137,7 +134,6 @@ const formatStorage = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 };
 
-// 格式化日期
 const formatDate = (dateStr: string): string => {
   if (!dateStr) return "未知";
   const date = new Date(dateStr);
@@ -150,7 +146,6 @@ const formatDate = (dateStr: string): string => {
   });
 };
 
-// 获取用户总数
 const fetchTotalUsers = async () => {
   try {
     const username = searchUsername.value.trim() || null;
@@ -161,7 +156,6 @@ const fetchTotalUsers = async () => {
   }
 };
 
-// 获取用户列表（分页）
 const fetchUserList = async () => {
   try {
     const username = searchUsername.value.trim() || null;
@@ -174,7 +168,6 @@ const fetchUserList = async () => {
   }
 };
 
-// 刷新所有数据
 const refreshData = async () => {
   loading.value = true;
   await fetchTotalUsers();
@@ -182,35 +175,23 @@ const refreshData = async () => {
   loading.value = false;
 };
 
-// 搜索处理（修复bug：始终重置页码并刷新总数）
 const handleSearch = async () => {
-  // 重置页码到第一页
-  if (currentPage.value !== 1) {
-    currentPage.value = 1;
-  }
-  // 刷新所有数据（重新获取总数和列表）
+  if (currentPage.value !== 1) currentPage.value = 1;
   await refreshData();
 };
 
-// 清空搜索（修复bug：始终重置页码并刷新总数）
 const handleResetSearch = async () => {
   searchUsername.value = "";
-  // 重置页码到第一页
-  if (currentPage.value !== 1) {
-    currentPage.value = 1;
-  }
-  // 刷新所有数据
+  if (currentPage.value !== 1) currentPage.value = 1;
   await refreshData();
 };
 
-// 跳转页面
 const goToPage = async (page: number) => {
   if (page < 1 || page > totalPages.value) return;
   currentPage.value = page;
   await fetchUserList();
 };
 
-// 重置密码
 const handleResetPassword = async (userId: number, username: string) => {
   if (isBuiltInUser(username)) return;
   const confirmMsg = `确定要重置用户 “${username}” 的密码吗？\n新密码将恢复为默认密码。`;
@@ -219,15 +200,12 @@ const handleResetPassword = async (userId: number, username: string) => {
   await fetchUserList();
 };
 
-// 删除用户
 const handleDeleteUser = async (userId: number, username: string) => {
   if (isBuiltInUser(username)) return;
   const confirmMsg = `确定要永久删除用户 “${username}” 吗？\n此操作不可恢复！`;
   if (!window.confirm(confirmMsg)) return;
   await adminStore.deleteUserAccount(userId);
-  if (userList.value.length === 1 && currentPage.value > 1) {
-    currentPage.value--;
-  }
+  if (userList.value.length === 1 && currentPage.value > 1) currentPage.value--;
   await refreshData();
 };
 
@@ -457,10 +435,23 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
 
       th,
       td {
+        box-sizing: border-box;  // 关键：使百分比宽度包含 padding
         padding: 12px 12px;
         text-align: left;
         border-bottom: 1px solid $border-light;
-        word-break: break-word;
+      }
+
+      // 非操作列不换行，超出省略号
+      td:not(.actions) {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      // 操作列：允许横向滚动，但严格限制宽度
+      td.actions {
+        overflow-x: auto;
+        white-space: nowrap;
       }
 
       th {
@@ -472,7 +463,7 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
         white-space: nowrap;
       }
 
-      // 列宽分配
+      // 列宽分配（总和100%）
       th:nth-child(1), td:nth-child(1) { width: 8%; }
       th:nth-child(2), td:nth-child(2) { width: 15%; }
       th:nth-child(3), td:nth-child(3) { width: 20%; }
@@ -504,50 +495,49 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
       .actions {
         display: flex;
         gap: 8px;
-        flex-wrap: nowrap;    // 强制不换行
+        flex-wrap: nowrap;   // 强制一行
+        width: fit-content;   // 内容宽度，用于滚动
+        min-width: 100%;      // 确保至少占满列宽（滚动时左侧对齐）
+      }
 
-        .action-btn {
-          padding: 6px 12px;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          border: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          white-space: nowrap; // 按钮文字不换行
+      .action-btn {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: none;
+        white-space: nowrap;
 
-          &.reset-btn {
-            background: rgba(16, 142, 254, 0.1);
-            color: $primary-color;
+        &.reset-btn {
+          background: rgba(16, 142, 254, 0.1);
+          color: $primary-color;
 
-            &:hover {
-              background: $primary-color;
-              color: white;
-            }
-          }
-
-          &.delete-btn {
-            background: rgba(239, 68, 68, 0.1);
-            color: #e5484d;
-
-            &:hover {
-              background: #e5484d;
-              color: white;
-            }
+          &:hover {
+            background: $primary-color;
+            color: white;
           }
         }
 
-        .builtin-tip {
-          font-size: 12px;
-          background: #e6f0ff;
-          color: #1e6fdf;
-          padding: 4px 10px;
-          border-radius: 20px;
-          white-space: nowrap;
+        &.delete-btn {
+          background: rgba(239, 68, 68, 0.1);
+          color: #e5484d;
+
+          &:hover {
+            background: #e5484d;
+            color: white;
+          }
         }
+      }
+
+      .builtin-tip {
+        font-size: 12px;
+        background: #e6f0ff;
+        color: #1e6fdf;
+        padding: 4px 10px;
+        border-radius: 20px;
+        white-space: nowrap;
       }
     }
   }
@@ -596,7 +586,7 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
   }
 }
 
-/* 响应式：小屏幕下操作按钮换行，避免溢出 */
+/* 响应式 */
 @media (max-width: 768px) {
   .stats-grid .stat-card {
     width: 100%;
@@ -606,15 +596,6 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
   .data-table td {
     padding: 10px 8px;
     font-size: 12px;
-  }
-
-  .actions {
-    flex-wrap: wrap !important;   // 小屏幕允许换行
-    gap: 4px;
-
-    .action-btn {
-      white-space: normal;        // 允许文字换行
-    }
   }
 }
 </style>

@@ -85,14 +85,14 @@
                     @click="handleToggleVisibility(project.id, project.show_in_explore, project.name)"
                     :title="project.show_in_explore ? '设为私有' : '设为公开'"
                   >
-                    {{ project.show_in_explore ? '🔒 设为私有' : '🌍 设为公开' }}
+                    {{ project.show_in_explore ? '设为私有' : '设为公开' }}
                   </button>
                   <button
                     class="action-btn delete-btn"
                     @click="handleDeleteProject(project.id, project.name)"
                     title="删除项目"
                   >
-                    🗑️ 删除项目
+                    删除项目
                   </button>
                 </template>
                 <span v-else class="reserved-tip">保留项目，不可操作</span>
@@ -138,21 +138,16 @@ const loading = ref(true);
 const searchOwner = ref("");
 const searchProjectName = ref("");
 const currentPage = ref(1);
-const pageSize = 20; // 每页20条，测试时可改为1
+const pageSize = 20;
 
-// 保留用户名列表（这些用户的项目不允许操作）
 const reservedOwners = ['NodePy-Learning', 'NodePy-Guest'];
-
-// 判断是否为保留项目（兼容 owner_username 为 null 的情况）
 const isReservedProject = (ownerUsername: string | null | undefined): boolean => {
   if (!ownerUsername) return false;
   return reservedOwners.includes(ownerUsername);
 };
 
-// 总页数
 const totalPages = computed(() => Math.ceil(totalProjects.value / pageSize));
 
-// 格式化日期
 const formatDate = (dateStr: string): string => {
   if (!dateStr) return "未知";
   const date = new Date(dateStr);
@@ -165,7 +160,6 @@ const formatDate = (dateStr: string): string => {
   });
 };
 
-// 获取项目总数
 const fetchTotalProjects = async () => {
   try {
     const owner = searchOwner.value.trim() || null;
@@ -177,7 +171,6 @@ const fetchTotalProjects = async () => {
   }
 };
 
-// 获取项目列表（分页）
 const fetchProjectList = async () => {
   try {
     const owner = searchOwner.value.trim() || null;
@@ -191,7 +184,6 @@ const fetchProjectList = async () => {
   }
 };
 
-// 刷新所有数据
 const refreshData = async () => {
   loading.value = true;
   await fetchTotalProjects();
@@ -199,47 +191,35 @@ const refreshData = async () => {
   loading.value = false;
 };
 
-// 搜索处理
 const handleSearch = async () => {
-  if (currentPage.value !== 1) {
-    currentPage.value = 1;
-  }
+  if (currentPage.value !== 1) currentPage.value = 1;
   await refreshData();
 };
 
-// 清空筛选
 const handleResetSearch = async () => {
   searchOwner.value = "";
   searchProjectName.value = "";
-  if (currentPage.value !== 1) {
-    currentPage.value = 1;
-  }
+  if (currentPage.value !== 1) currentPage.value = 1;
   await refreshData();
 };
 
-// 跳转页面
 const goToPage = async (page: number) => {
   if (page < 1 || page > totalPages.value) return;
   currentPage.value = page;
   await fetchProjectList();
 };
 
-// 切换可见性 - 无需弹窗确认
 const handleToggleVisibility = async (projectId: number, currentVisible: boolean, projectName: string) => {
   const newVisibility = !currentVisible;
   await adminStore.setProjectVisibility(projectId, newVisibility);
-  await fetchProjectList(); // 刷新当前页，无需重新获取总数（可见性不影响总数）
+  await fetchProjectList();
 };
 
-// 删除项目 - 需要弹窗确认
 const handleDeleteProject = async (projectId: number, projectName: string) => {
   const confirmMsg = `确定要永久删除项目 “${projectName}” 吗？\n此操作不可恢复！`;
   if (!window.confirm(confirmMsg)) return;
   await adminStore.deleteProject(projectId);
-  // 如果当前页只有一条数据且不是第一页，则跳到上一页
-  if (projectList.value.length === 1 && currentPage.value > 1) {
-    currentPage.value--;
-  }
+  if (projectList.value.length === 1 && currentPage.value > 1) currentPage.value--;
   await refreshData();
 };
 
@@ -469,10 +449,21 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
 
       th,
       td {
+        box-sizing: border-box;
         padding: 12px 12px;
         text-align: left;
         border-bottom: 1px solid $border-light;
-        word-break: break-word;
+      }
+
+      td:not(.actions) {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      td.actions {
+        overflow-x: auto;
+        white-space: nowrap;
       }
 
       th {
@@ -484,14 +475,14 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
         white-space: nowrap;
       }
 
-      // 列宽分配
-      th:nth-child(1), td:nth-child(1) { width: 6%; }   // ID
-      th:nth-child(2), td:nth-child(2) { width: 18%; }  // 项目名
-      th:nth-child(3), td:nth-child(3) { width: 12%; }  // 所有者
-      th:nth-child(4), td:nth-child(4) { width: 10%; }  // 可见性
-      th:nth-child(5), td:nth-child(5) { width: 15%; }  // 创建时间
-      th:nth-child(6), td:nth-child(6) { width: 15%; }  // 更新时间
-      th:nth-child(7), td:nth-child(7) { width: 24%; }  // 操作
+      // 列宽分配（总和100%）
+      th:nth-child(1), td:nth-child(1) { width: 6%; }
+      th:nth-child(2), td:nth-child(2) { width: 18%; }
+      th:nth-child(3), td:nth-child(3) { width: 12%; }
+      th:nth-child(4), td:nth-child(4) { width: 10%; }
+      th:nth-child(5), td:nth-child(5) { width: 15%; }
+      th:nth-child(6), td:nth-child(6) { width: 15%; }
+      th:nth-child(7), td:nth-child(7) { width: 24%; }
 
       tbody tr {
         transition: background 0.2s ease;
@@ -514,6 +505,7 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
         border-radius: 20px;
         font-size: 12px;
         font-weight: 500;
+        white-space: nowrap;
 
         &.public {
           background: #d1fae5;
@@ -536,49 +528,48 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
         display: flex;
         gap: 8px;
         flex-wrap: nowrap;
+        width: fit-content;
+        min-width: 100%;
+      }
 
-        .action-btn {
-          padding: 6px 12px;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          border: none;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          white-space: nowrap;
+      .action-btn {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: none;
+        white-space: nowrap;
 
-          &.toggle-btn {
-            background: rgba(16, 142, 254, 0.1);
-            color: $primary-color;
+        &.toggle-btn {
+          background: rgba(16, 142, 254, 0.1);
+          color: $primary-color;
 
-            &:hover {
-              background: $primary-color;
-              color: white;
-            }
-          }
-
-          &.delete-btn {
-            background: rgba(239, 68, 68, 0.1);
-            color: #e5484d;
-
-            &:hover {
-              background: #e5484d;
-              color: white;
-            }
+          &:hover {
+            background: $primary-color;
+            color: white;
           }
         }
 
-        .reserved-tip {
-          font-size: 12px;
-          background: #e6f0ff;
-          color: #1e6fdf;
-          padding: 4px 10px;
-          border-radius: 20px;
-          white-space: nowrap;
+        &.delete-btn {
+          background: rgba(239, 68, 68, 0.1);
+          color: #e5484d;
+
+          &:hover {
+            background: #e5484d;
+            color: white;
+          }
         }
+      }
+
+      .reserved-tip {
+        font-size: 12px;
+        background: #e6f0ff;
+        color: #1e6fdf;
+        padding: 4px 10px;
+        border-radius: 20px;
+        white-space: nowrap;
       }
     }
   }
@@ -646,15 +637,6 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
   .data-table td {
     padding: 10px 8px;
     font-size: 12px;
-  }
-
-  .actions {
-    flex-wrap: wrap !important;
-    gap: 4px;
-
-    .action-btn {
-      white-space: normal;
-    }
   }
 }
 </style>
