@@ -496,6 +496,26 @@ export class DefaultService {
         });
     }
     /**
+     * Get Explore Projects Num
+     * Get the number of projects that are marked as 'show in explore'.
+     * @param requestBody
+     * @returns number Successful Response
+     * @throws ApiError
+     */
+    public static getExploreProjectsNumApiExploreProjectsNumPost(
+        requestBody: ProjectListFilter,
+    ): CancelablePromise<number> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/explore/projects/num',
+            body: requestBody,
+            mediaType: 'application/json',
+            errors: {
+                422: `Validation Error`,
+            },
+        });
+    }
+    /**
      * Get Current User Info
      * Get current authenticated user's information.
      * @returns any Current user information retrieved successfully
@@ -962,19 +982,19 @@ export class DefaultService {
     }
     /**
      * Preview File
-     * Return a presigned URL to preview a file stored in MinIO.
-     * @param fileId
-     * @returns string Successful Response
+     * Get the content of a file by its key.
+     * @param fileKey
+     * @returns any Successful Response
      * @throws ApiError
      */
-    public static previewFileApiAdminStorageFilesFileIdPreviewGet(
-        fileId: number,
-    ): CancelablePromise<string> {
+    public static previewFileApiAdminStorageFilesFileKeyPreviewGet(
+        fileKey: string,
+    ): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/api/admin/storage/files/{file_id}/preview',
+            url: '/api/admin/storage/files/{file_key}/preview',
             path: {
-                'file_id': fileId,
+                'file_key': fileKey,
             },
             errors: {
                 422: `Validation Error`,

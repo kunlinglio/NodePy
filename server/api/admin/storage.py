@@ -1,7 +1,9 @@
-from datetime import datetime, timedelta
+import io
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from loguru import logger
 from minio import Minio
 from pydantic import BaseModel
@@ -32,6 +34,7 @@ class StorageStats(BaseModel):
 
 class FileInfo(BaseModel):
     id: int
+    key: str
     filename: str
     format: str
     user_id: int
@@ -156,6 +159,7 @@ async def list_files(
         return [
             FileInfo(
                 id=f.id, # type: ignore
+                key=f.file_key, # type: ignore
                 filename=f.filename, # type: ignore
                 format=f.format, # type: ignore
                 user_id=f.user_id, # type: ignore
@@ -187,30 +191,43 @@ async def list_files_num(
         logger.exception(f"Error listing files: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.get("/files/{file_id}/preview")
+MIME_TYPES = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "pdf": "application/pdf",
+    "csv": "text/csv",
+}
+
+@router.get("/files/{file_key}/preview")
 async def preview_file(
-    file_id: int,
+    file_key: str,
     admin: UserRecord = Depends(get_admin_user),
-    db_client: AsyncSession = Depends(get_async_session),
-) -> str:
-    """Return a presigned URL to preview a file stored in MinIO."""
+    async_db_session=Depends(get_async_session),
+) -> StreamingResponse:
+    """
+    Get the content of a file by its key.
+    """
     try:
-        file = await db_client.get(FileRecord, file_id)
-        if not file or file.is_deleted: # type: ignore
-            raise HTTPException(status_code=404, detail="File not found")
-        m = Minio(
-            endpoint=MINIO_URL,
-            access_key=MINIO_ACCESS_KEY,
-            secret_key=MINIO_SECRET_KEY,
-            secure=False,
+        file_manager = FileManager(async_db_session=async_db_session)
+        file = await file_manager.get_file_by_key_async(key=file_key)
+        content = await file_manager.read_async(file=file, user_id=None)
+        media_type = MIME_TYPES.get(file.format, "application/octet-stream")
+        return StreamingResponse(
+            io.BytesIO(content),
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={file_key}.{file.format}"
+            },
         )
-        url = m.presigned_get_object("nodepy-files", file.file_key, expires=timedelta(minutes=15)) # type: ignore
-        return url
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception(f"Error generating file preview URL: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.exception(f"Error retrieving file content for key {file_key}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/files/{file_id}")

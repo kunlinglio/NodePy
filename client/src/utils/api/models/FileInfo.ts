@@ -4,6 +4,7 @@
 /* eslint-disable */
 export type FileInfo = {
     id: number;
+    key: string;
     filename: string;
     format: string;
     user_id: number;
