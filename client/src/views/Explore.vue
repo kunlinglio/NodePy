@@ -171,6 +171,7 @@ import { usePageStore } from '@/stores/pageStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useUserStore } from '@/stores/userStore'
 import { useLoginStore } from '@/stores/loginStore'
+import { useAuthState } from '@/stores/authState'
 import Graph from '@/components/Graph/Graph.vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
@@ -182,7 +183,8 @@ const pageStore = usePageStore()
 const projectStore = useProjectStore()
 const userStore = useUserStore()
 const loginStore = useLoginStore()
-const isLoggedIn = computed(() => loginStore.loggedIn)
+const authState = useAuthState()
+const isLoggedIn = computed(() => authState.isUserAuthenticated)
 
 const today = new Date().toISOString().slice(0, 10)
 

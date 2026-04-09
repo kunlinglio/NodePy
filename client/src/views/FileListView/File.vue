@@ -8,6 +8,7 @@
     import { usePageStore } from '@/stores/pageStore';
     import Mask from '../Mask.vue';
     import { useLoginStore } from '@/stores/loginStore';
+    import { useAuthState } from '@/stores/authState';
     import SvgIcon from '@jamescoyle/vue-icon';
     import { mdiMenuDown, mdiMenuUp, mdiEye, mdiDownload } from '@mdi/js';
     import FilePreview from './FilePreview.vue';
@@ -15,6 +16,7 @@
     const fileStore = useFileStore();
     const pageStore = usePageStore();
     const loginStore = useLoginStore()
+    const authState = useAuthState()
 
     const router = useRouter()
 
@@ -195,7 +197,7 @@
 
     onMounted(()=>{
         loginStore.checkAuthStatus();
-        if(loginStore.loggedIn){
+        if(authState.isUserAuthenticated){
             fileStore.initializeFiles();
         }
         else{
@@ -246,7 +248,7 @@
 
 </script>
 <template>
-    <div class="fileview-container" v-if="loginStore.loggedIn">
+    <div class="fileview-container" v-if="authState.isUserAuthenticated">
         <!-- 工具栏 -->
         <div class="toolbar">
             <div class="toolbar-left">

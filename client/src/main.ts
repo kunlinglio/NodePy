@@ -9,6 +9,7 @@ import App from './App.vue'
 
 //pinia
 import { createPinia } from 'pinia'
+import { useAuthState } from '@/stores/authState'
 
 //vuetify
 import 'vuetify/styles'
@@ -57,6 +58,15 @@ app.use(vuetify)
 app.use(ElementPlus)
 app.use(router)
 app.use(pinia)
+
+// 初始化集中式认证状态（启动时开始必要的刷新任务）
+try {
+  const authState = useAuthState()
+  authState.init()
+} catch (e) {
+  // 在某些运行时/测试场景下 useAuthState 可能不可用，忽略初始化错误
+  console.warn('authState init skipped:', e)
+}
 
 app.mount('#app')
 

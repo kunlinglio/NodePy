@@ -21,10 +21,12 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useLoginStore } from '@/stores/loginStore';
+import { useAuthState } from '@/stores/authState';
 
 const router = useRouter();
 const loginStore = useLoginStore();
-const isLoggedIn = computed(() => loginStore.loggedIn);
+const authState = useAuthState();
+const isLoggedIn = computed(() => authState.isUserAuthenticated);
 
 function jumpToExample() {
   router.push({ name: 'example' });

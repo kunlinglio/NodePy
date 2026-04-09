@@ -4,7 +4,7 @@
     <template #trigger>
       <div class="user-avatar-trigger">
         <!-- 未登录时显示 mdi 图标 -->
-        <div v-if="!loginStore.isAuthenticated" class="initials-avatar small">
+        <div v-if="!isUserLoggedIn" class="initials-avatar small">
           <svg-icon type="mdi" :path="mdiAccount" :size="22"></svg-icon>
         </div>
         <!-- 登录但无头像时显示首字符 -->
@@ -23,7 +23,7 @@
     <!-- 菜单内容：用户信息 -->
     <div class="user-info-menu">
       <!-- 未登录提示 -->
-      <div v-if="!loginStore.isAuthenticated" class="not-logged-in">
+      <div v-if="!isUserLoggedIn" class="not-logged-in">
         <div class="not-logged-in-text">请先登录</div>
         <button class="login-btn" @click="handleLogin">立即登录</button>
       </div>
@@ -50,7 +50,7 @@
       </div>
 
       <!-- 用户统计 -->
-      <div v-if="loginStore.isAuthenticated" class="user-stats">
+      <div v-if="isUserLoggedIn" class="user-stats">
         <div v-if="userStore.currentUserInfo?.projects_count !== undefined" class="stat-item">
           <span class="stat-label">项目数量</span>
           <span class="stat-value">{{ userStore.currentUserInfo.projects_count }}</span>
@@ -63,10 +63,10 @@
       </div>
 
       <!-- 分割线 -->
-      <div v-if="loginStore.isAuthenticated" class="divider"></div>
+      <div v-if="isUserLoggedIn" class="divider"></div>
 
       <!-- 菜单选项 -->
-      <div v-if="loginStore.isAuthenticated" class="menu-actions">
+      <div v-if="isUserLoggedIn" class="menu-actions">
         <button class="logout-btn" @click="handleLogout">退出登录</button>
       </div>
     </div>
@@ -77,6 +77,7 @@
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLoginStore } from '@/stores/loginStore'
+import { useAuthState } from '@/stores/authState'
 import { useModalStore } from '@/stores/modalStore'
 import { useUserStore } from '@/stores/userStore'
 import { useEditorStore } from '@/stores/editorStore'
@@ -87,11 +88,12 @@ import { useTableStore } from '@/stores/tableStore'
 import SvgIcon from '@jamescoyle/vue-icon';
 import { mdiAccount, mdiFileEdit, mdiLogout } from '@mdi/js'
 
-const loginStore = useLoginStore()
+  const loginStore = useLoginStore()
 const modalStore = useModalStore()
 const userStore: any = useUserStore()
 const tableStore = useTableStore()
 const editorStore = useEditorStore()
+  const authState = useAuthState()
 
 const router = useRouter()
 
@@ -101,10 +103,13 @@ const EditUserWidth = 360;
 const EditUserHeight = 520;
 
 onMounted(async () => {
-  if (!loginStore.isAuthenticated) return
+  if (!authState.isUserAuthenticated) return
   await userStore.refreshUserInfo()
   await userStore.getUserInfo()
 })
+
+// 使用集中式 authState 作为单一来源
+const isUserLoggedIn = computed(() => authState.isUserAuthenticated)
 
 function handleLogin() {
   router.replace({

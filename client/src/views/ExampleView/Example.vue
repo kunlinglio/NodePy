@@ -1,5 +1,5 @@
 <template>
-    <div class="example-container" v-if="loginStore.loggedIn">
+    <div class="example-container" v-if="authState.isUserAuthenticated">
         <div class="example-content">
             <!-- 搜索框 -->
             <div class="search-section">
@@ -86,17 +86,15 @@
                     </template>
                 </div>
 
-                <div class="pagination-dots" v-if="totalPages > 1">
-                    <div class="dots">
-                        <button
-                            v-for="i in totalPages"
-                            :key="i"
-                            class="dot"
-                            :class="{ active: currentPage === (i-1) }"
-                            @click="goToPage(i-1)"
-                            :aria-label="`第 ${i} 页`"
-                        ></button>
-                    </div>
+                <div class="carousel-indicators" v-if="totalPages > 1" @mousedown.stop @touchstart.stop>
+                    <span
+                        v-for="i in totalPages"
+                        :key="i"
+                        class="indicator-dot"
+                        :class="{ active: currentPage === (i-1) }"
+                        @click="goToPage(i-1)"
+                        :aria-label="`第 ${i} 页`"
+                    ></span>
                 </div>
             </div>
 
@@ -111,6 +109,7 @@ import { useRouter } from 'vue-router'
 import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
 import AuthenticatedServiceFactory from '@/utils/AuthenticatedServiceFactory';
 import { useLoginStore } from '@/stores/loginStore'
+import { useAuthState } from '@/stores/authState'
 import Mask from '@/views/Mask.vue'
 import ExampleDemoFrame from './ExampleDemoFrame.vue';
 import { handleNetworkError } from '@/utils/networkError';
@@ -122,6 +121,7 @@ import { useModalStore } from '@/stores/modalStore'
 import TagSelectionModal from '@/components/TagSelectionModal.vue'
 
 const loginStore = useLoginStore();
+const authState = useAuthState();
 const projectStore = useProjectStore();
 const router = useRouter()
 const authService = AuthenticatedServiceFactory.getService()
@@ -149,9 +149,16 @@ const modalStore = useModalStore()
 
 const currentPage = ref<number>(0)
 const pageSize = ref<number>(20)
-const totalPages = computed(() => Math.ceil(totalCount.value / pageSize.value))
+const totalPages = computed(() => {
+    const safePageSize = Math.max(1, Math.floor(pageSize.value) || 1)
+    if (!totalCount.value || totalCount.value <= 0) return 0
+    return Math.ceil(totalCount.value / safePageSize)
+})
 
 let scrollDebounceTimer: number | null = null
+let loadWatchTimer: number | null = null
+let resizeDebounceTimer: number | null = null
+let windowResizeTimer: number | null = null
 
 interface CacheKey {
     tags: string[]
@@ -178,54 +185,85 @@ function clearCache() {
 }
 
 const gridContainerRef = ref<HTMLElement | null>(null)
+const tagsScrollContainerRef = ref<HTMLElement | null>(null)
 const cardHeight = ref<number>(280)
+let resizeObserver: ResizeObserver | null = null
+let suppressAutoReload = false
 
 async function computePageSize(): Promise<boolean> {
     await nextTick()
-    if (!gridContainerRef.value) return false
-    const container = gridContainerRef.value
-    const containerHeight = container.clientHeight
-    if (containerHeight === 0) return false
-    const firstCard = container.querySelector('.example-card') as HTMLElement
-    if (firstCard) {
-        const rect = firstCard.getBoundingClientRect()
-        const style = getComputedStyle(firstCard)
-        const marginBottom = parseFloat(style.marginBottom) || 0
-        cardHeight.value = rect.height + marginBottom
+    // 宽度使用 grid 容器， 高度优先使用外层的 scroll 容器以反映可视区域
+    const widthSource = gridContainerRef.value ?? scrollContainerRef.value
+    const heightSource = scrollContainerRef.value ?? gridContainerRef.value
+    if (!widthSource || !heightSource) return false
+    let containerWidth = widthSource.clientWidth
+    let containerHeight = heightSource.clientHeight
+
+    // 回退：如果高度过小或为 0，则基于视口计算可用高度（避免因 DOM 高度未填充导致计算错误）
+    if (!containerHeight || containerHeight < 50) {
+        const rect = heightSource.getBoundingClientRect()
+        const viewportAvailable = Math.max(120, Math.floor(window.innerHeight - rect.top - 24))
+        containerHeight = Math.max(containerHeight || 0, viewportAvailable)
     }
-    const containerWidth = container.clientWidth
+    if (!containerWidth || containerWidth === 0) return false
+
+    // 布局参数（与样式保持一致）
     const cardMinWidth = 260
-    const gap = 20
-    const cols = Math.floor((containerWidth + gap) / (cardMinWidth + gap)) || 1
-    const rows = Math.floor(containerHeight / cardHeight.value) + 1
-    const newPageSize = Math.max(1, rows * cols)
+    const gap = 16
+
+    // 计算列数与每列实际宽度（考虑 gap）
+    const cols = Math.max(1, Math.floor((containerWidth + gap) / (cardMinWidth + gap)))
+    const cardWidth = (containerWidth - (cols - 1) * gap) / cols
+
+    // 估算卡片高度：使用宽高比与信息区固定估算值，避免临时 DOM 测量带来的抖动
+    // Thumb 高度按 16:9 比例计算（padding-top:56.25%），信息区域按经验值估算
+    const thumbHeight = Math.round(cardWidth * 0.5625)
+    const infoAreaEstimate = 120 // 包括 title/tags/meta 的估算高度
+    const measuredCardHeight = Math.max(220, thumbHeight + infoAreaEstimate)
+
+    // 计算行数与每页容量（rows * cols）
+    const rows = Math.max(1, Math.floor((containerHeight + gap) / (measuredCardHeight + gap)))
+    const newPageSize = rows * cols
+
     if (newPageSize !== pageSize.value) {
+        cardHeight.value = measuredCardHeight
         pageSize.value = newPageSize
+        console.log('[Example] computePageSize -> cols=', cols, 'rows=', rows, 'cardWidth=', Math.round(cardWidth), 'cardHeight=', Math.round(measuredCardHeight), 'pageSize=', newPageSize)
         return true
     }
+    cardHeight.value = measuredCardHeight
     return false
 }
 
-async function fetchProjectsRange(offset: number, limit: number, updateTotal: boolean = true) {
+async function fetchProjectsRange(offset: number, limit: number, updateTotal: boolean = false) {
     const filterConditions: ProjectListFilter = {
         tags: activeTags.value,
         search_keyword: searchKeyword.value,
         ordered_by: sortBy.value,
-        ranging: [offset, limit]
+        // 服务端期望的 ranging 是 (startIndex, endIndex)，因此传入 offset 和 offset+limit
+        ranging: [offset, offset + limit]
     }
     const cacheKey = getCacheKey(offset, limit)
     if (dataCache.has(cacheKey)) {
-        projects.value = dataCache.get(cacheKey)!
+        const cached = dataCache.get(cacheKey)!
+        console.log(`[Example] cache hit offset=${offset} limit=${limit} items=${cached.length}`)
+        projects.value = cached
         return
     }
     try {
-        console.log('Fetching projects with conditions:', filterConditions)
+        console.log(`[Example] fetchProjectsRange offset=${offset} limit=${limit} (ranging -> ${filterConditions.ranging})`, filterConditions)
         const response = await authService.getExploreProjectsApiExploreProjectsPost(filterConditions) as any;
+        console.log('[Example] fetchProjectsRange raw response:', response)
         const newProjects = response.projects || [];
         const newTotal = response.total ?? 0;
+        console.log(`[Example] fetched ${newProjects.length} items, response total=${newTotal}`)
         dataCache.set(cacheKey, newProjects)
         projects.value = newProjects
-        if (updateTotal) totalCount.value = newTotal
+        if (updateTotal) {
+            const prev = totalCount.value
+            totalCount.value = newTotal
+            console.log(`[Example] totalCount updated: ${prev} -> ${totalCount.value}`)
+        }
     } catch (error) {
         if (error instanceof ApiError) {
             switch (error.status) {
@@ -243,32 +281,53 @@ async function fetchProjectsRange(offset: number, limit: number, updateTotal: bo
     }
 }
 
-async function loadPageData() {
-    if (loading.value) return
-    loading.value = true
+/**
+ * 只获取符合当前筛选条件的项目总数（不拉取项目数据）
+ */
+async function fetchTotalCountOnly() {
     try {
-        const offset = currentPage.value * pageSize.value
-        await fetchProjectsRange(offset, pageSize.value, true)
-        const pageSizeChanged = await computePageSize()
-        if (pageSizeChanged) {
-            const newOffset = currentPage.value * pageSize.value
-            if (newOffset !== offset) {
-                await fetchProjectsRange(newOffset, pageSize.value, true)
-            }
+        const countFilter: ProjectListFilter = {
+            tags: activeTags.value,
+            search_keyword: searchKeyword.value,
+            ordered_by: sortBy.value
         }
-    } catch (error) {
-        console.error('加载数据失败:', error)
-    } finally {
-        loading.value = false
+        console.log('[Example] fetchTotalCountOnly filter=', countFilter)
+        const cnt = await (authService as any).getExploreProjectsNumApiExploreProjectsNumPost(countFilter) as number
+        console.log('[Example] fetchTotalCountOnly returned=', cnt)
+        const prev = totalCount.value
+        totalCount.value = cnt ?? 0
+        if (prev !== totalCount.value) console.log(`[Example] totalCount updated: ${prev} -> ${totalCount.value}`)
+    } catch (e) {
+        console.warn('[Example] fetchTotalCountOnly failed, keeping previous totalCount', e)
     }
 }
+
+/**
+ * 按页面索引获取对应页的数据（仅在用户点击分页时调用）
+ */
+async function fetchPageByIndex(pageIndex: number) {
+    if (pageIndex < 0) pageIndex = 0
+    const safePageSize = Math.max(1, Math.floor(pageSize.value) || 1)
+    const maxPageIndex = Math.max(0, Math.ceil(totalCount.value / safePageSize) - 1)
+    if (pageIndex > maxPageIndex) pageIndex = maxPageIndex
+
+    currentPage.value = pageIndex
+    clearCache()
+    const offset = currentPage.value * safePageSize
+    console.log('[Example] fetchPageByIndex page=', pageIndex, 'offset=', offset, 'limit=', safePageSize)
+    await fetchProjectsRange(offset, safePageSize, false)
+    // 保证滚动回到顶部
+    if (scrollContainerRef.value) scrollContainerRef.value.scrollTop = 0
+}
+
 
 async function resetAndLoad() {
     if (loading.value) return
     currentPage.value = 0
     clearCache()
-    await computePageSize()
-    await loadPageData()
+        await fetchTotalCountOnly()
+        await computePageSize()
+        await fetchPageByIndex(0)
 }
 
 function handleTagClick(tag: string) {
@@ -293,54 +352,45 @@ function handleSortChange(value: ProjectListFilter.ordered_by) {
 }
 
 const scrollContainerRef = ref<HTMLElement | null>(null)
-
 function onScroll() {
-    if (!scrollContainerRef.value || loading.value) return
-    const container = scrollContainerRef.value
-    const scrollTop = container.scrollTop
-    const scrollHeight = container.scrollHeight
-    const clientHeight = container.clientHeight
-    if (scrollHeight <= clientHeight) return
-    const bottomThreshold = 100
-    const topThreshold = 50
-    if (scrollDebounceTimer) clearTimeout(scrollDebounceTimer)
-    scrollDebounceTimer = window.setTimeout(() => {
-        if (scrollTop + clientHeight + bottomThreshold >= scrollHeight && currentPage.value < totalPages.value - 1) {
-            goToNextPage()
-        } else if (scrollTop <= topThreshold && currentPage.value > 0) {
-            goToPrevPage()
-        }
-    }, 150)
+    // 禁用基于滚动的分页。分页仅通过右侧圆点点击触发。
+    return
 }
 
 async function goToNextPage() {
     if (currentPage.value < totalPages.value - 1 && !loading.value) {
-        currentPage.value++
-        await loadPageData()
-        if (scrollContainerRef.value) scrollContainerRef.value.scrollTop = 0
+           await fetchPageByIndex(currentPage.value + 1)
     }
 }
 
-async function goToPrevPage() {
-    if (currentPage.value > 0 && !loading.value) {
-        currentPage.value--
-        await loadPageData()
-        if (scrollContainerRef.value) scrollContainerRef.value.scrollTop = scrollContainerRef.value.scrollHeight
+async function loadPageData() {
+    // 兼容保留：如果需要完整 reload（count + page），调用此函数
+    if (loading.value) return
+    console.log('[Example] loadPageData START')
+    loading.value = true
+    // 看门狗：如果超过 15s 还未完成则自动清除 loading，避免无限加载卡死 UI
+    if (loadWatchTimer) clearTimeout(loadWatchTimer)
+    loadWatchTimer = window.setTimeout(() => {
+        if (loading.value) {
+            console.warn('[Example] loadPageData watchdog timeout, clearing loading flag')
+            loading.value = false
+        }
+    }, 15000)
+    try {
+        await fetchTotalCountOnly()
+        await computePageSize()
+        await fetchPageByIndex(currentPage.value)
+    } catch (error) {
+        console.error('加载数据失败:', error)
+    } finally {
+        if (loadWatchTimer) {
+            clearTimeout(loadWatchTimer)
+            loadWatchTimer = null
+        }
+        loading.value = false
+        console.log('[Example] loadPageData END')
     }
 }
-
-let resizeObserver: ResizeObserver | null = null
-
-async function handleResize() {
-    const changed = await computePageSize()
-    if (changed) {
-        currentPage.value = 0
-        await loadPageData()
-    }
-}
-
-// ---------- 标签横向滚动（拖拽 + 滚轮）无滚动条 ----------
-const tagsScrollContainerRef = ref<HTMLElement | null>(null)
 const isDraggingTags = ref(false)
 let tagsDragStartX = 0
 let tagsDragStartScrollLeft = 0
@@ -419,9 +469,7 @@ function openTagPicker() {
 async function goToPage(pageIndex: number) {
     if (pageIndex < 0 || pageIndex >= totalPages.value) return
     if (currentPage.value === pageIndex) return
-    currentPage.value = pageIndex
-    await loadPageData()
-    if (scrollContainerRef.value) scrollContainerRef.value.scrollTop = 0
+    await fetchPageByIndex(pageIndex)
 }
 
 function animateButton(e: MouseEvent) {
@@ -433,23 +481,72 @@ function animateButton(e: MouseEvent) {
     }, { once: true });
 }
 
+function handleResize() {
+    if (windowResizeTimer) clearTimeout(windowResizeTimer)
+    windowResizeTimer = window.setTimeout(async () => {
+        if (loading.value) return
+        try {
+            const changed = await computePageSize()
+            if (changed) {
+                const safePageSize = Math.max(1, Math.floor(pageSize.value) || 1)
+                const maxPageIndex = Math.max(0, Math.ceil(totalCount.value / safePageSize) - 1)
+                if (currentPage.value > maxPageIndex) currentPage.value = maxPageIndex
+                if (!suppressAutoReload) {
+                    suppressAutoReload = true
+                    try {
+                        await fetchPageByIndex(currentPage.value)
+                    } catch (e) {
+                        console.warn('[Example] handleResize fetchPageByIndex failed', e)
+                    } finally {
+                        suppressAutoReload = false
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[Example] handleResize error', e)
+        }
+    }, 200)
+}
+
 onMounted(async () => {
     await loginStore.checkAuthStatus();
-    if (loginStore.loggedIn) {
+    if (authState.isUserAuthenticated) {
         await projectStore.getAllTags()
         availableTags.value = projectStore.allProjectTags || []
         // 默认选中前三个标签
         activeTags.value = availableTags.value.slice(0, 3)
         await nextTick()
         await resetAndLoad();
+        if (scrollContainerRef.value) {
+            scrollContainerRef.value.addEventListener('scroll', onScroll)
+        }
         window.addEventListener('resize', handleResize)
         if (gridContainerRef.value) {
-            resizeObserver = new ResizeObserver(async () => {
-                const changed = await computePageSize()
-                if (changed) {
-                    currentPage.value = 0
-                    await loadPageData()
-                }
+            resizeObserver = new ResizeObserver(() => {
+                if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer)
+                resizeDebounceTimer = window.setTimeout(async () => {
+                    if (loading.value) return
+                    try {
+                        const changed = await computePageSize()
+                        if (changed) {
+                            const safePageSize = Math.max(1, Math.floor(pageSize.value) || 1)
+                            const maxPageIndex = Math.max(0, Math.ceil(totalCount.value / safePageSize) - 1)
+                            if (currentPage.value > maxPageIndex) currentPage.value = maxPageIndex
+                            if (!suppressAutoReload) {
+                                suppressAutoReload = true
+                                try {
+                                    await fetchPageByIndex(currentPage.value)
+                                } catch (e) {
+                                    console.warn('[Example] resizeObserver fetchPageByIndex failed', e)
+                                } finally {
+                                    suppressAutoReload = false
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[Example] resizeObserver handler error', e)
+                    }
+                }, 200)
             })
             resizeObserver.observe(gridContainerRef.value)
         }
@@ -487,7 +584,7 @@ onBeforeUnmount(() => {
         flex: 1;
         display: flex;
         flex-direction: column;
-        padding: 20px 28px;
+        padding: 12px 28px;
         box-sizing: border-box;
         overflow-x: hidden;
         max-width: 100%;
@@ -686,8 +783,13 @@ onBeforeUnmount(() => {
     
     .projects-wrapper {
         flex: 1;
-        overflow-y: auto;
+        /* 不允许内部出现滚动条：分页由右侧圆点或按钮控制 */
+        overflow: hidden;
         overflow-x: hidden;
+        position: relative; /* 使右侧分页点可绝对定位 */
+        padding-right: 72px; /* 为右侧圆点留出空间，避免遮挡 */
+        display: flex;
+        align-items: stretch;
         
         &::-webkit-scrollbar {
             width: 8px;
@@ -712,13 +814,20 @@ onBeforeUnmount(() => {
     
     .examples-grid {
         display: grid;
+        /* 填充可用宽度并允许多列 */
         grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-        gap: 20px;
+        gap: 16px; /* 缩小行间距，修复大屏时的过大行距 */
         align-items: start;
         justify-items: center;
-        padding: 6px;
-        min-height: 100%;
-        
+        padding: 6px 6px 12px 6px;
+        /* 占据父容器高度，避免内部滚动，按页渲染多行 */
+        flex: 1;
+        height: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+        /* 当项目不足以填满容器时，垂直居中 */
+        align-content: center;
+    
         .loading-state,
         .empty-state {
             grid-column: 1 / -1;
@@ -732,6 +841,38 @@ onBeforeUnmount(() => {
             font-size: 16px;
             color: #c0c4cc;
         }
+    }
+
+    /* 右侧圆点分页（采用 ExampleCarousel 相同的圆点渲染，仅圆点，无背景） */
+    .carousel-indicators {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 12;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        background: none;
+    }
+
+    .carousel-indicators .indicator-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #cbd5e1;
+        transition: all 0.18s ease;
+        cursor: pointer;
+        display: inline-block;
+    }
+
+    .carousel-indicators .indicator-dot.active {
+        width: 14px;
+        height: 14px;
+        background: #2563eb;
     }
 
     /* 分页控件 */

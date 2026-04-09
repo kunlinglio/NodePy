@@ -22,6 +22,7 @@ import {
 } from "@mdi/js";
 import UserInfoMenu from "./FloatingMenu/UserInfoMenu.vue";
 import AdminAccountInfo from '@/components/AdminAccountInfo.vue';
+import { useAuthState } from '@/stores/authState';
 
 const graphStore = useGraphStore();
 const projectStore = useProjectStore();
@@ -36,7 +37,8 @@ function jumpToGithub() {
 
 // 迁移自 Footer：管理员入口逻辑（包含已登录时显示权限弹窗）
 function jumpToAdmin() {
-  if (loginStore.loggedIn) {
+  const authState = useAuthState();
+  if (authState.isUserAuthenticated) {
     const UserAccessWidth = 300;
     const UserAccessHeight = 240;
     modalStore.createModal({

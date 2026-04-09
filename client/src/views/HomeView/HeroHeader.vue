@@ -23,12 +23,14 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 import { useLoginStore } from '@/stores/loginStore';
+import { useAuthState } from '@/stores/authState';
 import { computed } from 'vue';
 
 const router = useRouter();
 const loginStore = useLoginStore();
+const authState = useAuthState();
 
-const isLoggedIn = computed(() => loginStore.loggedIn);
+const isLoggedIn = computed(() => authState.isUserAuthenticated);
 
 function quickStart() {
   if (isLoggedIn.value) {

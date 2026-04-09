@@ -31,11 +31,13 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 import { useLoginStore } from '@/stores/loginStore';
+import { useAuthState } from '@/stores/authState';
 import { useModalStore } from '@/stores/modalStore';
 import AdminAccountInfo from '@/components/AdminAccountInfo.vue';
 
 const router = useRouter();
 const loginStore = useLoginStore();
+const authState = useAuthState();
 const modalStore = useModalStore();
 
 function jumpToCommunity() {
@@ -52,7 +54,7 @@ function jumpToTutorial() {
 }
 
 function jumpToAdmin() {
-  if (loginStore.loggedIn) {
+  if (authState.isUserAuthenticated) {
     const UserAccessWidth = 300;
     const UserAccessHeight = 240;
     modalStore.createModal({

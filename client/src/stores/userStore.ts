@@ -51,6 +51,8 @@ export const useUserStore = defineStore('user',()=>{
             if(error instanceof ApiError){
                 switch(error.status){
                     case 401:
+                        // 未认证时恢复默认占位用户，前端按此判断未登录
+                        currentUserInfo.value = default_userinfo;
                         notify({
                             type: 'error',
                             message: '未认证'
@@ -81,10 +83,16 @@ export const useUserStore = defineStore('user',()=>{
         }
     }
 
+    // 判断当前是否为默认占位用户（未登录）
+    function isDefaultUser(){
+        return currentUserInfo.value && (currentUserInfo.value.id === -1 || currentUserInfo.value.username === 'default_user')
+    }
+
     return {
         currentUserInfo,
         initializeUserInfo,
         refreshUserInfo,
-        getUserInfo
+        getUserInfo,
+        isDefaultUser
     }
 })

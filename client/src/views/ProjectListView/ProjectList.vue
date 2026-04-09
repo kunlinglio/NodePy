@@ -5,6 +5,7 @@
     import { useProjectStore } from '@/stores/projectStore';
     import { usePageStore } from '@/stores/pageStore';
     import { useLoginStore } from '@/stores/loginStore';
+    import { useAuthState } from '@/stores/authState';
     import { type TagInstance } from '@/types/tag';
     import ProjectDemoFrame from './ProjectDemoFrame.vue';
     import CreateProject from './CreateProject.vue';
@@ -14,6 +15,7 @@
     const projectStore = useProjectStore();
     const pageStore = usePageStore();
     const loginStore = useLoginStore();
+    const authState = useAuthState();
     const router = useRouter();
     const route = useRoute();
     
@@ -29,7 +31,7 @@
     // 页面可见性变化处理函数
     const handleVisibilityChange = () => {
         // 当页面从不可见到可见时，刷新项目列表
-        if (!document.hidden && loginStore.loggedIn) {
+        if (!document.hidden && authState.isUserAuthenticated) {
             projectStore.initializeProjects();
         }
     };
@@ -37,14 +39,14 @@
     // 页面获得焦点时的处理函数
     const handleFocus = () => {
         // 当页面获得焦点时，刷新项目列表
-        if (loginStore.loggedIn) {
+        if (authState.isUserAuthenticated) {
             projectStore.initializeProjects();
         }
     };
 
     onMounted(()=>{
         loginStore.checkAuthStatus()
-        if(loginStore.loggedIn==true){
+        if(authState.isUserAuthenticated==true){
             projectStore.initializeProjects()
         }
         else{
@@ -55,7 +57,7 @@
 
         // 设置定时刷新，每3分钟刷新一次
         refreshTimer.value = window.setInterval(() => {
-            if (loginStore.loggedIn) {
+            if (authState.isUserAuthenticated) {
                 projectStore.initializeProjects()
             }
         }, 3 * 60 * 1000); // 3分钟 = 3 * 60 * 1000毫秒
@@ -81,7 +83,7 @@
 
     // 监听路由变化，当进入项目列表页面时刷新数据
     watch(() => route.name, (newRoute) => {
-        if (newRoute === 'project' && loginStore.loggedIn) {
+        if (newRoute === 'project' && authState.isUserAuthenticated) {
             projectStore.initializeProjects()
         }
     });
@@ -131,7 +133,7 @@
 </script>
 
 <template>
-    <div class="project-container set_background_color" v-if="loginStore.loggedIn">
+    <div class="project-container set_background_color" v-if="authState.isUserAuthenticated">
         <div class="projects-grid">
             <!-- Existing projects -->
             <ProjectDemoFrame

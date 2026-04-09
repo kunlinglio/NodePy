@@ -46,10 +46,10 @@ const getTokenString = (token: any): string | null => {
 };
 
 /**
- * 获取当前 token（优先从内存获取，其次从 localStorage）
+ * 获取当前 token（只从 localStorage 中读取 user token，避免与 admin token 混淆）
  */
 const getCurrentToken = (): string | undefined => {
-  return getTokenString(OpenAPI.TOKEN) || localStorage.getItem('access_token') || undefined;
+  return localStorage.getItem('access_token') || undefined;
 };
 
 /**
@@ -73,10 +73,9 @@ export const clearAuthToken = (): void => {
  * 初始化 token（应用启动时调用）
  */
 export const initAuthToken = (): void => {
-  const savedToken = localStorage.getItem('access_token');
-  if (savedToken) {
-    OpenAPI.TOKEN = savedToken;
-  }
+  // 不在模块初始化阶段写入 OpenAPI.TOKEN，避免与 admin token 混淆。
+  // OpenAPI.TOKEN 会在每次请求前由 withAuthMethod 根据 localStorage 的对应 token 动态设置。
+  return;
 };
 
 /**
@@ -184,12 +183,13 @@ export function createAuthenticatedService(): AuthenticatedService {
  * 开发工具：检查服务状态
  */
 export function getServiceStatus(service: AuthenticatedService) {
-  const hasToken = !!getCurrentToken();
+  const hasToken = !!localStorage.getItem('access_token');
+  const tokenInMemory = !!getTokenString(OpenAPI.TOKEN);
   return {
     serviceAvailable: !!service,
     methodCount: Object.keys(service || {}).length,
     hasToken,
-    tokenSource: hasToken ? (getTokenString(OpenAPI.TOKEN) ? 'memory' : 'localStorage') : 'none',
+    tokenSource: tokenInMemory ? 'memory' : (hasToken ? 'localStorage' : 'none'),
     methods: Object.keys(service || {}).filter(key => typeof service[key] === 'function')
   };
 }
