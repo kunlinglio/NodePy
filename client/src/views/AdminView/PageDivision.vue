@@ -28,7 +28,7 @@
         @keyup.enter="handleGoto"
       />
       <span class="goto-label">页</span>
-      <button class="goto-btn" @click="handleGoto">GO</button>
+      <button class="goto-btn" @click="handleGoto">跳转</button>
     </div>
   </div>
 </template>
