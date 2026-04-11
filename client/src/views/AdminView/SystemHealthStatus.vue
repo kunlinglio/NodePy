@@ -280,11 +280,6 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
   box-shadow: $shadow-sm;
   transition: all 0.2s ease;
 
-  &:hover {
-    box-shadow: $shadow-md;
-    border-color: rgba(16, 142, 254, 0.2);
-  }
-
   .overview-icon {
     font-size: 48px;
   }
@@ -325,14 +320,7 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
   border-radius: 12px;
   border: 1px solid $border-light;
   box-shadow: $shadow-sm;
-  transition: all 0.2s ease;
   overflow: hidden;
-
-  &:hover {
-    box-shadow: $shadow-md;
-    border-color: rgba(16, 142, 254, 0.2);
-    transform: translateY(-2px);
-  }
 
   .card-header {
     padding: 16px 20px;

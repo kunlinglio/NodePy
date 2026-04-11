@@ -8,8 +8,6 @@ import FinancialStatus from "./FinancialStatus.vue";
 import SystemHealthStatus from "./SystemHealthStatus.vue";
 import ProjectStatus from "./ProjectStatus.vue";
 import ReviewStatus from "./ReviewStatus.vue";
-import Loading from "@/components/Loading.vue";
-import notify from "@/components/Notification/notify";
 import { ref, onMounted, computed } from "vue";
 
 const adminLoginStore = useAdminLoginStore();
@@ -18,7 +16,6 @@ const router = useRouter();
 
 const currentDemo = ref<string>("userStatus");
 const currentAdmin = ref<string>(userStore.currentUserInfo.username || "DefaultAdmin");
-const isClickable = ref(true); // 防抖标志
 
 // 头像首字母缩写
 const avatarInitials = computed(() => {
@@ -43,24 +40,6 @@ onMounted(async () => {
   await userStore.getUserInfo();
   currentAdmin.value = userStore.currentUserInfo.username || "DefaultAdmin";
 });
-
-// 防抖包装函数（带提示）
-function withDebounce(fn: () => void) {
-  return () => {
-    if (!isClickable.value) {
-      notify({
-        message: '操作过于频繁，请稍后再试',
-        type: 'warning'
-      });
-      return;
-    }
-    isClickable.value = false;
-    fn();
-    setTimeout(() => {
-      isClickable.value = true;
-    }, 1000);
-  };
-}
 
 function handleGetUserStatus() {
   currentDemo.value = "userStatus";
@@ -91,13 +70,6 @@ async function handleLogout() {
   router.replace("/home");
 }
 
-// 应用防抖
-const debouncedGetUserStatus = withDebounce(handleGetUserStatus);
-const debouncedGetServerStorageStatus = withDebounce(handleGetServerStorageStatus);
-const debouncedGetFinancialStatus = withDebounce(handleGetFinancialStatus);
-const debouncedGetProjectStatus = withDebounce(handleGetProjectStatus);
-const debouncedGetSystemHealthStatus = withDebounce(handleGetSystemHealthStatus);
-const debouncedGetReviewStatus = withDebounce(handleGetReviewStatus);
 </script>
 
 <template>
@@ -112,27 +84,27 @@ const debouncedGetReviewStatus = withDebounce(handleGetReviewStatus);
       </div>
       <div class="buttonlist-container">
         <button 
-          @click="debouncedGetUserStatus" 
+          @click="handleGetUserStatus" 
           :class="{ active: currentDemo === 'userStatus' }"
         >用户状态</button>
         <button 
-          @click="debouncedGetServerStorageStatus" 
+          @click="handleGetServerStorageStatus" 
           :class="{ active: currentDemo === 'serverStorageStatus' }"
         >存储状态</button>
         <button 
-          @click="debouncedGetFinancialStatus" 
+          @click="handleGetFinancialStatus" 
           :class="{ active: currentDemo === 'financialStatus' }"
         >金融数据</button>
         <button 
-          @click="debouncedGetProjectStatus" 
+          @click="handleGetProjectStatus" 
           :class="{ active: currentDemo === 'projectStatus' }"
         >项目状态</button>
         <button 
-          @click="debouncedGetSystemHealthStatus" 
+          @click="handleGetSystemHealthStatus" 
           :class="{ active: currentDemo === 'systemHealthStatus' }"
         >系统健康</button>
         <button 
-          @click="debouncedGetReviewStatus" 
+          @click="handleGetReviewStatus" 
           :class="{ active: currentDemo === 'reviewStatus' }"
         >教程评价</button>
       </div>
@@ -167,9 +139,6 @@ const debouncedGetReviewStatus = withDebounce(handleGetReviewStatus);
       </div>
       <div class="demo-container" v-else-if="currentDemo === 'reviewStatus'">
         <ReviewStatus/>
-      </div>
-      <div class="loading" v-else-if="currentDemo === 'loading'">
-        <Loading />
       </div>
     </div>
   </div>
@@ -281,8 +250,26 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
       &.active {
         background: rgba(16, 142, 254, 0.12);
         color: $primary-color;
-        border-left: 3px solid $primary-color;
         transform: translateX(0);
+        position: relative;
+        overflow: hidden; // 确保伪元素不超出圆角
+
+        &::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 4px;
+          height: 100%;
+          background: $primary-color;
+          border-radius: 0; // 直角竖条，无圆弧
+          transition: width 0.2s ease;
+        }
+
+        // 可选：hover 时竖条稍微变宽，类似 stat-card
+        &:hover::before {
+          width: 6px;
+        }
       }
     }
   }
@@ -381,23 +368,6 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
     padding: 20px;
     border: 1px solid $border-light;
     overflow: auto;
-
-    &:hover {
-      box-shadow: 0 12px 28px rgba(16, 142, 254, 0.12);
-    }
-  }
-
-  .loading {
-    flex: 1;
-    background: $card-white;
-    margin: 20px;
-    border-radius: 24px;
-    box-shadow: $shadow-md;
-    border: 1px solid $border-light;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
 
     &:hover {
       box-shadow: 0 12px 28px rgba(16, 142, 254, 0.12);

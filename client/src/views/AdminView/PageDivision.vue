@@ -120,8 +120,6 @@ $text-gray: #5b6e8c;
     gap: 8px;
     background: $card-white;
     padding: 4px 12px;
-    border-radius: 20px;
-    border: 1px solid $border-light;
 
     .goto-label {
       font-size: 13px;

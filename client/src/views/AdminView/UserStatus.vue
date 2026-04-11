@@ -247,7 +247,6 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
     display: flex;
     align-items: center;
     gap: 16px;
-    transition: all 0.3s ease;
     border: 1px solid $border-light;
     box-shadow: $shadow-sm;
     position: relative;
@@ -261,21 +260,6 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
       width: 4px;
       height: 100%;
       background: var(--card-accent, $primary-color);
-      transition: width 0.2s ease;
-    }
-
-    &:hover {
-      transform: translateY(-4px);
-      box-shadow: $shadow-md;
-      border-color: rgba(16, 142, 254, 0.2);
-
-      &::before {
-        width: 6px;
-      }
-
-      .card-icon {
-        transform: scale(1.05);
-      }
     }
 
     .card-icon {
@@ -285,7 +269,6 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: transform 0.2s ease;
 
       .icon-emoji {
         font-size: 26px;
@@ -398,13 +381,8 @@ $shadow-md: 0 8px 20px rgba(0, 0, 0, 0.05);
   background: $card-white;
   border-radius: 12px;
   border: 1px solid $border-light;
-  box-shadow: $shadow-sm;
   overflow: hidden;
   transition: all 0.2s ease;
-
-  &:hover {
-    box-shadow: $shadow-md;
-  }
 
   .table-header {
     padding: 20px 24px 12px 24px;
