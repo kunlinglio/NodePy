@@ -41,8 +41,9 @@ export default ({ mode }: { mode: string }) => {
     },
     build: {
       rollupOptions: {
-        maxParallelFileOps: 4, // 限制并行文件操作数，减少构建内存占用
+        maxParallelFileOps: 2, // 限制并行文件操作数，减少构建内存占用
       },
+      reportCompressedSize: false,
       sourcemap: false,
     },
   })

@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "gen_api": "ts-node-esm ./scripts/gen_api.ts",
-    "build": "run-p type-check \"build-only {@}\" --",
+    "build": "run-s type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
