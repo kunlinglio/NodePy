@@ -24,7 +24,7 @@ RUN apt-get upgrade && apt-get update && apt-get install -y \
     fonts-roboto \
     && rm -rf /var/lib/apt/lists/*
 # Configure uv
-RUN pip install --no-cache-dir uv
+RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple uv
 # Enable bytecode compilation
 ENV UV_COMPILE_BYTECODE=1
 # Copy from the cache instead of linking since it's a mounted volume
@@ -51,7 +51,7 @@ RUN apt-get upgrade && apt-get update && apt-get install -y \
     fonts-roboto \
     && rm -rf /var/lib/apt/lists/*
 # Configure uv
-RUN pip install --no-cache-dir uv
+RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple uv
 # Enable bytecode compilation
 ENV UV_COMPILE_BYTECODE=1
 # Copy from the cache instead of linking since it's a mounted volume
