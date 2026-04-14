@@ -8,7 +8,7 @@
 </script>
 <template>
     <div class = "main-container">
-        <div class = "up-container" v-if="route.path!='/login'&&route.path!='/adminlogin'&&route.path!='/admin'">
+        <div class = "up-container" v-if="route.path!='/login'&&route.path!='/adminlogin'&&route.path!='/admin'&&route.path!='/admin/file-preview'">
             <ControlBar />
         </div>
         <div class = "down-container">

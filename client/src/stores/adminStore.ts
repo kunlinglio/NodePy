@@ -335,7 +335,7 @@ export const useAdminStore = defineStore('admin', () => {
     async function previewFile(fileKey: string) {
         try {
             console.log('Fetching file preview...')
-            const token = localStorage.getItem('access_token') || '';
+            const token = localStorage.getItem('admin_access_token') || '';
             // 根据环境决定 baseURL
             let baseURL = '';
             if (import.meta.env.DEV) {

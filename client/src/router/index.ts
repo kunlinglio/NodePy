@@ -9,6 +9,7 @@ import Editor from '@/views/Editor.vue'
 import Explore from '@/views/Explore.vue'
 import AdminLogin from '@/views/AdminLogin.vue'
 import Admin from '@/views/AdminView/Admin.vue'
+import AdminFilePreview from '@/views/AdminView/AdminFilePreview.vue'
 
 const routes: Array<RouteRecordRaw> = [
     {
@@ -69,6 +70,11 @@ const routes: Array<RouteRecordRaw> = [
         path: '/admin',
         name: 'admin',
         component: Admin
+    },
+    {
+        path: '/admin/file-preview',
+        name: 'AdminFilePreview',
+        component: AdminFilePreview
     }
 ]
 

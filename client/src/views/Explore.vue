@@ -32,10 +32,7 @@
               <svg-icon :path="mdiArrowRight" :size="14" type="mdi" class="arrow-icon"></svg-icon>
             </div>
 
-            <!-- 右下角装饰：“进入实战”保留原有图标，其他卡片展示 abstract 图片 -->
-            <!-- <div v-if="doc.id === 999" class="card-icon-bg" :style="{ color: getThemeColor(doc.id) }">
-              <svg-icon :path="doc.icon" :size="88" type="mdi"></svg-icon>
-            </div> -->
+            <!-- 点赞点踩按钮已移除，现在放在每个教程的最后一节中 -->
           </div>
         </div>
       </div>
@@ -65,6 +62,34 @@
               <div class="markdown-content" v-else-if="currentHtml" v-html="currentHtml"></div>
               <div class="empty-state" v-else>
                 <p>暂无内容</p>
+              </div>
+
+              <!-- 点赞点踩按钮区域：仅在最后一节且内容加载完成后显示 -->
+              <div v-if="!isLoading && currentHtml && isLastSection" class="rating-section">
+                <div class="rating-divider"></div>
+                <div class="rating-prompt">
+                  <span>这篇文章对您有帮助吗？</span>
+                </div>
+                <div class="rating-buttons">
+                  <button 
+                    class="rating-btn like-btn" 
+                    :class="{ active: ratingMap[currentDocId] === 'like', disabled: pendingReviews.has(currentDocId) }"
+                    @click.stop="handleRating(currentDocId, true)"
+                    :disabled="pendingReviews.has(currentDocId)"
+                    title="有帮助">
+                    <svg-icon :path="mdiThumbUp" :size="20" type="mdi"></svg-icon>
+                    <span>有帮助</span>
+                  </button>
+                  <button 
+                    class="rating-btn dislike-btn" 
+                    :class="{ active: ratingMap[currentDocId] === 'dislike', disabled: pendingReviews.has(currentDocId) }"
+                    @click.stop="handleRating(currentDocId, false)"
+                    :disabled="pendingReviews.has(currentDocId)"
+                    title="没帮助">
+                    <svg-icon :path="mdiThumbDown" :size="20" type="mdi"></svg-icon>
+                    <span>没帮助</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -166,6 +191,8 @@ import {
   mdiMenu,
   mdiArrowRight,
   mdiSitemap,
+  mdiThumbUp,
+  mdiThumbDown,
 } from '@mdi/js'
 import { usePageStore } from '@/stores/pageStore'
 import { useProjectStore } from '@/stores/projectStore'
@@ -176,6 +203,10 @@ import Graph from '@/components/Graph/Graph.vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import SubMenu from '@/components/RightClickMenu/SubMenu.vue'
+import AuthenticatedServiceFactory from '@/utils/AuthenticatedServiceFactory'
+import { ApiError} from '@/utils/api'
+import { handleNetworkError } from '@/utils/networkError'
+import notify from '@/components/Notification/notify'
 
 const router = useRouter()
 const route = useRoute()
@@ -186,7 +217,106 @@ const loginStore = useLoginStore()
 const authState = useAuthState()
 const isLoggedIn = computed(() => authState.isUserAuthenticated)
 
+const authService = AuthenticatedServiceFactory.getService()
+
 const today = new Date().toISOString().slice(0, 10)
+
+// 存储每个教程的本地评价状态
+const ratingMap = reactive<Record<number, 'like' | 'dislike' | null>>({})
+// 存储正在提交的教程 ID，防止重复提交
+const pendingReviews = ref<Set<number>>(new Set())
+
+async function makeReview(tutorialId, whetherLike){
+  try {
+      const isLike = whetherLike ? 'like' : 'dislike'
+      const response = await authService.reviewTutorialApiTutorialReviewTutorialIdPost(tutorialId,isLike)
+      return response
+  } catch(err) {
+    if(err instanceof ApiError) {
+      switch(err.status) {
+        case 422:
+            notify({
+                message: '验证错误',
+                type: 'error'
+            });
+            break;
+        case 500:
+            notify({
+                message: '服务器内部错误',
+                type: 'error'
+            });
+            break;
+        default:
+            const errMsg = handleNetworkError(err)
+            notify({
+                message: errMsg,
+                type: 'error'
+            });
+            break;
+      } 
+    }
+    else {
+        const errMsg = handleNetworkError(err)
+        notify({
+            message: errMsg,
+            type: 'error'
+        });
+    }
+    throw err
+  }
+}
+
+// 处理点赞/点踩
+const handleRating = async (docId: number, isLike: boolean) => {
+  // 检查登录状态
+  if (!isLoggedIn.value) {
+    notify({
+      message: '请先登录后再进行评价',
+      type: 'warning'
+    });
+    return;
+  }
+
+  // 防止重复提交
+  if (pendingReviews.value.has(docId)) {
+    return;
+  }
+
+  const currentRating = ratingMap[docId];
+  const newRating = isLike ? 'like' : 'dislike';
+  
+  // 如果点击的是当前已激活的按钮，不重复提交
+  if (currentRating === newRating) {
+    notify({
+      message: isLike ? '您已点过赞了' : '您已点过踩了',
+      type: 'info'
+    });
+    return;
+  }
+
+  // 保存旧状态，用于回滚
+  const oldRating = currentRating;
+  
+  // 乐观更新：先更新 UI
+  ratingMap[docId] = newRating;
+  pendingReviews.value.add(docId);
+
+  try {
+    await makeReview(docId, isLike);
+    // 成功：显示成功提示
+    notify({
+      message: isLike ? '感谢您的认可！' : '感谢您的反馈，我们会继续改进',
+      type: 'success'
+    });
+  } catch (error) {
+    // 失败：回滚状态
+    ratingMap[docId] = oldRating!;
+    console.error('评价失败:', error);
+    // 错误提示已在 makeReview 中处理，无需重复
+  } finally {
+    pendingReviews.value.delete(docId);
+  }
+}
 
 const md = new MarkdownIt({
   html: true,
@@ -565,6 +695,11 @@ const nextButtonLabel = computed(() => {
   if (hasNextSection.value) return '下一节'
   if (hasNextDoc.value) return '下一篇'
   return '下一节'
+})
+
+// 判断当前是否为最后一节
+const isLastSection = computed(() => {
+  return currentDocId.value !== null && totalSections.value > 0 && currentSectionIndex.value === totalSections.value - 1
 })
 
 const navigateToDoc = (docId: number, sectionIndex: number = 1) => {
@@ -1093,6 +1228,7 @@ onMounted(async () => {
       align-items: center;
       justify-content: flex-start;
       margin-top: 8px;
+      margin-bottom: auto;
 
       .doc-title {
         font-size: 16px;
@@ -1123,9 +1259,7 @@ onMounted(async () => {
       height: 88px;
       opacity: 0.2;
       pointer-events: none;
-      // transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
       z-index: 1;
-      // animation: subtleFloat 6s ease-in-out infinite;
       
       svg {
         width: 100%;
@@ -1133,9 +1267,6 @@ onMounted(async () => {
         filter: drop-shadow(0 0 4px rgba(0,0,0,0.1));
       }
     }
-
-    /* 右下角模糊小背景（通过 ::before 渲染） */
-    /* 原先的 card-minimap-placeholder 已移除，使用伪元素展示模糊图块 */
 
     &:hover .card-minimap-placeholder {
       opacity: 0.95;
@@ -1265,6 +1396,8 @@ onMounted(async () => {
         flex: 1;
         overflow-y: auto;
         padding: 12px 40px 32px 40px;
+        display: flex;
+        flex-direction: column;
 
         &::-webkit-scrollbar {
           width: 8px;
@@ -1389,6 +1522,82 @@ onMounted(async () => {
           border: none;
           border-top: 1px solid #eef2f8;
           margin: 1.5em 0;
+        }
+      }
+
+      /* 点赞点踩按钮区域样式（位于最后一节内容底部） */
+      .rating-section {
+        margin-top: 40px;
+        padding: 20px 0 16px;
+        
+        .rating-divider {
+          height: 1px;
+          background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+          margin-bottom: 24px;
+        }
+        
+        .rating-prompt {
+          text-align: center;
+          margin-bottom: 16px;
+          
+          span {
+            font-size: 15px;
+            font-weight: 500;
+            color: #475569;
+          }
+        }
+        
+        .rating-buttons {
+          display: flex;
+          justify-content: center;
+          gap: 24px;
+          
+          .rating-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 8px 20px;
+            border-radius: 40px;
+            transition: all 0.2s ease;
+            color: #94a3b8;
+            font-size: 14px;
+            font-weight: 500;
+            
+            &:hover:not(.disabled) {
+              background: rgba(0, 0, 0, 0.05);
+              // transform: translateY(-2px);
+            }
+            
+            &.active {
+              color: #108efe;
+              background: rgba(16, 142, 254, 0.1);
+              
+              &.dislike-btn.active {
+                color: #ef4444;
+                background: rgba(239, 68, 68, 0.1);
+              }
+            }
+            
+            &.disabled {
+              cursor: not-allowed;
+              opacity: 0.5;
+            }
+            
+            svg {
+              display: block;
+            }
+          }
+          
+          .like-btn.active {
+            color: #108efe;
+          }
+          
+          .dislike-btn.active {
+            color: #ef4444;
+          }
         }
       }
 
@@ -1563,6 +1772,11 @@ onMounted(async () => {
   }
   .gradient-orb {
     opacity: 0.2;
+  }
+  
+  .rating-section .rating-buttons .rating-btn {
+    padding: 6px 16px;
+    font-size: 13px;
   }
 }
 </style>

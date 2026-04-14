@@ -158,7 +158,7 @@
               <td class="actions">
                 <button
                   class="action-btn preview-btn"
-                  @click="handlePreviewFile(file.key)"
+                  @click="handlePreviewFile(file)"
                   title="预览文件"
                 >
                   预览
@@ -201,11 +201,13 @@
 import { ref, onMounted } from "vue";
 import * as echarts from "echarts";
 import { useAdminStore } from "@/stores/adminStore";
+import { useRouter } from "vue-router";
 import { type StorageStats, type UserStorageInfo, type FileInfo } from "@/utils/api";
 import Loading from "@/components/Loading.vue";
 import PageDivision from "./PageDivision.vue";
 
 const adminStore = useAdminStore();
+const router = useRouter();
 
 // 存储概览
 const storageStats = ref<StorageStats>({
@@ -367,17 +369,21 @@ const goToFilePage = async (page: number) => {
   await fetchFileList();
 };
 
-// 预览文件（接收 key，二进制流）
-const handlePreviewFile = async (key: string) => {
-  try {
-    const blob = await adminStore.previewFile(key);
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    // 延迟释放，确保新窗口能够加载
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-  } catch (error) {
-    console.error("预览文件失败:", error);
-  }
+// 替换原有的 handlePreviewFile 函数
+const handlePreviewFile = async (file: FileInfo) => {
+  // 通过 router.resolve 获取完整 URL，在新标签页打开
+  const routeData = router.resolve({
+    name: 'AdminFilePreview',
+    query: {
+      key: file.key,
+      filename: file.filename,
+      format: file.format || '',
+      size: String(file.file_size),
+      modified: file.last_modify_time,
+    },
+  });
+
+  window.open(routeData.href, '_blank');
 };
 
 // 删除文件
