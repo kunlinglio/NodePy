@@ -44,10 +44,10 @@ const modernColors = [
 const tagColor = computed(() => {
     // 优先使用外部传入的固定颜色
     if (props.color) return props.color;
-    
+
     const content = displayContent.value;
     if (!content) return modernColors[0];
-    
+
     // 简单哈希函数，保证相同内容得到相同颜色
     let hash = 0;
     for (let i = 0; i < content.length; i++) {
@@ -75,13 +75,14 @@ const tagColor = computed(() => {
     justify-content: center;
     padding: 4px 8px;
     border-radius: 12px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;       // 字体略微加粗
     color: #2c3e50;
     background-color: #f0f2f5;
     white-space: nowrap;
     flex-shrink: 0;
     transition: all 0.2s ease;
+    opacity: 0.8;
 
     .action-slot {
         margin-left: 6px;
@@ -90,11 +91,8 @@ const tagColor = computed(() => {
     }
 }
 
-/* 支持外部传入的状态类，用于在不同上下文下呈现选中效果 */
 .tag.tag-item {
-    padding: 6px 12px;
     border-radius: 16px;
-    font-size: 13px;
 }
 
 .tag.tag-selected {

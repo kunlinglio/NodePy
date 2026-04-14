@@ -35,7 +35,7 @@
                             >
                                 {{ tag }}
                             </button>
-                            <span v-if="availableTags.length === 0" class="tag-placeholder">暂无标签</span>
+                            <span v-if="activeTags.length === 0" class="tag-placeholder">暂无标签</span>
                         </div>
                     </div>
                 </div>
@@ -511,10 +511,7 @@ function handleResize() {
 onMounted(async () => {
     await loginStore.checkAuthStatus();
     if (authState.isUserAuthenticated) {
-        await projectStore.getAllTags()
-        availableTags.value = projectStore.allProjectTags || []
-        // 默认选中前三个标签
-        activeTags.value = availableTags.value.slice(0, 3)
+        activeTags.value = ["官方"]
         await nextTick()
         await resetAndLoad();
         if (scrollContainerRef.value) {
@@ -571,7 +568,7 @@ onBeforeUnmount(() => {
         50% { transform: scale(0.95); }
         100% { transform: scale(1); }
     }
-    
+
     .example-container {
         display: flex;
         flex: 1;
@@ -579,7 +576,7 @@ onBeforeUnmount(() => {
         background-color: #f5f7fa;
         overflow-x: hidden;
     }
-    
+
     .example-content {
         flex: 1;
         display: flex;
@@ -589,18 +586,18 @@ onBeforeUnmount(() => {
         overflow-x: hidden;
         max-width: 100%;
     }
-    
+
     .search-section {
         margin-bottom: 12px;
         display: flex;
         justify-content: center;
         width: 100%;
-        
+
         .search-wrapper {
             width: 75vh;
             max-width: 100%;
         }
-        
+
         .search-input {
             width: 100%;
             padding: 8px 12px;
@@ -612,14 +609,14 @@ onBeforeUnmount(() => {
             background: white;
             box-sizing: border-box;
             height: 34px;
-            
+
             &:focus {
                 border-color: #cbd5e1;
                 box-shadow: none;
             }
         }
     }
-    
+
     /* 筛选行布局：标题与内容同行 */
     .filter-row {
         display: flex;
@@ -627,7 +624,7 @@ onBeforeUnmount(() => {
         gap: 8px;
         width: 100%;
         margin-bottom: 12px;
-        
+
         .filter-label {
             width: 84px;
             font-size: 13px;
@@ -662,7 +659,7 @@ onBeforeUnmount(() => {
         cursor: pointer;
         flex-shrink: 0;
     }
-    
+
     /* 标签滚动容器 - 无滚动条，仅通过拖拽和滚轮滚动，占据剩余宽度 */
     .tags-scroll-container {
         flex: 1;
@@ -676,14 +673,14 @@ onBeforeUnmount(() => {
         }
         scrollbar-width: none;
         -ms-overflow-style: none;
-        
+
         .tags-scroll-wrapper {
             display: inline-flex;
             gap: 8px;
             padding: 2px 0;
             align-items: center;
         }
-        
+
         .tag-filter-btn {
             height: 28px;
             font-size: 12px;
@@ -702,12 +699,12 @@ onBeforeUnmount(() => {
             white-space: nowrap;
             background-color: white;
             flex-shrink: 0;
-            
+
             &:hover {
                 background-color: #f7fafc;
                 border-color: #d1d5db;
             }
-            
+
             &.active {
                 color: #ffffff;
                 background-color: #409eff;
@@ -730,7 +727,7 @@ onBeforeUnmount(() => {
             cursor: pointer;
             flex-shrink: 0;
         }
-        
+
         .tag-placeholder {
             display: inline-block;
             font-size: 13px;
@@ -739,14 +736,14 @@ onBeforeUnmount(() => {
             line-height: 34px;
         }
     }
-    
+
     /* 排序按钮组 - 占据剩余宽度，允许换行 */
     .sort-buttons-group {
         flex: 1;
         display: flex;
         flex-wrap: wrap;
         gap: 12px;
-        
+
         .sort-option-btn {
             height: 28px;
             font-size: 12px;
@@ -762,25 +759,25 @@ onBeforeUnmount(() => {
             align-items: center;
             justify-content: center;
             white-space: nowrap;
-            
+
             &:hover {
                 background-color: #f7fafc;
                 border-color: #d1d5db;
             }
-            
+
             &.active {
                 color: #ffffff;
                 background-color: #409eff;
                 border-color: #409eff;
                 box-shadow: 0 2px 8px rgba(64, 158, 255, 0.16);
             }
-            
+
             &.clicked {
                 animation: clickPulse 0.2s ease;
             }
         }
     }
-    
+
     .projects-wrapper {
         flex: 1;
         /* 不允许内部出现滚动条：分页由右侧圆点或按钮控制 */
@@ -790,28 +787,28 @@ onBeforeUnmount(() => {
         padding-right: 72px; /* 为右侧圆点留出空间，避免遮挡 */
         display: flex;
         align-items: stretch;
-        
+
         &::-webkit-scrollbar {
             width: 8px;
         }
-        
+
         &::-webkit-scrollbar-track {
             background: transparent;
         }
-        
+
         &::-webkit-scrollbar-thumb {
             background: rgba(0, 0, 0, 0.15);
             border-radius: 4px;
-            
+
             &:hover {
                 background: rgba(0, 0, 0, 0.25);
             }
         }
-        
+
         scrollbar-width: thin;
         scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
     }
-    
+
     .examples-grid {
         display: grid;
         /* 填充可用宽度并允许多列 */
@@ -827,7 +824,7 @@ onBeforeUnmount(() => {
         overflow: hidden;
         /* 当项目不足以填满容器时，垂直居中 */
         align-content: center;
-    
+
         .loading-state,
         .empty-state {
             grid-column: 1 / -1;
@@ -836,7 +833,7 @@ onBeforeUnmount(() => {
             color: #909399;
             font-size: 14px;
         }
-        
+
         .empty-info {
             font-size: 16px;
             color: #c0c4cc;
@@ -915,37 +912,37 @@ onBeforeUnmount(() => {
     }
 
     /* 标签选择弹窗由 `TagSelectionModal` 组件提供样式 */
-    
+
     @media (max-width: 768px) {
         .example-content {
             padding: 16px;
         }
-        
+
         .filter-row {
             gap: 12px;
             flex-wrap: wrap;   /* 小屏时标题和内容可换行，避免挤压 */
-            
+
             .filter-label {
                 width: 100%;
                 margin-bottom: 4px;
             }
-            
+
             .tags-scroll-container,
             .sort-buttons-group {
                 flex: auto;
                 width: 100%;
             }
         }
-        
+
         .sort-buttons-group {
             gap: 8px;
-            
+
             .sort-option-btn {
                 padding: 0 14px;
                 font-size: 12px;
             }
         }
-        
+
         .tags-scroll-container .tag-filter-btn {
             min-width: 60px;
             padding: 0 12px;
