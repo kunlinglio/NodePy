@@ -1,6 +1,5 @@
 <div align="center">
     <img src="client/public/logo.png" alt="NodePy logo" style="width: 500px">
-    <!-- <h1>NodePy</h1> -->
 </div>
 
 # NodePy
@@ -89,4 +88,8 @@ uv run task dev
     ```bash
     npm run type-check
     uv run task check
+    ```
+- 运行单元测试
+    ```bash
+    uv run pytest
     ```
