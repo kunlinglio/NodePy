@@ -46,6 +46,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 
+const baseUrl = import.meta.env.BASE_URL;
+
 const tutorials = [
   { id: 1, title: '快速上手', category: 'Quickstart', pages: 9, playgroundProjectId: 588 },
   { id: 2, title: '核心概念', category: 'Concepts', pages: 5, playgroundProjectId: 589 },
@@ -56,11 +58,11 @@ const tutorials = [
 
 function getImageByTutorialId(id: number): string {
   const imageMap: Record<number, string> = {
-    1: '/guides/1_quick_start_picture.png',
-    2: '/guides/2_core_concept_picture.png',
-    3: '/guides/3_common_data_flow_picture.png',
-    4: '/guides/4_logical_control_and_automation_picture.png',
-    5: '/guides/5_machine_learning_picture.png',
+    1: `${baseUrl}guides/1_quick_start_picture.png`,
+    2: `${baseUrl}guides/2_core_concept_picture.png`,
+    3: `${baseUrl}guides/3_common_data_flow_picture.png`,
+    4: `${baseUrl}guides/4_logical_control_and_automation_picture.png`,
+    5: `${baseUrl}guides/5_machine_learning_picture.png`,
   };
   return imageMap[id] || '';
 }
@@ -201,6 +203,8 @@ onUnmounted(() => {
   background: white;
   max-width: 1000px;
   margin: 0 auto;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .carousel-viewport {

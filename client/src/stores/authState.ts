@@ -14,8 +14,8 @@ export const useAuthState = defineStore('authState', () => {
   const adminLoginStore = useAdminLoginStore()
 
   // 管理员/用户互斥地被视为已登录
-  const isUserAuthenticated = computed(() => !!loginStore.isAuthenticated && !adminLoginStore.isAuthenticated)
-  const isAdminAuthenticated = computed(() => !!adminLoginStore.isAuthenticated && !loginStore.isAuthenticated)
+  const isUserAuthenticated = computed(() => !!loginStore.isAuthenticated)
+  const isAdminAuthenticated = computed(() => !!adminLoginStore.isAuthenticated)
 
   let userTimer: ReturnType<typeof setInterval> | null = null
   let adminTimer: ReturnType<typeof setInterval> | null = null
