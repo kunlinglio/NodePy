@@ -1,14 +1,9 @@
-// services/AdminAuthenticatedServiceDecorator.ts
 import { CancelablePromise } from './api/core/CancelablePromise';
-import { OpenAPI } from './api/core/OpenAPI';
 import { DefaultService } from './api/services/DefaultService';
+import { ADMIN_ACCESS_TOKEN_KEY, installApiTokenResolver } from './ApiTokenResolver';
 
-// 环境判断
 const isDev = import.meta.env.DEV;
 
-/**
- * Admin 认证错误类
- */
 export class AdminAuthError extends Error {
   constructor(message: string) {
     super(message);
@@ -16,96 +11,55 @@ export class AdminAuthError extends Error {
   }
 }
 
-// 定义排除的方法类型（admin 认证相关）
 type ExcludedAdminMethods =
   | 'loginApiAdminAuthLoginPost'
   | 'refreshAccessTokenApiAdminAuthRefreshPost'
   | 'logoutApiAdminAuthLogoutPost'
-  | 'spaFallbackFullPathGet'; // SPA 回退也排除
+  | 'spaFallbackFullPathGet';
 
-// 使用条件类型排除特定方法
 type DefaultServiceMethodNames = {
   [K in keyof typeof DefaultService]:
     K extends ExcludedAdminMethods ? never :
     (typeof DefaultService)[K] extends (...args: any[]) => CancelablePromise<any> ? K : never
 }[keyof typeof DefaultService];
 
-/**
- * Admin 认证服务类型：包含 DefaultService 的所有需要认证的方法（admin 和普通）
- */
 export type AdminAuthenticatedService = {
   [K in DefaultServiceMethodNames]: (typeof DefaultService)[K];
 };
 
-/**
- * 安全地获取 token 字符串
- */
-const getTokenString = (token: any): string | null => {
-  return typeof token === 'string' ? token : null;
-};
-
-/**
- * 获取当前 admin token（优先从内存获取，其次从 localStorage）
- */
 const getCurrentAdminToken = (): string | undefined => {
-  return getTokenString(OpenAPI.TOKEN) || localStorage.getItem('admin_access_token') || undefined;
+  return localStorage.getItem(ADMIN_ACCESS_TOKEN_KEY) || undefined;
 };
 
-/**
- * 保存 admin token 到内存和本地存储
- */
 export const setAdminAuthToken = (token: string): void => {
-  OpenAPI.TOKEN = token;
-  localStorage.setItem('admin_access_token', token);
-  isDev && console.log('✅ Admin Token 已保存');
-};
-
-/**
- * 清除 admin token
- */
-export const clearAdminAuthToken = (): void => {
-  OpenAPI.TOKEN = undefined;
-  localStorage.removeItem('admin_access_token');
-};
-
-/**
- * 初始化 admin token（应用启动时调用）
- */
-export const initAdminAuthToken = (): void => {
-  const savedToken = localStorage.getItem('admin_access_token');
-  if (savedToken) {
-    OpenAPI.TOKEN = savedToken;
+  installApiTokenResolver();
+  localStorage.setItem(ADMIN_ACCESS_TOKEN_KEY, token);
+  if (isDev) {
+    console.log('Admin token updated');
   }
 };
 
-/**
- * 为单个 API 方法添加 admin 认证功能的装饰器
- */
+export const clearAdminAuthToken = (): void => {
+  installApiTokenResolver();
+  localStorage.removeItem(ADMIN_ACCESS_TOKEN_KEY);
+};
+
+export const initAdminAuthToken = (): void => {
+  installApiTokenResolver();
+};
+
 export function withAdminAuthMethod<T extends any[], R>(
   apiMethod: (...args: T) => CancelablePromise<R>
 ): (...args: T) => CancelablePromise<R> {
-
   return (...args: T): CancelablePromise<R> => {
-
     const executeWithAuth = async (retryCount = 0): Promise<R> => {
       try {
-        // 确保请求前有最新的 admin token
-        const currentToken = getCurrentAdminToken();
-        if (currentToken && getTokenString(OpenAPI.TOKEN) !== currentToken) {
-          OpenAPI.TOKEN = currentToken;
-        }
-
-        const result = await apiMethod(...args);
-        return result;
-
+        return await apiMethod(...args);
       } catch (error: any) {
-        console.error(`❌ Admin API 请求失败 (${apiMethod.name}):`, error);
+        console.error(`Admin API request failed (${apiMethod.name}):`, error);
 
-        const isAuthError = error.status === 401;
-
-        if (isAuthError && retryCount < 1) {
+        if (error.status === 401 && retryCount < 1) {
           try {
-            // 使用 admin 刷新端点
             const tokenResponse = await DefaultService.refreshAccessTokenApiAdminAuthRefreshPost();
 
             if (tokenResponse.access_token) {
@@ -113,11 +67,12 @@ export function withAdminAuthMethod<T extends any[], R>(
               return await executeWithAuth(retryCount + 1);
             }
           } catch (refreshError) {
-            console.error('❌ Admin Token 刷新失败:', refreshError);
+            console.error('Admin token refresh failed:', refreshError);
             clearAdminAuthToken();
-            throw new AdminAuthError(`Admin Token 刷新失败: ${refreshError}`);
+            throw new AdminAuthError(`Admin token refresh failed: ${refreshError}`);
           }
         }
+
         throw error;
       }
     };
@@ -130,9 +85,6 @@ export function withAdminAuthMethod<T extends any[], R>(
   };
 }
 
-/**
- * 获取类的所有静态方法名
- */
 const getStaticMethodNames = (cls: any): string[] => {
   return Object.getOwnPropertyNames(cls)
     .filter(prop =>
@@ -144,51 +96,40 @@ const getStaticMethodNames = (cls: any): string[] => {
     );
 };
 
-/**
- * 为整个服务添加 admin 认证功能
- */
 export function createAdminAuthenticatedService(): AdminAuthenticatedService {
-  // 初始化 admin token
   initAdminAuthToken();
 
   const authenticatedService = {} as AdminAuthenticatedService;
-
-  // 不需要添加认证的方法列表（admin 认证相关）
   const excludedMethods: ExcludedAdminMethods[] = [
     'loginApiAdminAuthLoginPost',
     'refreshAccessTokenApiAdminAuthRefreshPost',
     'logoutApiAdminAuthLogoutPost',
-    'spaFallbackFullPathGet'
+    'spaFallbackFullPathGet',
   ];
 
-  // 获取并过滤方法
   const methodNames = getStaticMethodNames(DefaultService)
     .filter(methodName => !excludedMethods.includes(methodName as ExcludedAdminMethods));
 
-  // 包装方法
   methodNames.forEach(methodName => {
     try {
       (authenticatedService as any)[methodName] = withAdminAuthMethod(
         (DefaultService as any)[methodName]
       );
     } catch (error) {
-      console.error(`❌ 为方法 ${methodName} 添加 admin 认证功能失败:`, error);
+      console.error(`Failed to wrap admin authenticated method ${methodName}:`, error);
     }
   });
 
   return authenticatedService;
 }
 
-/**
- * 开发工具：检查 admin 服务状态
- */
 export function getAdminServiceStatus(service: AdminAuthenticatedService) {
   const hasToken = !!getCurrentAdminToken();
   return {
     serviceAvailable: !!service,
     methodCount: Object.keys(service || {}).length,
     hasToken,
-    tokenSource: hasToken ? (getTokenString(OpenAPI.TOKEN) ? 'memory' : 'localStorage') : 'none',
-    methods: Object.keys(service || {}).filter(key => typeof service[key] === 'function')
+    tokenSource: hasToken ? 'localStorage' : 'none',
+    methods: Object.keys(service || {}).filter(key => typeof service[key] === 'function'),
   };
 }

@@ -1,14 +1,9 @@
-// services/AuthenticatedServiceDecorator.ts
 import { CancelablePromise } from './api/core/CancelablePromise';
-import { OpenAPI } from './api/core/OpenAPI';
 import { DefaultService } from './api/services/DefaultService';
+import { USER_ACCESS_TOKEN_KEY, installApiTokenResolver } from './ApiTokenResolver';
 
-// 环境判断
 const isDev = import.meta.env.DEV;
 
-/**
- * 认证错误类
- */
 export class AuthError extends Error {
   constructor(message: string) {
     super(message);
@@ -16,107 +11,69 @@ export class AuthError extends Error {
   }
 }
 
-// 定义排除的方法类型
-type ExcludedMethods = 
+type ExcludedMethods =
   | 'refreshAccessTokenApiAuthRefreshPost'
   | 'loginApiAuthLoginPost'
   | 'signupApiAuthSignupPost'
   | 'logoutApiAuthLogoutPost'
   | 'spaFallbackFullPathGet';
 
-// 使用条件类型排除特定方法
 type DefaultServiceMethodNames = {
-  [K in keyof typeof DefaultService]: 
+  [K in keyof typeof DefaultService]:
     K extends ExcludedMethods ? never :
     (typeof DefaultService)[K] extends (...args: any[]) => CancelablePromise<any> ? K : never
 }[keyof typeof DefaultService];
 
-/**
- * 认证服务类型：包含 DefaultService 的所有需要认证的方法
- */
 export type AuthenticatedService = {
   [K in DefaultServiceMethodNames]: (typeof DefaultService)[K];
 };
 
-/**
- * 安全地获取 token 字符串
- */
-const getTokenString = (token: any): string | null => {
-  return typeof token === 'string' ? token : null;
-};
-
-/**
- * 获取当前 token（只从 localStorage 中读取 user token，避免与 admin token 混淆）
- */
 const getCurrentToken = (): string | undefined => {
-  return localStorage.getItem('access_token') || undefined;
+  return localStorage.getItem(USER_ACCESS_TOKEN_KEY) || undefined;
 };
 
-/**
- * 保存 token 到内存和本地存储
- */
 export const setAuthToken = (token: string): void => {
-  OpenAPI.TOKEN = token;
-  localStorage.setItem('access_token', token);
-  isDev && console.log('✅ Token 已保存');
+  installApiTokenResolver();
+  localStorage.setItem(USER_ACCESS_TOKEN_KEY, token);
+  if (isDev) {
+    console.log('User token updated');
+  }
 };
 
-/**
- * 清除 token
- */
 export const clearAuthToken = (): void => {
-  OpenAPI.TOKEN = undefined;
-  localStorage.removeItem('access_token');
+  installApiTokenResolver();
+  localStorage.removeItem(USER_ACCESS_TOKEN_KEY);
 };
 
-/**
- * 初始化 token（应用启动时调用）
- */
 export const initAuthToken = (): void => {
-  // 不在模块初始化阶段写入 OpenAPI.TOKEN，避免与 admin token 混淆。
-  // OpenAPI.TOKEN 会在每次请求前由 withAuthMethod 根据 localStorage 的对应 token 动态设置。
-  return;
+  installApiTokenResolver();
 };
 
-/**
- * 为单个API方法添加认证功能的装饰器
- */
 export function withAuthMethod<T extends any[], R>(
   apiMethod: (...args: T) => CancelablePromise<R>
 ): (...args: T) => CancelablePromise<R> {
-  
   return (...args: T): CancelablePromise<R> => {
-    
     const executeWithAuth = async (retryCount = 0): Promise<R> => {
       try {
-        // 确保请求前有最新的 token
-        const currentToken = getCurrentToken();
-        if (currentToken && getTokenString(OpenAPI.TOKEN) !== currentToken) {
-          OpenAPI.TOKEN = currentToken;
-        }
-        
-        const result = await apiMethod(...args);
-        return result;
-        
+        return await apiMethod(...args);
       } catch (error: any) {
-        console.error(`❌ API 请求失败 (${apiMethod.name}):`, error);
-        
-        const isAuthError = error.status === 401;
-        
-        if (isAuthError && retryCount < 1) {
+        console.error(`API request failed (${apiMethod.name}):`, error);
+
+        if (error.status === 401 && retryCount < 1) {
           try {
             const tokenResponse = await DefaultService.refreshAccessTokenApiAuthRefreshPost();
-            
+
             if (tokenResponse.access_token) {
               setAuthToken(tokenResponse.access_token);
               return await executeWithAuth(retryCount + 1);
             }
           } catch (refreshError) {
-            console.error('❌ Token刷新失败:', refreshError);
+            console.error('User token refresh failed:', refreshError);
             clearAuthToken();
-            throw new AuthError(`Token刷新失败: ${refreshError}`);
+            throw new AuthError(`User token refresh failed: ${refreshError}`);
           }
         }
+
         throw error;
       }
     };
@@ -129,67 +86,52 @@ export function withAuthMethod<T extends any[], R>(
   };
 }
 
-/**
- * 获取类的所有静态方法名
- */
 const getStaticMethodNames = (cls: any): string[] => {
   return Object.getOwnPropertyNames(cls)
-    .filter(prop => 
-      prop !== 'constructor' && 
-      prop !== 'name' && 
-      prop !== 'length' && 
+    .filter(prop =>
+      prop !== 'constructor' &&
+      prop !== 'name' &&
+      prop !== 'length' &&
       prop !== 'prototype' &&
       typeof cls[prop] === 'function'
     );
 };
 
-/**
- * 为整个服务添加认证功能
- */
 export function createAuthenticatedService(): AuthenticatedService {
-  // 初始化 token
   initAuthToken();
-  
+
   const authenticatedService = {} as AuthenticatedService;
-  
-  // 不需要添加认证的方法列表
   const excludedMethods: ExcludedMethods[] = [
     'refreshAccessTokenApiAuthRefreshPost',
-    'loginApiAuthLoginPost', 
+    'loginApiAuthLoginPost',
     'signupApiAuthSignupPost',
     'logoutApiAuthLogoutPost',
-    'spaFallbackFullPathGet'
+    'spaFallbackFullPathGet',
   ];
-  
-  // 获取并过滤方法
+
   const methodNames = getStaticMethodNames(DefaultService)
     .filter(methodName => !excludedMethods.includes(methodName as ExcludedMethods));
-  
-  // 包装方法
+
   methodNames.forEach(methodName => {
     try {
       (authenticatedService as any)[methodName] = withAuthMethod(
         (DefaultService as any)[methodName]
       );
     } catch (error) {
-      console.error(`❌ 为方法 ${methodName} 添加认证功能失败:`, error);
+      console.error(`Failed to wrap authenticated method ${methodName}:`, error);
     }
   });
-  
+
   return authenticatedService;
 }
 
-/**
- * 开发工具：检查服务状态
- */
 export function getServiceStatus(service: AuthenticatedService) {
-  const hasToken = !!localStorage.getItem('access_token');
-  const tokenInMemory = !!getTokenString(OpenAPI.TOKEN);
+  const hasToken = !!getCurrentToken();
   return {
     serviceAvailable: !!service,
     methodCount: Object.keys(service || {}).length,
     hasToken,
-    tokenSource: tokenInMemory ? 'memory' : (hasToken ? 'localStorage' : 'none'),
-    methods: Object.keys(service || {}).filter(key => typeof service[key] === 'function')
+    tokenSource: hasToken ? 'localStorage' : 'none',
+    methods: Object.keys(service || {}).filter(key => typeof service[key] === 'function'),
   };
 }

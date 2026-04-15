@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useAdminLoginStore } from "@/stores/adminLoginStore";
-import { useUserStore } from "@/stores/userStore";
 import { useRouter } from "vue-router";
 import ServerStorageStatus from "./ServerStorageStatus.vue";
 import UserStatus from "./UserStatus.vue";
@@ -8,14 +7,13 @@ import FinancialStatus from "./FinancialStatus.vue";
 import SystemHealthStatus from "./SystemHealthStatus.vue";
 import ProjectStatus from "./ProjectStatus.vue";
 import ReviewStatus from "./ReviewStatus.vue";
-import { ref, onMounted, computed } from "vue";
+import { ref, computed } from "vue";
 
 const adminLoginStore = useAdminLoginStore();
-const userStore = useUserStore();
 const router = useRouter();
 
 const currentDemo = ref<string>("userStatus");
-const currentAdmin = ref<string>(userStore.currentUserInfo.username || "DefaultAdmin");
+const currentAdmin = ref<string>("admin");
 
 // 头像首字母缩写
 const avatarInitials = computed(() => {
@@ -34,11 +32,6 @@ const avatarInitials = computed(() => {
   const secondChar = secondPart[0] ?? '';
   const result = (firstChar + secondChar).toUpperCase();
   return result || name.slice(0, 2).toUpperCase();
-});
-
-onMounted(async () => {
-  await userStore.getUserInfo();
-  currentAdmin.value = userStore.currentUserInfo.username || "DefaultAdmin";
 });
 
 function handleGetUserStatus() {
