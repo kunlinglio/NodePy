@@ -17,9 +17,7 @@ from ..auth import LoginRequest, TokenResponse
 router = APIRouter()
 
 ADMIN_REFRESH_COOKIE_KEY = "admin_refresh_token"
-ADMIN_REFRESH_COOKIE_PATH = "/api/admin/auth"
 LEGACY_REFRESH_COOKIE_KEY = "refresh_token"
-LEGACY_REFRESH_COOKIE_PATH = "/api/auth"
 
 @router.post(
     "/login",
@@ -57,9 +55,6 @@ async def login(
         access_token = AuthUtils.create_access_token({"sub": user[0].id})
         refresh_token = AuthUtils.create_refresh_token({"sub": user[0].id})
 
-        # Remove the legacy shared cookie so it cannot override normal-user refresh state.
-        response.delete_cookie(key=LEGACY_REFRESH_COOKIE_KEY, path=LEGACY_REFRESH_COOKIE_PATH)
-
         response.set_cookie(
             key=ADMIN_REFRESH_COOKIE_KEY,
             value=refresh_token,
@@ -67,7 +62,7 @@ async def login(
             secure=False,
             samesite="lax",
             max_age=7 * 24 * 60 * 60,
-            path=ADMIN_REFRESH_COOKIE_PATH,
+            path="/api/admin/auth",
         )
 
         return TokenResponse(access_token=access_token)
@@ -141,6 +136,5 @@ async def refresh_access_token(
 @router.post("/logout", responses={200: {"description": "Logged out successfully"}})
 async def logout(response: Response) -> dict[str, str]:
     """Logout user by clearing the Refresh Token"""
-    response.delete_cookie(key=ADMIN_REFRESH_COOKIE_KEY, path=ADMIN_REFRESH_COOKIE_PATH)
-    response.delete_cookie(key=LEGACY_REFRESH_COOKIE_KEY, path=LEGACY_REFRESH_COOKIE_PATH)
+    response.delete_cookie(key=ADMIN_REFRESH_COOKIE_KEY, path="/api/admin/auth")
     return {"message": "Logged out successfully"}

@@ -13,7 +13,6 @@ from server.models.database import UserRecord, get_async_session
 router = APIRouter()
 
 USER_REFRESH_COOKIE_KEY = "refresh_token"
-USER_REFRESH_COOKIE_PATH = "/api/auth"
 
 class LoginRequest(BaseModel):
     type: Literal["username", "email"]
@@ -85,7 +84,7 @@ async def signup(
             secure=False,
             samesite="lax",
             max_age=7 * 24 * 60 * 60,
-            path=USER_REFRESH_COOKIE_PATH
+            path="/api/auth"
         )
 
         return TokenResponse(access_token=access_token)
@@ -153,7 +152,7 @@ async def login(
             secure=False,
             samesite="lax",
             max_age=7 * 24 * 60 * 60,
-            path=USER_REFRESH_COOKIE_PATH
+            path="/api/auth"
         )
 
         return TokenResponse(access_token=access_token)
@@ -241,5 +240,5 @@ async def refresh_access_token(
 )
 async def logout(response: Response) -> dict[str, str]:
     """Logout user by clearing the Refresh Token"""
-    response.delete_cookie(key=USER_REFRESH_COOKIE_KEY, path=USER_REFRESH_COOKIE_PATH)
+    response.delete_cookie(key=USER_REFRESH_COOKIE_KEY, path="/api/auth")
     return {"message": "Logged out successfully"}
