@@ -1071,6 +1071,28 @@ export class DefaultService {
         });
     }
     /**
+     * Review State
+     * Return the review state for current user for a given tutorial.
+     * @param tutorialId
+     * @returns string Get review state successfully
+     * @throws ApiError
+     */
+    public static reviewStateApiTutorialReviewStateTutorialIdPost(
+        tutorialId: number,
+    ): CancelablePromise<'like' | 'dislike' | 'none'> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/tutorial/review_state/{tutorial_id}',
+            path: {
+                'tutorial_id': tutorialId,
+            },
+            errors: {
+                422: `Validation Error`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
      * Review Tutorial
      * @param tutorialId
      * @param review
