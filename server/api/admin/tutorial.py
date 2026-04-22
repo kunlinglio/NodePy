@@ -17,6 +17,8 @@ class TutorialReviewStats(BaseModel):
     dislikes: int
     total: int
 
+# TODO: refactor this wrong api.
+
 
 @router.get("/reviews", response_model=List[TutorialReviewStats])
 async def get_tutorial_review(
