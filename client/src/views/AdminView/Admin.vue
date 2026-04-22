@@ -15,18 +15,20 @@ const router = useRouter();
 const currentDemo = ref<string>("userStatus");
 const currentAdmin = ref<string>("admin");
 
+// TODO: remove emoji
+
 // 头像首字母缩写
 const avatarInitials = computed(() => {
   const name = currentAdmin.value?.trim() || 'Admin';
   if (!name) return 'AD';
   const parts = name.split(/\s|[._-]+/).filter(part => part.length > 0);
   if (parts.length === 0) return name.slice(0, 2).toUpperCase();
-  
+
   const firstPart = parts[0] ?? '';
   if (parts.length === 1) {
     return firstPart.slice(0, 2).toUpperCase();
   }
-  
+
   const secondPart = parts[1] ?? '';
   const firstChar = firstPart[0] ?? '';
   const secondChar = secondPart[0] ?? '';
@@ -76,28 +78,28 @@ async function handleLogout() {
         </div>
       </div>
       <div class="buttonlist-container">
-        <button 
-          @click="handleGetUserStatus" 
+        <button
+          @click="handleGetUserStatus"
           :class="{ active: currentDemo === 'userStatus' }"
         >用户状态</button>
-        <button 
-          @click="handleGetServerStorageStatus" 
+        <button
+          @click="handleGetServerStorageStatus"
           :class="{ active: currentDemo === 'serverStorageStatus' }"
         >存储状态</button>
-        <button 
-          @click="handleGetFinancialStatus" 
+        <button
+          @click="handleGetFinancialStatus"
           :class="{ active: currentDemo === 'financialStatus' }"
         >金融数据</button>
-        <button 
-          @click="handleGetProjectStatus" 
+        <button
+          @click="handleGetProjectStatus"
           :class="{ active: currentDemo === 'projectStatus' }"
         >项目状态</button>
-        <button 
-          @click="handleGetSystemHealthStatus" 
+        <button
+          @click="handleGetSystemHealthStatus"
           :class="{ active: currentDemo === 'systemHealthStatus' }"
         >系统健康</button>
-        <button 
-          @click="handleGetReviewStatus" 
+        <button
+          @click="handleGetReviewStatus"
           :class="{ active: currentDemo === 'reviewStatus' }"
         >教程评价</button>
       </div>

@@ -52,9 +52,6 @@
         window.open(route.href, '_blank');
     }
 
-    function handleCopy(){
-        // TODO: 实现复制功能
-    }
 
     // 鼠标拖拽滚动逻辑
     function onMouseDown(e: MouseEvent) {
